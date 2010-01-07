@@ -58,4 +58,14 @@ module YTLJit
       reg_no
     end
   end
+
+  class OpIndirect<Operand
+    def initialize(reg, disp = 0)
+      @reg = reg
+      @disp = disp
+    end
+
+    attr :reg
+    attr :disp
+  end
 end

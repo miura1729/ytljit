@@ -2,6 +2,6 @@ module YTLJit
   class AsmError<RuntimeError
   end
 
-  class IlligalOpeland<AsmError
+  class IlligalOperand<AsmError
   end
 end
