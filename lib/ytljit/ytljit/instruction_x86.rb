@@ -79,16 +79,25 @@ module YTLJit
 
   module AssemblerUtil
     def modrm_indirect(dst, src)
+      dstv = nil
+      case dst
+      when Fixnum
+        dstv = dst
+        
+      else
+        dstv = dst.value
+      end
+
       case src.disp
       when 0
-        [[0b00000000 | ((dst.value & 7) << 3) | src.reg.reg_no], "C"]
+        [[0b00000000 | ((dstv & 7) << 3) | src.reg.reg_no], "C"]
         
       when OpImmidiate8
-        [[(0b01000000 | ((dst.value & 7) << 3) | src.reg.reg_no), src.disp.value], 
+        [[(0b01000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp.value], 
          "CC"]
         
       when OpImmidiate32
-        [[(0b10000000 | ((dst.value & 7) << 3) | src.reg.reg_no), src.disp.value],
+        [[(0b10000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp.value],
          "CL"]
       end
     end
@@ -182,7 +191,7 @@ module YTLJit
           ([0x81] + modseq + [dst.value]).pack("C#{modfmt}L")
 
         when OpReg32
-          modseq, modfmt = modrm(dst, src)
+          modseq, modfmt = modrm(src, dst)
           ([bopc + 0x1] + modseq).pack("C#{modfmt}")
 
         else
@@ -238,7 +247,7 @@ module YTLJit
           modseq, modfmt = modrm(dst, src)
           ([0x88] + modseq).pack("C#{modfmt}")
 
-        when OpMem8
+        when OpIndirect
           modseq, modfmt = modrm(dst, src)
           ([0x8A] + modseq).pack("C#{modfmt}")
 
@@ -251,7 +260,11 @@ module YTLJit
         when OpImmidiate32, Fixnum
           [0xB8 + dst.reg_no, src.value].pack("CL")
 
-        when OpReg32, OpMem32
+        when OpReg32
+          modseq, modfmt = modrm(dst, src)
+          ([0x8A] + modseq).pack("C#{modfmt}")
+
+        when  OpIndirect
           modseq, modfmt = modrm(dst, src)
           ([0x8B] + modseq).pack("C#{modfmt}")
           
@@ -259,34 +272,6 @@ module YTLJit
           raise IlligalOperand, "mov instruction can\'t apply #{src} as src"
         end
       
-      when OpMem8
-        case src
-        when OpImmidiate8, Fixnum
-          modseq, modfmt = modrm(0, dst)
-          ([0xC6] + modseq + [src.value]).pack("C#{modfmt}C")
-
-        when OpReg8
-          modseq, modfmt = modrm(dst, src) 
-          ([0x88] + modseq).pack("C#{modfmt}")
-
-        else
-          raise IlligalOperand, "mov instruction can\'t apply #{src} as src"
-        end
-
-      when OpMem32
-        case src
-        when OpImmidiate32, Fixnum
-          modseq, modfmt = modrm(0, dst)
-          ([0xC7] + modseq + [src.value]).pack("C#{modfmt}C")
-
-        when OpReg32
-          modseq, modfmt = modrm(dst, src)
-          ([0x89] + modseq).pack("C#{modfmt}")
-
-        else
-          raise IlligalOperand, "mov instruction can\'t apply #{src} as src"
-        end
-
       when OpIndirect
         case src
         when OpReg8
@@ -305,6 +290,34 @@ module YTLJit
           modseq, modfmt = modrm(0, dst)
           ([0xC7] + modseq + [src.value]).pack("C#{modfmt}L")
         end
+      end
+    end
+
+    def push(dst)
+      case dst
+      when OpReg32
+        [0x50 + dst.reg_no].pack("C")
+        
+      when OpIndirect
+        modseq, modfmt = modrm(6, dst)
+        ([0xff] +  modseq).pack("C#{modfmt}")
+        
+      else
+        raise IlligalOperand, "push instruction can\'t apply #{src} as src"
+      end
+    end
+
+    def pop(dst)
+      case dst
+      when OpReg32
+        [0x58 + dst.reg_no].pack("C")
+        
+      when OpIndirect
+        modseq, modfmt = modrm(0, dst)
+        ([0x8f] +  modseq).pack("C#{modfmt}")
+        
+      else
+        raise IlligalOperand, "pop instruction can\'t apply #{src} as src"
       end
     end
   end
