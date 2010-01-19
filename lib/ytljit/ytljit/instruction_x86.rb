@@ -77,7 +77,7 @@ module YTLJit
     end
   end
 
-  module AssemblerUtil
+  module AssemblerUtilX86
     def modrm_indirect(dst, src)
       dstv = nil
       case dst
@@ -199,10 +199,20 @@ module YTLJit
         end
       end
     end
+
+    def common_jcc(addr, opc, inst)
+      offset = addr - @asm.current_address - 2
+      if offset > -128 and offset < 127 then
+        [opc, offset].pack("C2")
+      else
+        offset = addr - @asm.current_address - 6
+        [0x0F, opc, offset].pack("C2L")
+      end
+    end
   end
   
-  class Assembler
-    include AssemblerUtil
+  class GeneratorX86Binary<Generator
+    include AssemblerUtilX86
 
     def add(dst, src)
       common_operand_80(dst, src, 0x00, 0x0, :add)
@@ -300,7 +310,7 @@ module YTLJit
         
       when OpIndirect
         modseq, modfmt = modrm(6, dst)
-        ([0xff] +  modseq).pack("C#{modfmt}")
+        ([0xFF] +  modseq).pack("C#{modfmt}")
         
       else
         raise IlligalOperand, "push instruction can\'t apply #{src} as src"
@@ -314,11 +324,107 @@ module YTLJit
         
       when OpIndirect
         modseq, modfmt = modrm(0, dst)
-        ([0x8f] +  modseq).pack("C#{modfmt}")
+        ([0x8F] +  modseq).pack("C#{modfmt}")
         
       else
         raise IlligalOperand, "pop instruction can\'t apply #{src} as src"
       end
+    end
+
+    def ja(addr)
+      common_jcc(addr, 0x77, :ja)
+    end
+
+    def jae(addr)
+      common_jcc(addr, 0x73, :jae)
+    end
+
+    def jb(addr)
+      common_jcc(addr, 0x72, :jb)
+    end
+
+    def jbe(addr)
+      common_jcc(addr, 0x76, :jbe)
+    end
+
+    def jl(addr)
+      common_jcc(addr, 0x7c, :jl)
+    end
+
+    def jle(addr)
+      common_jcc(addr, 0x7e, :jle)
+    end
+
+    def jna(addr)
+      common_jcc(addr, 0x76, :jna)
+    end
+
+    def jnae(addr)
+      common_jcc(addr, 0x72, :jnae)
+    end
+
+    def jnb(addr)
+      common_jcc(addr, 0x73, :jnb)
+    end
+
+    def jnbe(addr)
+      common_jcc(addr, 0x77, :jnbe)
+    end
+
+    def jnc(addr)
+      common_jcc(addr, 0x73, :jnc)
+    end
+
+    def jnle(addr)
+      common_jcc(addr, 0x7f, :jnle)
+    end
+
+    def jno(addr)
+      common_jcc(addr, 0x71, :jno)
+    end
+
+    def jo(addr)
+      common_jcc(addr, 0x70, :jo)
+    end
+
+    def jz(addr)
+      common_jcc(addr, 0x74, :jz)
+    end
+
+    def jnz(addr)
+      common_jcc(addr, 0x75, :jnz)
+    end
+
+    def jmp(addr)
+      case addr
+      when Fixnum
+        offset = addr - @asm.current_address - 2
+        if offset > -128 and offset < 127 then
+          [0xeb, offset].pack("C2")
+        else
+          offset = addr - @asm.current_address - 5
+          [0xe9, offset].pack("CL")
+        end
+      else
+        modseq, modfmt = modrm(4, addr)
+        ([0xff] + modseq).pack("C#{modfmt}")
+      end
+    end
+
+    def call(addr)
+      case addr
+      when Fixnum
+        offset = addr - @asm.current_address - 5
+        [0xe8, offset].pack("CL")
+
+      else
+        modseq, modfmt = modrm(2, addr)
+        ([0xff] + modseq).pack("C#{modfmt}")
+      end
+    end
+
+    def ret
+      [0xcb].pack("C")
     end
   end
 end

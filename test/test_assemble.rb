@@ -15,6 +15,7 @@ class InstructionTests < Test::Unit::TestCase
   end
 
   def test_add
+
     assert_equal(@asm.add(@eax, @lit32), [5, 0x12345678].pack("CL"))
     assert_equal(@asm.add(@ecx, @lit32), [0x81, 0xC1, 0x12345678].pack("CCL"))
     assert_equal(@asm.add(@ecx, @eax), [3, 0xC8].pack("CC"))
@@ -25,13 +26,16 @@ class InstructionTests < Test::Unit::TestCase
     assert_equal(@asm.mov(@eax, @lit32), [0xB8, 0x12345678].pack("CL"))
     assert_equal(@asm.mov(@eax, @in_eax_125), [0x8B, 0x40, 0x7d].pack("C3"))
     assert_equal(@asm.mov(@in_eax_125, @eax), [0x89, 0x40, 0x7d].pack("C3"))
+
     File.open("foo.bin", "w") {|fp|
+      lab = @asm.current_address
       fp.write @asm.add(@eax, @in_eax_125)
       fp.write @asm.add(@in_eax_125, @eax)
       fp.write @asm.add(@in_eax_4096, @eax)
       fp.write @asm.sub(@eax, @in_eax_125)
       fp.write @asm.and(@in_eax_125, @eax)
       fp.write @asm.or(@in_eax_4096, @eax)
+      lab2 = @asm.current_address
       fp.write @asm.xor(@in_eax_4096, @eax)
       fp.write @asm.cmp(@in_eax_4096, @eax)
       fp.write @asm.mov(@eax, @lit32)
@@ -39,6 +43,9 @@ class InstructionTests < Test::Unit::TestCase
       fp.write @asm.mov(@in_eax_125, @eax)
       fp.write @asm.push(@eax)
       fp.write @asm.pop(@in_eax_125)
+      fp.write @asm.call(lab)
+      fp.write @asm.jo(lab)
+      fp.write @asm.jl(lab2)
     }
   end
 end
