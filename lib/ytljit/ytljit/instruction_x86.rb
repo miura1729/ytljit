@@ -424,7 +424,7 @@ module YTLJit
     end
 
     def ret
-      [0xcb].pack("C")
+      [0xc3].pack("C")
     end
   end
 end
