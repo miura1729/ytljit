@@ -81,7 +81,7 @@ module YTLJit
     def modrm_indirect(dst, src)
       dstv = nil
       case dst
-      when Fixnum
+      when Integer
         dstv = dst
         
       else
@@ -104,7 +104,7 @@ module YTLJit
 
     def modrm(dst, src)
       case dst
-      when Fixnum
+      when Integer
         case src
         when OpRegistor
           [[0b11000000 | ((dst & 7) << 3) | src.reg_no], "C"]
@@ -134,7 +134,7 @@ module YTLJit
       case dst 
       when OpReg8
         case src
-        when OpImmidiate8, Fixnum
+        when OpImmidiate8, Integer
           if dst.class == OpAL then
             [bopc + 0x4, src.value].pack("C2")
           else
@@ -156,7 +156,7 @@ module YTLJit
           modseq, modfmt = modrm(optc, dst)
           ([0x83] + modseq + [src.value]).pack("C#{modfmt}C")
 
-        when OpImmidiate32, Fixnum
+        when OpImmidiate32, Integer
           if dst.class == OpEAX then
             [bopc + 0x5, src.value].pack("CL")
           else
@@ -186,7 +186,7 @@ module YTLJit
           modseq, modfmt = modrm(optc, src)
           ([0x83] + modseq + [dst.value]).pack("C#{modfmt}")
 
-        when OpImmidiate32, Fixnum
+        when OpImmidiate32, Integer
           modseq, modfmt = modrm(optc, src)
           ([0x81] + modseq + [dst.value]).pack("C#{modfmt}L")
 
@@ -250,7 +250,7 @@ module YTLJit
       case dst
       when OpReg8
         case src
-        when OpImmidiate8, Fixnum
+        when OpImmidiate8, Integer
           [0xB0 + dst.reg_no, src.value].pack("C2")
           
         when OpReg8
@@ -267,7 +267,7 @@ module YTLJit
           
       when OpReg32
         case src
-        when OpImmidiate32, Fixnum
+        when OpImmidiate32, Integer
           [0xB8 + dst.reg_no, src.value].pack("CL")
 
         when OpReg32
@@ -296,7 +296,7 @@ module YTLJit
           modseq, modfmt = modrm(0, dst)
           ([0xC6] + modseq + [src.value]).pack("C#{modfmt}C")
 
-        when OpImmidiate32, Fixnum
+        when OpImmidiate32, Integer
           modseq, modfmt = modrm(0, dst)
           ([0xC7] + modseq + [src.value]).pack("C#{modfmt}L")
         end
@@ -397,7 +397,7 @@ module YTLJit
 
     def jmp(addr)
       case addr
-      when Fixnum
+      when Integer
         offset = addr - @asm.current_address - 2
         if offset > -128 and offset < 127 then
           [0xeb, offset].pack("C2")
@@ -413,7 +413,7 @@ module YTLJit
 
     def call(addr)
       case addr
-      when Fixnum
+      when Integer
         offset = addr - @asm.current_address - 5
         [0xe8, offset].pack("CL")
 
