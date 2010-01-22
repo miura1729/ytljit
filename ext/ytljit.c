@@ -75,6 +75,42 @@ ytljit_code_space_emit(VALUE self, VALUE offset, VALUE src)
 }
 
 VALUE
+ytljit_code_space_ref(VALUE self, VALUE offset)
+{
+  struct CodeSpace *raw_cs;
+
+  int raw_offset;
+  int cooked_offset;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+  raw_offset = FIX2INT(offset);
+  cooked_offset = raw_offset;
+  if (raw_offset < 0) {
+    cooked_offset = raw_cs->used - raw_offset + 1;
+  }
+
+  return INT2FIX(raw_cs->body[cooked_offset]);
+}
+
+VALUE
+ytljit_code_current_pos(VALUE self)
+{
+  struct CodeSpace *raw_cs;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+  return INT2NUM(raw_cs->used);
+}
+
+VALUE
+ytljit_code_base_address(VALUE self)
+{
+  struct CodeSpace *raw_cs;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+  return UINT2NUM((unsigned long)raw_cs->body);
+}
+
+VALUE
 ytljit_code_space_to_s(VALUE self)
 {
   struct CodeSpace *raw_cs;
@@ -94,6 +130,9 @@ Init_ytljit()
   cCodeSpace = rb_define_class_under(cYTLJit, "CodeSpace", rb_cObject);
   rb_define_alloc_func(cCodeSpace, ytljit_code_space_allocate);
   rb_define_method(cCodeSpace, "[]=", ytljit_code_space_emit, 2);
+  rb_define_method(cCodeSpace, "[]", ytljit_code_space_ref, 1);
+  rb_define_method(cCodeSpace, "current_pos", ytljit_code_current_pos, 0);
+  rb_define_method(cCodeSpace, "base_address", ytljit_code_base_address, 0);
   rb_define_method(cCodeSpace, "to_s", ytljit_code_space_to_s, 0);
 
   /* Open Handles */
