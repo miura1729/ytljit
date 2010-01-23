@@ -111,6 +111,22 @@ ytljit_code_base_address(VALUE self)
 }
 
 VALUE
+ytljit_code_call(VALUE self, VALUE addr)
+{
+  void *raddr;
+  VALUE rc;
+
+  raddr = (void *)NUM2ULONG(addr);
+
+  asm("call *%1 \n\t" 
+      "mov %%eax, %0"
+      : "=r" (rc) : "r" (raddr) : "%eax", "%ebx");
+
+  return rc;
+}
+  
+
+VALUE
 ytljit_code_space_to_s(VALUE self)
 {
   struct CodeSpace *raw_cs;
@@ -133,6 +149,7 @@ Init_ytljit()
   rb_define_method(cCodeSpace, "[]", ytljit_code_space_ref, 1);
   rb_define_method(cCodeSpace, "current_pos", ytljit_code_current_pos, 0);
   rb_define_method(cCodeSpace, "base_address", ytljit_code_base_address, 0);
+  rb_define_method(cCodeSpace, "call", ytljit_code_call, 1);
   rb_define_method(cCodeSpace, "to_s", ytljit_code_space_to_s, 0);
 
   /* Open Handles */

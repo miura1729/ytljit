@@ -99,6 +99,10 @@ module YTLJit
       when OpImmidiate32
         [[(0b10000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp.value],
          "CL"]
+
+      when Integer
+        [[(0b01000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp],
+         "CC"]
       end
     end
 
@@ -200,13 +204,13 @@ module YTLJit
       end
     end
 
-    def common_jcc(addr, opc, inst)
+    def common_jcc(addr, opc, lopc, inst)
       offset = addr - @asm.current_address - 2
       if offset > -128 and offset < 127 then
         [opc, offset].pack("C2")
       else
         offset = addr - @asm.current_address - 6
-        [0x0F, opc, offset].pack("C2L")
+        [0x0F, lopc, offset].pack("C2L")
       end
     end
   end
@@ -271,8 +275,8 @@ module YTLJit
           [0xB8 + dst.reg_no, src.value].pack("CL")
 
         when OpReg32
-          modseq, modfmt = modrm(dst, src)
-          ([0x8A] + modseq).pack("C#{modfmt}")
+          modseq, modfmt = modrm(src, dst)
+          ([0x89] + modseq).pack("C#{modfmt}")
 
         when  OpIndirect
           modseq, modfmt = modrm(dst, src)
@@ -332,67 +336,67 @@ module YTLJit
     end
 
     def ja(addr)
-      common_jcc(addr, 0x77, :ja)
+      common_jcc(addr, 0x77, 0x87, :ja)
     end
 
     def jae(addr)
-      common_jcc(addr, 0x73, :jae)
+      common_jcc(addr, 0x73, 0x83, :jae)
     end
 
     def jb(addr)
-      common_jcc(addr, 0x72, :jb)
+      common_jcc(addr, 0x72, 0x82, :jb)
     end
 
     def jbe(addr)
-      common_jcc(addr, 0x76, :jbe)
+      common_jcc(addr, 0x76, 0x86, :jbe)
     end
 
     def jl(addr)
-      common_jcc(addr, 0x7c, :jl)
+      common_jcc(addr, 0x7c, 0x8c, :jl)
     end
 
     def jle(addr)
-      common_jcc(addr, 0x7e, :jle)
+      common_jcc(addr, 0x7e, 0x8e, :jle)
     end
 
     def jna(addr)
-      common_jcc(addr, 0x76, :jna)
+      common_jcc(addr, 0x76, 0x86, :jna)
     end
 
     def jnae(addr)
-      common_jcc(addr, 0x72, :jnae)
+      common_jcc(addr, 0x72, 0x82, :jnae)
     end
 
     def jnb(addr)
-      common_jcc(addr, 0x73, :jnb)
+      common_jcc(addr, 0x73, 0x83, :jnb)
     end
 
     def jnbe(addr)
-      common_jcc(addr, 0x77, :jnbe)
+      common_jcc(addr, 0x77, 0x87, :jnbe)
     end
 
     def jnc(addr)
-      common_jcc(addr, 0x73, :jnc)
+      common_jcc(addr, 0x73, 0x83, :jnc)
     end
 
     def jnle(addr)
-      common_jcc(addr, 0x7f, :jnle)
+      common_jcc(addr, 0x7f, 0x8f, :jnle)
     end
 
     def jno(addr)
-      common_jcc(addr, 0x71, :jno)
+      common_jcc(addr, 0x71, 0x81, :jno)
     end
 
     def jo(addr)
-      common_jcc(addr, 0x70, :jo)
+      common_jcc(addr, 0x70, 0x80, :jo)
     end
 
     def jz(addr)
-      common_jcc(addr, 0x74, :jz)
+      common_jcc(addr, 0x74, 0x84, :jz)
     end
 
     def jnz(addr)
-      common_jcc(addr, 0x75, :jnz)
+      common_jcc(addr, 0x75, 0x85, :jnz)
     end
 
     def jmp(addr)
