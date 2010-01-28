@@ -1,17 +1,21 @@
 module YTLJit
   class CodeSpace
     def initialize
-      @asm = nil
-    end
-
-    attr_accessor :asm
-
-    def flush
-      self[self.current_pos] = @asm.generated_code
+      @org_base_address = base_address
+      @export = []
     end
 
     def emit(code)
       self[self.current_pos] = code
+    end
+
+    def var_base_address
+      func = lambda {
+        base_address
+      }
+      ovi32 = OpVarImmidiate32.new(func)
+      @export.push ovi32
+      ovi32
     end
   end
 end

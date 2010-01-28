@@ -25,6 +25,17 @@ module YTLJit
   class OpImmidiate32<OpImmidiate
   end
 
+  class OpVarImmidiate32<OpImmidiate32
+    def initialize(var)
+      @var = var
+      @refer = []
+    end
+
+    def value
+      @var.call
+    end
+  end
+
   class OpImmidiate64<OpImmidiate
   end
 

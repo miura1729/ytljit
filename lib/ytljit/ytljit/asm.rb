@@ -14,6 +14,10 @@ module YTLJit
     def base_address
       0
     end
+
+    def var_base_address
+      OpVarImmidiate32.new(lambda {0})
+    end
   end
 
   class FileOutputStream<OutputStream
@@ -21,32 +25,56 @@ module YTLJit
       @stream = st
     end
 
-    def flush
-      @stream.write(@asm.generated_code)
+    def emit(code)
+      @stream.write(code)
     end
   end
 
   class Assembler
     def initialize(out, gen = GeneratorX86Binary)
-      out.asm = self
       @generator = gen.new(self)
       @current_address = out.base_address
-      @generated_code = ""
+      @offset = 0
+      @generated_code = []
       @output_stream = out
     end
 
     attr_accessor :current_address
+    def var_current_address
+      func = lambda {
+        @current_address
+      }
+      OpVarImmidiate32.new(func)
+    end
+
     attr_accessor :generated_code
 
-    def flush
-      @output_stream.flush
+    def store_outcode(out)
+      @current_address += out.size
+      @offset += out.size
+      @generated_code.push [@offset, out]
+      @output_stream.emit(out)
     end
 
     def method_missing(mn, *args)
-      out = @generator.send(mn, *args)
-      @current_address += out.size
-      @generated_code += out
-      out
+      if args.any? {|e| e.is_a?(OpVarImmidiate32) } then
+        valfunc = lambda {
+          @generator.send(mn, *args)
+        }
+        offset = @offset
+        stfunc = lambda {
+          @output_stream[offset] = valfunc.call
+        }
+        args.each do |e|
+          if e.is_a?(OpVarImmidiate32) then
+            e.set_refer(stfunc)
+          end
+        end
+        store_outcode(valfunc.call)
+      else
+        out = @generator.send(mn, *args)
+        store_outcode(out)
+      end
     end
   end
 end

@@ -78,59 +78,76 @@ module YTLJit
   end
 
   module AssemblerUtilX86
-    def modrm_indirect(dst, src)
-      dstv = nil
-      case dst
+    def modrm_indirect(reg, rm)
+      regv = nil
+      case reg
       when Integer
-        dstv = dst
+        regv = reg
         
       else
-        dstv = dst.value
+        regv = reg.value
       end
 
-      case src.disp
+      case rm.disp
       when 0
-        [[0b00000000 | ((dstv & 7) << 3) | src.reg.reg_no], "C"]
+        fstb = 0b00000000 | ((regv & 7) << 3) | rm.reg.reg_no
+        if rm.reg.is_a?(OpESP) then
+          [[fstb, 0x24], "C2"]
+        else
+          [[fstb], "C"]
+        end
         
       when OpImmidiate8
-        [[(0b01000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp.value], 
-         "CC"]
+        fstb = 0b01000000 | ((regv & 7) << 3) | rm.reg.reg_no
+        if rm.reg.is_a?(OpESP) then
+          [[fstb, 0b00100100, rm.disp.value], "C3"]
+        else
+          [[fstb, rm.disp.value], "CC"]
+        end
         
       when OpImmidiate32
-        [[(0b10000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp.value],
-         "CL"]
+        fstb = 0b10000000 | ((regv & 7) << 3) | rm.reg.reg_no
+        if rm.reg.is_a?(OpESP) then
+          [[fstb, 0b00100100, rm.disp.value], "C2L"]
+        else
+          [[fstb, rm.disp.value], "CL"]
+        end
 
       when Integer
-        [[(0b01000000 | ((dstv & 7) << 3) | src.reg.reg_no), src.disp],
-         "CC"]
+        fstb = 0b10000000 | ((regv & 7) << 3) | rm.reg.reg_no
+        if rm.reg.is_a?(OpESP) then
+          [[fstb, 0b00100100, rm.disp], "C2L"]
+        else
+          [[fstb, rm.disp], "CL"]
+        end
       end
     end
 
-    def modrm(dst, src)
-      case dst
+    def modrm(reg, rm)
+      case reg
       when Integer
-        case src
+        case rm
         when OpRegistor
-          [[0b11000000 | ((dst & 7) << 3) | src.reg_no], "C"]
+          [[0b11000000 | ((reg & 7) << 3) | rm.reg_no], "C"]
 
         when OpIndirect
-          modrm_indirect(dst, src)
+          modrm_indirect(reg, rm)
 
         else
-          raise IlligalOperand, "Unkown #{src}"
+          raise IlligalOperand, "Unkown #{rm}"
         end
 
       when OpRegistor
-        case src
+        case rm
         when OpRegistor
-          [[0b11000000 | (dst.reg_no << 3) | src.reg_no], "C"]
+          [[0b11000000 | (reg.reg_no << 3) | rm.reg_no], "C"]
 
         when OpIndirect
-          modrm_indirect(dst, src)
+          modrm_indirect(reg, rm)
         end
 
       else
-        raise IlligalOperand, "Unkown #{dst}"
+        raise IlligalOperand, "Unkown #{reg}"
       end
     end
 
@@ -205,11 +222,15 @@ module YTLJit
     end
 
     def common_jcc(addr, opc, lopc, inst)
-      offset = addr - @asm.current_address - 2
+      addr2 = addr
+      if addr.is_a?(OpImmidiate32) then
+        addr2 = addr.value
+      end
+      offset = addr2 - @asm.current_address - 2
       if offset > -128 and offset < 127 then
         [opc, offset].pack("C2")
       else
-        offset = addr - @asm.current_address - 6
+        offset = addr2 - @asm.current_address - 6
         [0x0F, lopc, offset].pack("C2L")
       end
     end
@@ -419,6 +440,10 @@ module YTLJit
       case addr
       when Integer
         offset = addr - @asm.current_address - 5
+        [0xe8, offset].pack("CL")
+
+      when OpImmidiate32
+        offset = addr.value - @asm.current_address - 5
         [0xe8, offset].pack("CL")
 
       else
