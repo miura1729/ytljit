@@ -16,6 +16,6 @@ struct CodeSpace {
 VALUE ytljit_address_of(VALUE, VALUE);
 VALUE ytljit_code_space_allocate(VALUE);
 
-extern VALUE cYTLJit;
-extern VALUE cCodeSpace;
+extern VALUE ytljit_mYTLJit;
+extern VALUE ytljit_cCodeSpace;
 

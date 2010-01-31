@@ -227,7 +227,7 @@ module YTLJit
         addr2 = addr.value
       end
       offset = addr2 - @asm.current_address - 2
-      if offset > -128 and offset < 127 then
+      if offset > -128 and offset < 127 and false then
         [opc, offset].pack("C2")
       else
         offset = addr2 - @asm.current_address - 6

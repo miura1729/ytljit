@@ -31,8 +31,16 @@ module YTLJit
       @refer = []
     end
 
+    def refer
+      @refer
+    end
+
     def value
       @var.call
+    end
+
+    def add_refer(stfunc)
+      @refer.push stfunc
     end
   end
 

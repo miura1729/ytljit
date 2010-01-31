@@ -4,8 +4,8 @@
 
 #include "ytljit.h"
 
-VALUE cYTLJit;
-VALUE cCodeSpace;
+VALUE ytljit_mYTLJit;
+VALUE ytljit_cCodeSpace;
 
 static void *dl_handles[MAX_DL_HANDLES];
 static int used_dl_handles = 0;
@@ -32,8 +32,8 @@ ytljit_code_space_allocate(VALUE klass)
 {
   struct CodeSpace *obj;
  
-  obj = malloc(sizeof(struct CodeSpace) + 256);
-  obj->size = 256;
+  obj = malloc(sizeof(struct CodeSpace) + 16);
+  obj->size = 16;
   obj->used = 0;
   return Data_Wrap_Struct(klass, NULL, NULL, (void *)obj);
 }
@@ -57,7 +57,7 @@ ytljit_code_space_emit(VALUE self, VALUE offset, VALUE src)
     cooked_offset = raw_cs->used - raw_offset + 1;
   }
 
-  while (raw_cs->size <= src_len + cooked_offset) {
+  while (raw_cs->size <= src_len + cooked_offset + 4) {
     int newsize = raw_cs->size * 2;
     
     raw_cs = realloc(raw_cs, newsize);
@@ -102,6 +102,16 @@ ytljit_code_current_pos(VALUE self)
 }
 
 VALUE
+ytljit_code_set_current_pos(VALUE self, VALUE val)
+{
+  struct CodeSpace *raw_cs;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+  raw_cs->used = NUM2INT(val);
+  return val;
+}
+
+VALUE
 ytljit_code_base_address(VALUE self)
 {
   struct CodeSpace *raw_cs;
@@ -125,9 +135,8 @@ ytljit_code_call(VALUE self, VALUE addr)
   return rc;
 }
   
-
 VALUE
-ytljit_code_space_to_s(VALUE self)
+ytljit_code_space_code(VALUE self)
 {
   struct CodeSpace *raw_cs;
 
@@ -136,21 +145,33 @@ ytljit_code_space_to_s(VALUE self)
   return rb_str_new(raw_cs->body, raw_cs->used);
 }  
 
+VALUE
+ytljit_code_space_to_s(VALUE self)
+{
+  struct CodeSpace *raw_cs;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+
+  return rb_sprintf("#<codeSpace %x base=%x:...>", (unsigned int)self, (unsigned int)raw_cs->body);
+}  
+
 void 
 Init_ytljit() 
 {
-  cYTLJit = rb_define_module("YTLJit");
+  ytljit_mYTLJit = rb_define_module("YTLJit");
 
-  rb_define_module_function(cYTLJit, "address_of", ytljit_address_of, 1);
+  rb_define_module_function(ytljit_mYTLJit, "address_of", ytljit_address_of, 1);
 
-  cCodeSpace = rb_define_class_under(cYTLJit, "CodeSpace", rb_cObject);
-  rb_define_alloc_func(cCodeSpace, ytljit_code_space_allocate);
-  rb_define_method(cCodeSpace, "[]=", ytljit_code_space_emit, 2);
-  rb_define_method(cCodeSpace, "[]", ytljit_code_space_ref, 1);
-  rb_define_method(cCodeSpace, "current_pos", ytljit_code_current_pos, 0);
-  rb_define_method(cCodeSpace, "base_address", ytljit_code_base_address, 0);
-  rb_define_method(cCodeSpace, "call", ytljit_code_call, 1);
-  rb_define_method(cCodeSpace, "to_s", ytljit_code_space_to_s, 0);
+  ytljit_cCodeSpace = rb_define_class_under(ytljit_mYTLJit, "CodeSpace", rb_cObject);
+  rb_define_alloc_func(ytljit_cCodeSpace, ytljit_code_space_allocate);
+  rb_define_method(ytljit_cCodeSpace, "[]=", ytljit_code_space_emit, 2);
+  rb_define_method(ytljit_cCodeSpace, "[]", ytljit_code_space_ref, 1);
+  rb_define_method(ytljit_cCodeSpace, "current_pos", ytljit_code_current_pos, 0);
+  rb_define_method(ytljit_cCodeSpace, "current_pos=", ytljit_code_set_current_pos, 1);
+  rb_define_method(ytljit_cCodeSpace, "base_address", ytljit_code_base_address, 0);
+  rb_define_method(ytljit_cCodeSpace, "call", ytljit_code_call, 1);
+  rb_define_method(ytljit_cCodeSpace, "code", ytljit_code_space_code, 0);
+  rb_define_method(ytljit_cCodeSpace, "to_s", ytljit_code_space_to_s, 0);
 
   /* Open Handles */
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));

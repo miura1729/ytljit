@@ -33,10 +33,15 @@ module YTLJit
   class Assembler
     def initialize(out, gen = GeneratorX86Binary)
       @generator = gen.new(self)
-      @current_address = out.base_address
+      @output_stream = out
+      @retry_mode = false
+      reset
+    end
+    
+    def reset
+      @current_address = @output_stream.base_address
       @offset = 0
       @generated_code = []
-      @output_stream = out
     end
 
     attr_accessor :current_address
@@ -50,31 +55,44 @@ module YTLJit
     attr_accessor :generated_code
 
     def store_outcode(out)
-      @current_address += out.size
-      @offset += out.size
+      @current_address += out.bytesize
+      @offset += out.bytesize
       @generated_code.push [@offset, out]
       @output_stream.emit(out)
     end
 
+    def with_retry
+      org_base_address = @output_stream.base_address
+      yield
+      while org_base_address != @output_stream.base_address do
+        @retry_mode = true
+        org_base_address = @output_stream.base_address
+        reset
+        @output_stream.reset
+        yield
+        @output_stream.update_refer
+      end
+      @retry_mode = false
+    end
+
     def method_missing(mn, *args)
       if args.any? {|e| e.is_a?(OpVarImmidiate32) } then
-        valfunc = lambda {
-          @generator.send(mn, *args)
-        }
         offset = @offset
         stfunc = lambda {
-          @output_stream[offset] = valfunc.call
+          org_curret_address = self.current_address
+          self.current_address = @output_stream.base_address + offset
+          @output_stream[offset] = @generator.send(mn, *args)
+          self.current_address = org_curret_address
         }
         args.each do |e|
-          if e.is_a?(OpVarImmidiate32) then
-            e.set_refer(stfunc)
+          if e.is_a?(OpVarImmidiate32) and !@retry_mode then
+            e.add_refer(stfunc)
           end
         end
-        store_outcode(valfunc.call)
-      else
-        out = @generator.send(mn, *args)
-        store_outcode(out)
       end
+
+      out = @generator.send(mn, *args)
+      store_outcode(out)
     end
   end
 end

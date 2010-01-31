@@ -29,12 +29,14 @@ def hello
   eax = OpEAX.instance
   esp = OpESP.instance
   hello = OpImmidiate32.new("Hello World".address)
-  asm.mov(eax, hello)
-  asm.push(eax)
-  rbp = address_of("rb_p")
-  asm.call(rbp)
-  asm.add(esp, OpImmidiate8.new(4))
-  asm.ret
+  asm.with_retry do
+    asm.mov(eax, hello)
+    asm.push(eax)
+    rbp = address_of("rb_p")
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
+  end
   cs.call(cs.base_address)
 end
 hello
@@ -51,32 +53,38 @@ def fib(n)
   esp = OpESP.instance
 
   asm = Assembler.new(cs0)
-  ent = cs1.var_base_address
-
-  asm.mov(eax, OpImmidiate32.new(n))
-  asm.call(ent)
-  asm.add(eax, eax)
-  asm.add(eax, OpImmidiate8.new(1))
-  asm.ret
+  ent = nil
+  asm.with_retry do
+    ent = cs1.var_base_address
+    asm.mov(eax, OpImmidiate32.new(n))
+    asm.call(ent)
+    asm.add(eax, eax)
+    asm.add(eax, OpImmidiate8.new(1))
+    asm.ret
+  end
   
   asm = Assembler.new(cs1)
-  asm.cmp(eax, OpImmidiate32.new(2))
-  asm.jl(cs2.var_base_address)
-  asm.sub(eax, OpImmidiate32.new(1))
-  asm.push(eax)
-  asm.call(ent)
-  asm.pop(ebx)
-  asm.sub(ebx, OpImmidiate32.new(1))
-  asm.push(eax)
-  asm.mov(eax, ebx)
-  asm.call(ent)
-  asm.pop(ebx)
-  asm.add(eax, ebx)
-  asm.ret
+  asm.with_retry do
+    asm.cmp(eax, OpImmidiate32.new(2))
+    asm.jl(cs2.var_base_address)
+    asm.sub(eax, OpImmidiate32.new(1))
+    asm.push(eax)
+    asm.call(ent)
+    asm.pop(ebx)
+    asm.sub(ebx, OpImmidiate32.new(1))
+    asm.push(eax)
+    asm.mov(eax, ebx)
+    asm.call(ent)
+    asm.pop(ebx)
+    asm.add(eax, ebx)
+    asm.ret
+  end
   
   asm = Assembler.new(cs2)
-  asm.mov(eax, OpImmidiate32.new(1))
-  asm.ret
+  asm.with_retry do
+    asm.mov(eax, OpImmidiate32.new(1))
+    asm.ret
+  end
 
   cs0.call(cs0.base_address)
 end

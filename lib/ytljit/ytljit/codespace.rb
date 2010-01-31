@@ -1,8 +1,13 @@
 module YTLJit
   class CodeSpace
     def initialize
+      @refer_operands = []
+      reset
+    end
+    
+    def reset
       @org_base_address = base_address
-      @export = []
+      self.current_pos = 0
     end
 
     def emit(code)
@@ -14,8 +19,16 @@ module YTLJit
         base_address
       }
       ovi32 = OpVarImmidiate32.new(func)
-      @export.push ovi32
+      @refer_operands.push ovi32
       ovi32
+    end
+
+    def update_refer
+      @refer_operands.each do |refop|
+        refop.refer.each do |stfn|
+          stfn.call
+        end
+      end
     end
   end
 end
