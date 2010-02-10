@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <setjmp.h>
 #include <dlfcn.h>
 #include "ruby.h"
 
@@ -153,7 +154,21 @@ ytljit_code_space_to_s(VALUE self)
   raw_cs = (struct CodeSpace *)DATA_PTR(self);
 
   return rb_sprintf("#<codeSpace %x base=%x:...>", (unsigned int)self, (unsigned int)raw_cs->body);
-}  
+}
+
+void
+ytljit_step_handler()
+{
+  jmp_buf jbuf;
+  void *pc;
+  pc = __builtin_return_address(0);
+  if (setjmp(jbuf) != 0) {
+    return;
+  }
+  printf("execute: 0x%x\n", (unsigned int)pc);
+  fflush(stdout);
+  longjmp(jbuf, 1);
+}
 
 void 
 Init_ytljit() 
@@ -177,6 +192,8 @@ Init_ytljit()
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));
   used_dl_handles++;
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygruby191.dll", RTLD_LAZY));
+  used_dl_handles++;
+  OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("ytljit.so", RTLD_LAZY));
   used_dl_handles++;
 }
 

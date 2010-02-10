@@ -35,9 +35,11 @@ module YTLJit
       @generator = gen.new(self)
       @output_stream = out
       @retry_mode = false
+      @step_mode = false
+      @step_handler = address_of("ytljit_step_handler")
       reset
     end
-    
+
     def reset
       @current_address = @output_stream.base_address
       @offset = 0
@@ -45,6 +47,8 @@ module YTLJit
     end
 
     attr_accessor :current_address
+    attr_accessor :step_mode
+
     def var_current_address
       func = lambda {
         @current_address
@@ -75,17 +79,23 @@ module YTLJit
       @retry_mode = false
     end
 
+    def with_current_address(address)
+      org_curret_address = self.current_address
+      self.current_address = address
+      yield
+      self.current_address = org_curret_address
+    end
+
     def method_missing(mn, *args)
-      if args.any? {|e| e.is_a?(OpVarImmidiate32) } then
+      if args.any? {|e| e.is_a?(OpVarImmidiate32) } and !@retry_mode then
         offset = @offset
         stfunc = lambda {
-          org_curret_address = self.current_address
-          self.current_address = @output_stream.base_address + offset
-          @output_stream[offset] = @generator.send(mn, *args)
-          self.current_address = org_curret_address
+          with_current_address(@output_stream.base_address + offset) {
+            @output_stream[offset] = @generator.send(mn, *args)
+          }
         }
         args.each do |e|
-          if e.is_a?(OpVarImmidiate32) and !@retry_mode then
+          if e.is_a?(OpVarImmidiate32) then
             e.add_refer(stfunc)
           end
         end
@@ -93,6 +103,11 @@ module YTLJit
 
       out = @generator.send(mn, *args)
       store_outcode(out)
+
+      if @step_mode
+        out = @generator.call(@step_handler)
+        store_outcode(out)
+      end
     end
   end
 end

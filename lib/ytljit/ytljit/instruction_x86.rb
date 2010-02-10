@@ -455,5 +455,9 @@ module YTLJit
     def ret
       [0xc3].pack("C")
     end
+
+    def int3
+      [0xcc].pack("C")
+    end
   end
 end

@@ -29,6 +29,7 @@ def hello
   eax = OpEAX.instance
   esp = OpESP.instance
   hello = OpImmidiate32.new("Hello World".address)
+  asm.step_mode = true
   asm.with_retry do
     asm.mov(eax, hello)
     asm.push(eax)
