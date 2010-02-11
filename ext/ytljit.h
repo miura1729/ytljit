@@ -13,9 +13,11 @@ struct CodeSpace {
   char body[1];
 };
 
-VALUE ytljit_address_of(VALUE, VALUE);
-VALUE ytljit_code_space_allocate(VALUE);
+VALUE ytl_address_of(VALUE, VALUE);
+VALUE ytl_code_space_allocate(VALUE);
 
-extern VALUE ytljit_mYTLJit;
-extern VALUE ytljit_cCodeSpace;
+extern VALUE ytl_mYTLJit;
+extern VALUE ytl_cCodeSpace;
+extern VALUE ytl_cStepHandler;
+extern VALUE ytl_eStepHandler;
 

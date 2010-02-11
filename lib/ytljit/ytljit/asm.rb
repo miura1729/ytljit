@@ -1,5 +1,13 @@
 module YTLJit
 
+  class StepHandler
+    def step_handler(*regs)
+      STDERR.print "execute: 0x#{regs[0].to_s(16)}\n"
+      STDERR.print regs.inspect
+      STDERR.print "\n"
+     end
+  end
+
   class Generator
     def initialize(asm)
       @asm = asm
@@ -36,7 +44,7 @@ module YTLJit
       @output_stream = out
       @retry_mode = false
       @step_mode = false
-      @step_handler = address_of("ytljit_step_handler")
+      @step_handler = address_of("ytl_step_handler")
       reset
     end
 

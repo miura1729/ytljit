@@ -5,14 +5,17 @@
 
 #include "ytljit.h"
 
-VALUE ytljit_mYTLJit;
-VALUE ytljit_cCodeSpace;
+VALUE ytl_mYTLJit;
+VALUE ytl_cCodeSpace;
+VALUE ytl_cStepHandler;
+VALUE ytl_eStepHandler;
+static ID ytl_v_step_handler_id;
 
 static void *dl_handles[MAX_DL_HANDLES];
 static int used_dl_handles = 0;
 
 VALUE 
-ytljit_address_of(VALUE self, VALUE symstr)
+ytl_address_of(VALUE self, VALUE symstr)
 {
   int i;
   char *sym;
@@ -29,7 +32,7 @@ ytljit_address_of(VALUE self, VALUE symstr)
 }
 
 VALUE
-ytljit_code_space_allocate(VALUE klass)
+ytl_code_space_allocate(VALUE klass)
 {
   struct CodeSpace *obj;
  
@@ -40,7 +43,7 @@ ytljit_code_space_allocate(VALUE klass)
 }
 
 VALUE
-ytljit_code_space_emit(VALUE self, VALUE offset, VALUE src)
+ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
 {
   struct CodeSpace *raw_cs;
   char *src_ptr;
@@ -76,7 +79,7 @@ ytljit_code_space_emit(VALUE self, VALUE offset, VALUE src)
 }
 
 VALUE
-ytljit_code_space_ref(VALUE self, VALUE offset)
+ytl_code_space_ref(VALUE self, VALUE offset)
 {
   struct CodeSpace *raw_cs;
 
@@ -94,7 +97,7 @@ ytljit_code_space_ref(VALUE self, VALUE offset)
 }
 
 VALUE
-ytljit_code_current_pos(VALUE self)
+ytl_code_current_pos(VALUE self)
 {
   struct CodeSpace *raw_cs;
 
@@ -103,7 +106,7 @@ ytljit_code_current_pos(VALUE self)
 }
 
 VALUE
-ytljit_code_set_current_pos(VALUE self, VALUE val)
+ytl_code_set_current_pos(VALUE self, VALUE val)
 {
   struct CodeSpace *raw_cs;
 
@@ -113,7 +116,7 @@ ytljit_code_set_current_pos(VALUE self, VALUE val)
 }
 
 VALUE
-ytljit_code_base_address(VALUE self)
+ytl_code_base_address(VALUE self)
 {
   struct CodeSpace *raw_cs;
 
@@ -122,7 +125,7 @@ ytljit_code_base_address(VALUE self)
 }
 
 VALUE
-ytljit_code_call(VALUE self, VALUE addr)
+ytl_code_call(VALUE self, VALUE addr)
 {
   void *raddr;
   VALUE rc;
@@ -137,7 +140,7 @@ ytljit_code_call(VALUE self, VALUE addr)
 }
   
 VALUE
-ytljit_code_space_code(VALUE self)
+ytl_code_space_code(VALUE self)
 {
   struct CodeSpace *raw_cs;
 
@@ -147,7 +150,7 @@ ytljit_code_space_code(VALUE self)
 }  
 
 VALUE
-ytljit_code_space_to_s(VALUE self)
+ytl_code_space_to_s(VALUE self)
 {
   struct CodeSpace *raw_cs;
 
@@ -157,36 +160,61 @@ ytljit_code_space_to_s(VALUE self)
 }
 
 void
-ytljit_step_handler()
+ytl_step_handler()
 {
-  jmp_buf jbuf;
-  void *pc;
-  pc = __builtin_return_address(0);
-  if (setjmp(jbuf) != 0) {
-    return;
+  void body() {
+    VALUE *argv;
+    unsigned long *regs;
+
+    asm("mov (%%ebp), %0"
+	: "=r" (regs) : : "%eax");
+  
+    argv = ALLOCA_N(VALUE, 8);
+    argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
+    /* regs[0]   old bp
+       regs[-1]  old ebp (maybe gcc depend)
+       regs[-2]  return address
+       regs[-3]  pusha starts
+    */
+    argv[1] = ULONG2NUM(regs[-3]);   /* eax */
+    argv[2] = ULONG2NUM(regs[-4]);   /* ecx */
+    argv[3] = ULONG2NUM(regs[-5]);   /* edx */
+    argv[4] = ULONG2NUM(regs[-6]);   /* ebx */
+    argv[5] = ULONG2NUM(regs[-7]);   /* ebp */
+    argv[6] = ULONG2NUM(regs[-8]);   /* esi */
+    argv[7] = ULONG2NUM(regs[-9]);   /* edi */
+    rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
   }
-  printf("execute: 0x%x\n", (unsigned int)pc);
-  fflush(stdout);
-  longjmp(jbuf, 1);
+
+  asm("pusha");
+  body();
+  asm("popa");
 }
 
 void 
 Init_ytljit() 
 {
-  ytljit_mYTLJit = rb_define_module("YTLJit");
+  VALUE *argv;
 
-  rb_define_module_function(ytljit_mYTLJit, "address_of", ytljit_address_of, 1);
+  ytl_mYTLJit = rb_define_module("YTLJit");
 
-  ytljit_cCodeSpace = rb_define_class_under(ytljit_mYTLJit, "CodeSpace", rb_cObject);
-  rb_define_alloc_func(ytljit_cCodeSpace, ytljit_code_space_allocate);
-  rb_define_method(ytljit_cCodeSpace, "[]=", ytljit_code_space_emit, 2);
-  rb_define_method(ytljit_cCodeSpace, "[]", ytljit_code_space_ref, 1);
-  rb_define_method(ytljit_cCodeSpace, "current_pos", ytljit_code_current_pos, 0);
-  rb_define_method(ytljit_cCodeSpace, "current_pos=", ytljit_code_set_current_pos, 1);
-  rb_define_method(ytljit_cCodeSpace, "base_address", ytljit_code_base_address, 0);
-  rb_define_method(ytljit_cCodeSpace, "call", ytljit_code_call, 1);
-  rb_define_method(ytljit_cCodeSpace, "code", ytljit_code_space_code, 0);
-  rb_define_method(ytljit_cCodeSpace, "to_s", ytljit_code_space_to_s, 0);
+  rb_define_module_function(ytl_mYTLJit, "address_of", ytl_address_of, 1);
+  ytl_v_step_handler_id = rb_intern("step_handler");
+
+  ytl_cStepHandler = rb_define_class_under(ytl_mYTLJit, "StepHandler", rb_cObject);
+  argv = ALLOCA_N(VALUE, 1);
+  ytl_eStepHandler = rb_class_new_instance(0, argv, ytl_cStepHandler);
+
+  ytl_cCodeSpace = rb_define_class_under(ytl_mYTLJit, "CodeSpace", rb_cObject);
+  rb_define_alloc_func(ytl_cCodeSpace, ytl_code_space_allocate);
+  rb_define_method(ytl_cCodeSpace, "[]=", ytl_code_space_emit, 2);
+  rb_define_method(ytl_cCodeSpace, "[]", ytl_code_space_ref, 1);
+  rb_define_method(ytl_cCodeSpace, "current_pos", ytl_code_current_pos, 0);
+  rb_define_method(ytl_cCodeSpace, "current_pos=", ytl_code_set_current_pos, 1);
+  rb_define_method(ytl_cCodeSpace, "base_address", ytl_code_base_address, 0);
+  rb_define_method(ytl_cCodeSpace, "call", ytl_code_call, 1);
+  rb_define_method(ytl_cCodeSpace, "code", ytl_code_space_code, 0);
+  rb_define_method(ytl_cCodeSpace, "to_s", ytl_code_space_to_s, 0);
 
   /* Open Handles */
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));
