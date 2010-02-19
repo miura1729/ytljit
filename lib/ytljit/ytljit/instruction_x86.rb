@@ -234,6 +234,19 @@ module YTLJit
         [0x0F, lopc, offset].pack("C2L")
       end
     end
+
+    def common_shift(dst, optc, shftnum)
+      modseq, modfmt = modrm(optc, dst)
+      if shftnum.is_a?(OpImmidiate8) then
+        shftnum = shftnum.value
+      end
+
+      if shftnum == 1 then
+        ([0xD1] + modseq ).pack("C#{modfmt}")
+      else
+        ([0xC1] + modseq + [shftnum]).pack("C#{modfmt}C")
+      end
+    end
   end
   
   class GeneratorX86Binary<Generator
@@ -326,6 +339,19 @@ module YTLJit
           ([0xC7] + modseq + [src.value]).pack("C#{modfmt}L")
         end
       end
+    end
+
+    def lea(dst, src)
+      if !dst.is_a?(OpReg32)
+        raise IlligalOperand, "lea instruction can\'t apply #{src} as src"
+      end
+
+      if !src.is_a?(OpIndirect)
+        raise IlligalOperand, "lea instruction can\'t apply #{dst} as dst"
+      end
+
+      modseq, modfmt = modrm(dst, src)
+      ([0x8D] + modseq).pack("C#{modfmt}")
     end
 
     def push(dst)
@@ -454,6 +480,22 @@ module YTLJit
 
     def ret
       [0xc3].pack("C")
+    end
+
+    def sal(dst, shftnum = 1)
+      common_shift(dst, 4, shftnum)
+    end
+
+    def sar(dst, shftnum = 1)
+      common_shift(dst, 7, shftnum)
+    end
+
+    def shl(dst, shftnum = 1)
+      common_shift(dst, 4, shftnum)
+    end
+
+    def shr(dst, shftnum = 1)
+      common_shift(dst, 5, shftnum)
     end
 
     def int3

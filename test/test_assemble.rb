@@ -1,9 +1,8 @@
 require 'test/unit'
 require 'lib/ytljit/ytljit.rb'
 
+include YTLJit
 class InstructionTests < Test::Unit::TestCase
-  include YTLJit
-
   def setup
     @asm = Assembler.new(CodeSpace.new)
     @eax = OpEAX.instance
@@ -52,6 +51,16 @@ class InstructionTests < Test::Unit::TestCase
       fp.write @asm.call(lab)
       fp.write @asm.jo(lab)
       fp.write @asm.jl(lab2)
+      fp.write @asm.lea(@eax, @in_esp_0)
+      fp.write @asm.lea(@eax, @in_esp_10)
+      fp.write @asm.sal(@eax)
+      fp.write @asm.sar(@eax)
+      fp.write @asm.shl(@eax)
+      fp.write @asm.shr(@eax)
+      fp.write @asm.sal(@eax, 2)
+      fp.write @asm.sar(@eax, 2)
+      fp.write @asm.shl(@eax, 2)
+      fp.write @asm.shr(@eax, 2)
     }
   end
 end

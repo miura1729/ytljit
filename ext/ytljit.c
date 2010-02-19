@@ -31,6 +31,12 @@ ytl_address_of(VALUE self, VALUE symstr)
   return Qnil;
 }
 
+VALUE 
+ytl_memref(VALUE self, VALUE addr)
+{
+  return UINT2NUM(*((char *)NUM2LONG(addr)));
+}
+
 VALUE
 ytl_code_space_allocate(VALUE klass)
 {
@@ -159,6 +165,27 @@ ytl_code_space_to_s(VALUE self)
   return rb_sprintf("#<codeSpace %x base=%x:...>", (unsigned int)self, (unsigned int)raw_cs->body);
 }
 
+static VALUE *
+get_registers(unsigned long *regs, VALUE *argv)
+{
+  argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
+
+  /* regs[0]   old bp
+     regs[-1]  old ebx (maybe gcc depend)
+     regs[-2]  return address
+     regs[-3]  pusha starts
+  */
+  argv[1] = ULONG2NUM(regs[-3]);   /* eax */
+  argv[2] = ULONG2NUM(regs[-4]);   /* ecx */
+  argv[3] = ULONG2NUM(regs[-5]);   /* edx */
+  argv[4] = ULONG2NUM(regs[-6]);   /* ebx */
+  argv[5] = ULONG2NUM(regs[-7]);   /* ebp */
+  argv[6] = ULONG2NUM(regs[-8]);   /* esi */
+  argv[7] = ULONG2NUM(regs[-9]);   /* edi */
+
+  return argv;
+}
+
 void
 ytl_step_handler()
 {
@@ -168,23 +195,13 @@ ytl_step_handler()
 
     asm("mov (%%ebp), %0"
 	: "=r" (regs) : : "%eax");
-  
     argv = ALLOCA_N(VALUE, 8);
-    argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
-    /* regs[0]   old bp
-       regs[-1]  old ebp (maybe gcc depend)
-       regs[-2]  return address
-       regs[-3]  pusha starts
-    */
-    argv[1] = ULONG2NUM(regs[-3]);   /* eax */
-    argv[2] = ULONG2NUM(regs[-4]);   /* ecx */
-    argv[3] = ULONG2NUM(regs[-5]);   /* edx */
-    argv[4] = ULONG2NUM(regs[-6]);   /* ebx */
-    argv[5] = ULONG2NUM(regs[-7]);   /* ebp */
-    argv[6] = ULONG2NUM(regs[-8]);   /* esi */
-    argv[7] = ULONG2NUM(regs[-9]);   /* edi */
+    argv = get_registers(regs, argv);
+
     rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
   }
+
+  /* Don't add local variables. Maybe break consistency of stack */
 
   asm("pusha");
   body();
@@ -199,6 +216,8 @@ Init_ytljit()
   ytl_mYTLJit = rb_define_module("YTLJit");
 
   rb_define_module_function(ytl_mYTLJit, "address_of", ytl_address_of, 1);
+  rb_define_module_function(ytl_mYTLJit, "memref", ytl_memref, 1);
+
   ytl_v_step_handler_id = rb_intern("step_handler");
 
   ytl_cStepHandler = rb_define_class_under(ytl_mYTLJit, "StepHandler", rb_cObject);

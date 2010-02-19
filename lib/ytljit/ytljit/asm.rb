@@ -109,13 +109,13 @@ module YTLJit
         end
       end
 
-      out = @generator.send(mn, *args)
-      store_outcode(out)
-
       if @step_mode
         out = @generator.call(@step_handler)
         store_outcode(out)
       end
+
+      out = @generator.send(mn, *args)
+      store_outcode(out)
     end
   end
 end
