@@ -131,16 +131,22 @@ ytl_code_base_address(VALUE self)
 }
 
 VALUE
-ytl_code_call(VALUE self, VALUE addr)
+ytl_code_call(int argc, VALUE *argv, VALUE self)
 {
-  void *raddr;
+  VALUE addr;
+  VALUE args;
   VALUE rc;
+  void *raddr;
 
+  rb_scan_args(argc, argv, "11", &addr, &args);
   raddr = (void *)NUM2ULONG(addr);
 
-  asm("call *%1 \n\t" 
-      "mov %%eax, %0"
-      : "=r" (rc) : "r" (raddr) : "%eax", "%ebx");
+  asm("movl %1, %%eax\n"
+      "call *%2 \n"
+      "movl %%eax, %0\n"
+      : "=r"(rc) 
+      : "r"(args), "r"(raddr) 
+      : "%eax", "%ebx");
 
   return rc;
 }
@@ -231,7 +237,7 @@ Init_ytljit()
   rb_define_method(ytl_cCodeSpace, "current_pos", ytl_code_current_pos, 0);
   rb_define_method(ytl_cCodeSpace, "current_pos=", ytl_code_set_current_pos, 1);
   rb_define_method(ytl_cCodeSpace, "base_address", ytl_code_base_address, 0);
-  rb_define_method(ytl_cCodeSpace, "call", ytl_code_call, 1);
+  rb_define_method(ytl_cCodeSpace, "call", ytl_code_call, -1);
   rb_define_method(ytl_cCodeSpace, "code", ytl_code_space_code, 0);
   rb_define_method(ytl_cCodeSpace, "to_s", ytl_code_space_to_s, 0);
 

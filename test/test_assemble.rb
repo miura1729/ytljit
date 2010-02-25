@@ -61,6 +61,15 @@ class InstructionTests < Test::Unit::TestCase
       fp.write @asm.sar(@eax, 2)
       fp.write @asm.shl(@eax, 2)
       fp.write @asm.shr(@eax, 2)
+
+      fp.write @asm.rcl(@eax)
+      fp.write @asm.rcr(@eax)
+      fp.write @asm.rol(@eax)
+      fp.write @asm.ror(@eax)
+      fp.write @asm.rcl(@eax, 2)
+      fp.write @asm.rcr(@eax, 2)
+      fp.write @asm.rol(@eax, 2)
+      fp.write @asm.ror(@eax, 2)
     }
   end
 end

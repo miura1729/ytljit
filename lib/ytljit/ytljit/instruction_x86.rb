@@ -498,6 +498,22 @@ module YTLJit
       common_shift(dst, 5, shftnum)
     end
 
+    def rcl(dst, shftnum = 1)
+      common_shift(dst, 2, shftnum)
+    end
+
+    def rcr(dst, shftnum = 1)
+      common_shift(dst, 3, shftnum)
+    end
+
+    def rol(dst, shftnum = 1)
+      common_shift(dst, 0, shftnum)
+    end
+
+    def ror(dst, shftnum = 1)
+      common_shift(dst, 1, shftnum)
+    end
+
     def int3
       [0xcc].pack("C")
     end
