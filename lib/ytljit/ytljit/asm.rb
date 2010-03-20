@@ -95,6 +95,7 @@ module YTLJit
     end
 
     def method_missing(mn, *args)
+      result = nil
       if args.any? {|e| e.is_a?(OpVarImmidiate32) } and !@retry_mode then
         offset = @offset
         stfunc = lambda {
@@ -115,7 +116,12 @@ module YTLJit
       end
 
       out = @generator.send(mn, *args)
-      store_outcode(out)
+      if out.is_a?(Array) then
+        store_outcode(out[0])
+      else
+        store_outcode(out)
+      end
+      out
     end
   end
 end

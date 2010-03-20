@@ -4,6 +4,11 @@ require 'pp'
 class Lex
   def initialize(str)
     @tokens = str.scan(/#.*?\n|\/\*.*?\*\/|[a-zA-Z_][a-zA-Z_0-9]*|-?[0-9]+\.?[0-9]*|\S/m).each
+    @udtype_table = {}
+  end
+
+  def set_user_type_table(tab)
+    @udtype_table = tab
   end
 
   KEYWORD = {
@@ -21,12 +26,17 @@ class Lex
     'short' => :short,
     'long' => :long,
     'float' => :float,
+    'void' => :void,
     'double' => :double,
   }
 
   def get_next_token
     tok = @tokens.next
     id = nil
+    if @udtype_table[tok] then
+      return [:user_type, tok]
+    end
+
     if id = KEYWORD[tok] then
       return [id, tok]
     end
@@ -86,7 +96,11 @@ class VarInfo
     when 'double'
       8
     else
-      @type.sizeof
+#      if type = @userdef_type_table[@type] then
+#        type.sizeof
+#      else
+        @type.sizeof
+#      end
     end   
   end
 
@@ -111,10 +125,14 @@ class StructInfo
 
   def sizeof
     siz = 0
-    @member.each do |mem|
-      siz += mem.sizeof
+    if @kind == :struct then
+      @member.each do |mem|
+        siz += mem.sizeof
+      end
+      siz
+    else
+       @member.map {|mem| mem.sizeof}.max
     end
-    siz
   end
 
   attr :member
@@ -134,6 +152,10 @@ class FuncPtrInfo
 
   def sizeof
     4
+  end
+
+  def type
+    self
   end
 
   attr :name
@@ -171,6 +193,7 @@ class ArrayInfo
 end
 
 @struct_table = {}
+@userdef_type_table = {}
 @struct_stack = []
 
 f = File.read("#{Config::CONFIG["rubyhdrdir"]}/ruby/ruby.h")
@@ -187,7 +210,17 @@ def top(l)
 
     when :typedef
       kind, tok = l.get_next_token
-      p parse_declare(kind, tok, l)
+      tp = parse_declare(kind, tok, l)
+      if tp then
+        tp.each do |vd|
+          if vd then
+            @userdef_type_table[vd.name] = vd.type
+            l.set_user_type_table(@userdef_type_table)
+          end
+        end
+      else
+        p kind, tok
+      end
 
     else
       kind, tok = l.get_next_token
@@ -240,11 +273,13 @@ def parse_declare(kind, tok, l)
   when :signed, :unsigned
     type = tok
     kind, tok = l.get_next_token
-    if parse_declare_simple_type(kind, tok, l) == nil then
-      parse_declare_vars('int', kind, tok, l)
+    rc = parse_declare_simple_type(kind, tok, l)
+    if rc == nil then
+      rc = parse_declare_vars('int', kind, tok, l)
     end
+    rc
 
-  when :typedef
+  when :typedef, :const
     type = tok
     kind, tok = l.get_next_token
     parse_declare(kind, tok, l)
@@ -261,11 +296,10 @@ def parse_declare(kind, tok, l)
 end
 
 def parse_declare_simple_type(kind, tok, l)
-  if [:char, :int, :user_type,  :long, :short, :float, :double].include?(kind)
+  if [:char, :int, :user_type,  :long, :short, :float, :double, :void].include?(kind)
     type = tok
     kind, tok = l.get_next_token
     parse_declare_vars(type, kind, tok, l)
-    true
   else
     nil
   end
@@ -315,6 +349,8 @@ def parse_declare_vars(type, kind, tok, l)
     vinfo, kind, tok = parse_declare_var(type, kind, tok, l)
     vtab.push vinfo
   end while tok == ','
+
+  vtab
 end
 
 def parse_declare_funcargs(l)
