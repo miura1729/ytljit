@@ -30,8 +30,8 @@ class InstructionTests < Test::Unit::TestCase
     assert_equal(@asm.mov(@eax, @lit32), [0xB8, 0x12345678].pack("CL"))
     assert_equal(@asm.mov(@eax, @in_eax_125), [0x8B, 0x40, 0x7d].pack("C3"))
     assert_equal(@asm.mov(@in_eax_125, @eax), [0x89, 0x40, 0x7d].pack("C3"))
-=begin
     File.open("foo.bin", "w") {|fp|
+=begin
       lab = @asm.current_address
       fp.write @asm.add(@eax, @in_eax_125)
       fp.write @asm.add(@in_eax_125, @eax)
@@ -84,8 +84,17 @@ class InstructionTests < Test::Unit::TestCase
       foo = TypedData.new(st, X86::EAX)
       cd, foo = @asm.mov(X86::EAX, foo[:baz])
       fp.write cd
-    }
 =end
+    hello = OpImmidiate32.new("Hello World".address)
+    rshello = TypedData.new(RubyType::RString, hello)
+      cd, foo = @asm.mov(X86::EAX, rshello[:as][:heap][:ptr])
+    fp.write cd
+    fp.write @asm.push(X86::EAX)
+    rbp = address_of("puts")
+    fp.write @asm.call(rbp)
+    fp.write @asm.add(X86::ESP, OpImmidiate8.new(4))
+    fp.write @asm.ret
+    }
   end
 
   def test_struct
@@ -97,6 +106,21 @@ class InstructionTests < Test::Unit::TestCase
     foo = TypedData.new(st, X86::EAX)
     cd, type = @asm.mov(X86::EAX, foo[:baz])
     assert_equal(cd, 
-                 [0x89, 0xc0, 0x8b, 0x80, 0x8, 0x0, 0x0, 0x0, 0x89, 0xc0].pack("C*"))
-  end
+                 [0x8b, 0x80, 0x8, 0x0, 0x0, 0x0].pack("C*"))
+
+     st = Type::Struct.new(
+                          Type::INT32, :foo,
+                          Type::INT32, :bar,
+                          Type::Struct.new(
+                                 Type::INT32, :kkk,
+                                 Type::INT32, :ass,
+                                 Type::INT32, :baz,
+                                            ), :aaa,
+                           Type::INT32, :baz
+                          )
+    foo = TypedData.new(st, X86::EBX)
+    cd, type = @asm.mov(X86::EDX, foo[:aaa][:baz])
+    assert_equal(cd, 
+                 [0x89, 0xd8, 0x8b, 0x80, 0x10, 0x0, 0x0, 0x0, 0x89, 0xc2].pack("C*"))
+   end
 end

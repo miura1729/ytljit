@@ -20,14 +20,27 @@ module YTLJit
       base = src.entity
       type = src.type
       case type
-      when Type::Scalar
-        [mov(EAX, base), type]
+      when Type::Scalar, Type::Pointer
+        if base != EAX then
+          [mov(EAX, base), type]
+        else
+          ["", type]
+        end
 
       when Type::StructMember
         code = ""
-        code += mov(EAX, base)
+        if base != EAX then
+          code += mov(EAX, base)
+        end
         oi = OpIndirect.new(EAX, type.offset)
         code += mov(EAX, oi)
+        [code, type.type]
+
+      when Type::PointedData
+        # Now support only index == 0
+        code = ""
+        code += mov(EAX,  base)
+        code += mov(EAX,  INEAX)
         [code, type.type]
       end
     end
@@ -38,7 +51,9 @@ module YTLJit
         if src.is_a?(TypedData) then
           rcode = ""
           rcode, rtype = gen_access(src)
-          rcode += mov(dst, EAX)
+          if dst != EAX then
+            rcode += mov(dst, EAX)
+          end
           return [rcode, TypedData.new(rtype, dst)]
         end
       end

@@ -42,6 +42,28 @@ def hello
 end
 hello
 
+# Hello World (Use puts)
+def hello2
+  asm = Assembler.new(cs = CodeSpace.new)
+  
+  # registor definition
+  eax = OpEAX.instance
+  esp = OpESP.instance
+  hello = OpImmidiate32.new("Hello World1234".address)
+  asm.step_mode = true
+  asm.with_retry do
+    rshello = TypedData.new(RubyType::RString, hello)
+    asm.mov(eax, rshello[:as][:heap][:ptr])
+    asm.push(eax)
+    rbp = address_of("puts")
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
+  end
+  cs.call(cs.base_address)
+end
+hello2
+
 # Fib number
 def fib(n)
   cs0 = CodeSpace.new

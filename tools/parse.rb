@@ -85,6 +85,14 @@ class VarInfo
     "#{@type} #{@name}\n"
   end
 
+  def to_ytl
+    if @type.is_a?(String) then
+      "#{@type} #{@name}\n"
+    else
+      "#{@type.to_ytl} #{@name}\n"
+    end
+  end
+
   def sizeof
     case @type
     when 'char', 'unsigned char', 'signed char'
@@ -123,6 +131,19 @@ class StructInfo
     rs += "}\n"
   end
 
+  def to_ytl
+    rs = "#{@kind.to_s} #{@name} {\n"
+    @member.each do |e|
+      if e.type.is_a?(String) then
+        rs += e.type
+      else
+        rs += e.type.to_ytl
+      end
+      rs += " #{e.name}"
+    end
+    rs += "}\n"
+  end
+
   def sizeof
     siz = 0
     if @kind == :struct then
@@ -150,6 +171,10 @@ class FuncPtrInfo
     "#{@return_type.inspect} (*#{@name})(#{@argument_type.inspect})"
   end
 
+  def to_ytl
+    "#{@return_type.inspect} (*#{@name})()\n"
+  end
+
   def sizeof
     4
   end
@@ -172,6 +197,14 @@ class PtrInfo
     "*#{@entity.inspect}"
   end
 
+  def to_ytl
+    if @entity.is_a?(String) then
+      "*#{@entity}\n"
+    else
+      "*#{@entity.to_ytl}\n"
+    end
+  end
+
   def sizeof
     4
   end
@@ -187,6 +220,14 @@ class ArrayInfo
     "#{@entity.inspect}[#{@size}]"
   end
 
+  def to_ytl
+    if @entity.is_a?(String) then
+      "#{@entity}[#{@size}]\n"
+    else
+      "#{@entity.to_ytl}[#{@size}]\n"
+    end
+  end
+
   def sizeof
     @entity.sizeof * @size.to_i
   end
@@ -195,9 +236,6 @@ end
 @struct_table = {}
 @userdef_type_table = {}
 @struct_stack = []
-
-f = File.read("#{Config::CONFIG["rubyhdrdir"]}/ruby/ruby.h")
-l = Lex.new(f)
 
 def top(l)
   kind, tok = l.get_next_token
@@ -327,15 +365,15 @@ def parse_declare_var(type, kind, tok, l)
     kind, tok = l.get_next_token
   end
 
-  res = VarInfo.new(type, var)
   while star_level > 0 do
     star_level -= 1
-    res = PtrInfo.new(res)
+    type = PtrInfo.new(type)
   end
   while array_level.size > 0 do
     as = array_level.pop
-    res = ArrayInfo.new(res, as)
+    type = ArrayInfo.new(type, as)
   end
+  res = VarInfo.new(type, var)
 
   [res, kind, tok]
 end
@@ -372,10 +410,14 @@ def parse_declare_funcptr(rettype, l)
   end
 end
 
-top(l)
-    
-@struct_table.each do |tag, body|
-  pp body
-  p body.sizeof
+if $0 == __FILE__ then
+  f = File.read("#{Config::CONFIG["rubyhdrdir"]}/ruby/ruby.h")
+  l = Lex.new(f)
+  
+  top(l)
+  
+  @struct_table.each do |tag, body|
+    pp body
+    p body.sizeof
+  end
 end
-

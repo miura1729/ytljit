@@ -8,6 +8,14 @@ module YTLJit
 
       attr :type
       attr :offset
+
+      def size
+        @type.size
+      end
+
+      def [](name)
+        @type[name, @offset]
+      end
     end
 
     class Struct<TypeCommon
@@ -48,11 +56,11 @@ module YTLJit
         @member.push curvar
       end
 
-      def offset_of(name)
+      def offset_of(name, base = 0)
         offset = 0
         @member.each do |e|
           if e[1] == name then
-            return offset
+            return offset + base
           end
           offset += e[2] ? e[2] : e[0].size
         end
@@ -81,15 +89,37 @@ module YTLJit
         end
       end
 
-      def [](name)
+      def [](name, base = 0)
         offset = 0
         @member.each do |e|
           if e[1] == name then
-            return StructMember.new(e[0], offset)
+            return StructMember.new(e[0], offset + base)
           end
           offset += e[2] ? e[2] : e[0].size
         end
         raise "No such member #{name} in #{self}"
+      end
+    end
+
+    class Union<Struct
+      def offset_of(name, base = 0)
+        base
+      end
+
+      def size
+        if @size then
+          @size
+        else
+          @size = 0
+          @member.each do |e|
+            @size = [@size, e[2] ? e[2] : e[0].size].max
+          end
+          @size
+        end
+      end
+
+      def [](name, base = 0)
+        StructMember.new(type_of(name), base)
       end
     end
   end

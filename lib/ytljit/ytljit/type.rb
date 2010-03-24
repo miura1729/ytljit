@@ -14,10 +14,28 @@ module YTLJit
       attr :size
       attr :alignment
     end
+
+    class PointedData<TypeCommon
+      def initialize(type, index)
+        @type = type
+        @index = index
+      end
+
+      attr :type
+      attr :index
+
+      def size
+        @reftype.size
+      end
+
+      def alignment
+        @reftype.alignment
+      end
+    end
     
-    class Pointere<TypeCommon
+    class Pointer<TypeCommon
         def initialize(type)
-          @reftype = type
+          @type = type
         end
       
       def size
@@ -28,7 +46,11 @@ module YTLJit
         4
       end
       
-      attr :reftype
+      attr :type
+
+      def [](n = 0)
+        PointedData.new(@reftype, n)
+      end
     end
     
     @@type_table = {}
