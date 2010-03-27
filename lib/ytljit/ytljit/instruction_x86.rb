@@ -78,8 +78,8 @@ module YTLJit
   end
 
   module AssemblerUtilX86
-    def nosupported_addressing_mode(inst, dst, src)
-      mess = "Not supported addessing mode in #{inst} #{dst} #{src}"
+    def nosupported_addressing_mode(inst, dst, src, src2 = nil)
+      mess = "Not supported addessing mode in #{inst} #{dst} #{src} #{src2}"
       raise IlligalOperand, mess
     end
 
@@ -128,7 +128,7 @@ module YTLJit
       end
     end
 
-    def modrm(inst, reg, rm, dst, src)
+    def modrm(inst, reg, rm, dst, src, src2 = nil)
       case reg
       when Integer
         case rm
@@ -139,7 +139,7 @@ module YTLJit
           modrm_indirect(reg, rm)
 
         else
-          return nosupported_addressing_mode(inst, dst, src)
+          return nosupported_addressing_mode(inst, dst, src, src2)
         end
 
       when OpRegistor
@@ -152,7 +152,7 @@ module YTLJit
         end
 
       else
-          return nosupported_addressing_mode(inst, dst, src)
+          return nosupported_addressing_mode(inst, dst, src, src2)
       end
     end
 
@@ -196,15 +196,7 @@ module YTLJit
             ([0x81] + modseq + [srcv]).pack("C#{modfmt}L")
           end
 
-        when OpReg32
-          modseq, modfmt = modrm(inst, dst, src, dst, src)
-          ([bopc + 0x3] + modseq).pack("C#{modfmt}")
-
-        when OpMem32
-          modseq, modfmt = modrm(inst, dst, src, dst, src)
-          ([bopc + 0x03] + modseq).pack("C#{modfmt}")
-
-        when OpIndirect
+        when OpReg32, OpMem32, OpIndirect
           modseq, modfmt = modrm(inst, dst, src, dst, src)
           ([bopc + 0x03] + modseq).pack("C#{modfmt}")
 
@@ -345,9 +337,13 @@ module YTLJit
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           ([0xC6] + modseq + [src.value]).pack("C#{modfmt}C")
 
-        when OpImmidiate32, Integer
+        when OpImmidiate32
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           ([0xC7] + modseq + [src.value]).pack("C#{modfmt}L")
+
+        when Integer
+          modseq, modfmt = modrm(:mov, 0, dst, dst, src)
+          ([0xC7] + modseq + [src]).pack("C#{modfmt}L")
 
         else
           return nosupported_addressing_mode(:mov, dst, src)
@@ -529,6 +525,61 @@ module YTLJit
 
     def ror(dst, shftnum = 1)
       common_shift(dst, 1, shftnum, :ror)
+    end
+
+    def imul(dst, src = nil, src2 = nil)
+      case dst 
+      when OpReg8, OpMem8
+        if src == nil then
+          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
+          return ([0xF6] + modseq).pack("C#(modfmt}")
+        end
+
+      when OpIndirect, OpMem32
+        if src != nil then
+          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
+          return ([0xF7] + modseq).pack("C#(modfmt}")
+        end
+
+      when OpReg32
+        case src
+        when nil
+          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
+          return ([0xF7] + modseq).pack("C#(modfmt}")
+          
+        when OpReg32, OpMem32, OpIndirect
+          modseq, modfmt = modrm(:imul, dst, src, dst, src, src2)
+          case src2 
+          when nil
+            return ([0x0F, 0xAF] + modseq).pack("C2#{modfmt}")
+            
+          when OpImmidiate8
+            return ([0x6B] + modseq + [src2.value]).pack("C#{modfmt}C")
+
+          when OpImmidiate32
+            return ([0x69] + modseq + [src2.value]).pack("C#{modfmt}L")
+
+          when Integer
+            return ([0x69] + modseq + [src2]).pack("C#{modfmt}L")
+          end
+
+        when OpImmidiate8
+          modseq, modfmt = modrm(:imul, dst, dst, dst, src)
+          return ([0x6B] + modseq + [src.value]).pack("C#{modfmt}C")
+          
+        
+        when OpImmidiate32
+          modseq, modfmt = modrm(:imul, dst, dst, dst, src)
+          return ([0x69] + modseq + [src.value]).pack("C#{modfmt}L")
+
+        when Integer
+          modseq, modfmt = modrm(:imul, dst, dst, dst, src)
+          return ([0x69] + modseq + [src]).pack("C#{modfmt}L")
+
+        end
+      end
+
+      return nosupported_addressing_mode(:imul, dst, src, src2)
     end
 
     def int3

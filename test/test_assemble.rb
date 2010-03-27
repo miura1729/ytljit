@@ -4,7 +4,8 @@ require 'lib/ytljit/ytljit.rb'
 include YTLJit
 class InstructionTests < Test::Unit::TestCase
   def setup
-    @asm = Assembler.new(CodeSpace.new, GeneratorX86Extend)
+    @cs = CodeSpace.new
+    @asm = Assembler.new(@cs, GeneratorX86Extend)
     @eax = OpEAX.instance
     @ecx = OpECX.instance
     @esp = OpESP.instance
@@ -24,6 +25,10 @@ class InstructionTests < Test::Unit::TestCase
     assert_equal(@asm.add(@eax, @in_eax), [3, 0].pack("CC"))
     assert_equal(@asm.add(@eax, @in_eax_125), [3, 0x40, 125].pack("C3"))
     assert_equal(@asm.add(@in_eax_4096, @eax), [1, 0x80, 0, 0x10, 0, 0].pack("C*"))
+    assert_equal(@asm.imul(@eax, @lit32), "i\xC0xV4\x12")
+    assert_equal(@asm.imul(@eax, @ecx, @lit32), "i\xC1xV4\x12")
+    assert_equal(@asm.imul(@eax, @in_eax_4096, @lit32), "i\x80\x00\x10\x00\x00xV4\x12")
+#    @cs.disassemble
   end
 
   def test_mov

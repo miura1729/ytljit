@@ -1,3 +1,5 @@
+require 'tempfile'
+
 require 'ytljit/util.rb'
 require 'ytljit/error.rb'
 require 'ytljit/asm.rb'

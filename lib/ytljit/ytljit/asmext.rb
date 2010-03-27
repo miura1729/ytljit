@@ -45,7 +45,7 @@ module YTLJit
       end
     end
 
-    def nosupported_addressing_mode(inst, dst, src)
+    def nosupported_addressing_mode(inst, dst, src, src2 = nil)
       case inst
       when :mov
         if src.is_a?(TypedData) then

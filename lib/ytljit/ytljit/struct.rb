@@ -6,7 +6,6 @@ module YTLJit
         @offset = offset
       end
 
-      attr :type
       attr :offset
 
       def size

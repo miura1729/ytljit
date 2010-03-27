@@ -3,6 +3,7 @@ module YTLJit
   class StepHandler
     def step_handler(*regs)
       STDERR.print "execute: 0x#{regs[0].to_s(16)}\n"
+      STDERR.print CodeSpace.disasm_cache[regs[0].to_s(16)], "\n"
       STDERR.print regs.inspect
       STDERR.print "\n"
      end

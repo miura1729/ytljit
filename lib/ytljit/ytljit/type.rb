@@ -2,6 +2,15 @@ module YTLJit
 
   module Type
     class TypeCommon
+      def initialize
+        @type = nil
+        @size = nil
+        @alignment = nil
+      end
+
+      attr :type
+      attr :size
+      attr :alignment
     end
 
     class Scalar<TypeCommon
@@ -10,9 +19,6 @@ module YTLJit
         @alignment = align
         @kind = kind
       end
-      
-      attr :size
-      attr :alignment
     end
 
     class PointedData<TypeCommon
@@ -21,7 +27,6 @@ module YTLJit
         @index = index
       end
 
-      attr :type
       attr :index
 
       def size
@@ -34,9 +39,9 @@ module YTLJit
     end
     
     class Pointer<TypeCommon
-        def initialize(type)
-          @type = type
-        end
+      def initialize(type)
+        @type = type
+      end
       
       def size
         4
@@ -46,8 +51,25 @@ module YTLJit
         4
       end
       
-      attr :type
+      def [](n = 0)
+        PointedData.new(@reftype, n)
+      end
+    end
 
+    class Array<TypeCommon
+      def initialize(type, size)
+        @type = type
+        @size = size
+      end
+
+      def size
+        @size * @type.size
+      end
+
+      def alignment
+        @type.alignment
+      end
+      
       def [](n = 0)
         PointedData.new(@reftype, n)
       end

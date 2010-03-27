@@ -38,6 +38,7 @@ def hello
     asm.add(esp, OpImmidiate8.new(4))
     asm.ret
   end
+  cs.fill_disasm_cache
   cs.call(cs.base_address)
 end
 hello
@@ -60,6 +61,7 @@ def hello2
     asm.add(esp, OpImmidiate8.new(4))
     asm.ret
   end
+  cs.disassemble
   cs.call(cs.base_address)
 end
 hello2
@@ -76,6 +78,7 @@ def fib(n)
   esp = OpESP.instance
 
   asm = Assembler.new(cs0)
+#  asm.step_mode = true
   ent = nil
   asm.with_retry do
     ent = cs1.var_base_address
@@ -87,6 +90,7 @@ def fib(n)
   end
   
   asm = Assembler.new(cs1)
+#  asm.step_mode = true
   asm.with_retry do
     asm.cmp(eax, OpImmidiate32.new(2))
     asm.jl(cs2.var_base_address)
@@ -104,6 +108,7 @@ def fib(n)
   end
   
   asm = Assembler.new(cs2)
+#  asm.step_mode = true
   asm.with_retry do
     asm.mov(eax, OpImmidiate32.new(1))
     asm.ret
@@ -112,6 +117,6 @@ def fib(n)
   cs0.call(cs0.base_address)
 end
 
-(1..39).each do |i|
+(1..20).each do |i|
   p fib(i)
 end
