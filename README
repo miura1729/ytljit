@@ -1,0 +1,26 @@
+1. What is ytljit?
+
+ Ytljit is a native code generator for compiler.
+You can generate native code using methods whose name is X86 nimonic.
+Why I deverop ytljit instead of using llvm? Because according to 
+my yarv2llvm's experience I think llvm don't have enough power 
+for  Ruby compiler. I need rewriting native code and operation to raw stack 
+and refer to CPU flags (carry,zero,negative and so on). 
+
+2. Install
+
+GEM or install script doesn't exist yet.
+compile extend library writting in C (ext/*). 
+copy extend library and  main program writting in Ruby (lib/*) to
+your ruby library directory.
+
+3. License
+
+  Ruby's
+
+4. Author
+
+Miura Hideki
+m-72 at tf6.so-net.ne.jp (e-mail)
+http://twitter.com/miura1729    (twitter)
+http://d.hatena.ne.jp/miura1729 (blog in japanese)
