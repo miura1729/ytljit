@@ -1,4 +1,4 @@
-require 'lib/ytljit/ytljit.rb'
+require 'ytljit.rb'
 
 include YTLJit
 
@@ -31,12 +31,12 @@ def hello
   hello = OpImmidiate32.new("Hello World".address)
   asm.step_mode = true
   asm.with_retry do
-    asm.mov(eax, hello)
-    asm.push(eax)
+    mov(eax, hello)
+    push(eax)
     rbp = address_of("rb_p")
-    asm.call(rbp)
-    asm.add(esp, OpImmidiate8.new(4))
-    asm.ret
+    call(rbp)
+    add(esp, OpImmidiate8.new(4))
+    ret
   end
   cs.fill_disasm_cache
   cs.call(cs.base_address)
@@ -54,12 +54,12 @@ def hello2
   asm.step_mode = true
   asm.with_retry do
     rshello = TypedData.new(RubyType::RString, hello)
-    asm.mov(eax, rshello[:as][:heap][:ptr])
-    asm.push(eax)
+    mov(eax, rshello[:as][:heap][:ptr])
+    push(eax)
     rbp = address_of("puts")
-    asm.call(rbp)
-    asm.add(esp, OpImmidiate8.new(4))
-    asm.ret
+    call(rbp)
+    add(esp, OpImmidiate8.new(4))
+    ret
   end
   cs.disassemble
   cs.call(cs.base_address)
@@ -82,36 +82,36 @@ def fib(n)
   ent = nil
   asm.with_retry do
     ent = cs1.var_base_address
-    asm.mov(eax, OpImmidiate32.new(n))
-    asm.call(ent)
-    asm.add(eax, eax)
-    asm.add(eax, OpImmidiate8.new(1))
-    asm.ret
+    mov(eax, OpImmidiate32.new(n))
+    call(ent)
+    add(eax, eax)
+    add(eax, OpImmidiate8.new(1))
+    ret
   end
   
   asm = Assembler.new(cs1)
 #  asm.step_mode = true
   asm.with_retry do
-    asm.cmp(eax, OpImmidiate32.new(2))
-    asm.jl(cs2.var_base_address)
-    asm.sub(eax, OpImmidiate32.new(1))
-    asm.push(eax)
-    asm.call(ent)
-    asm.pop(ebx)
-    asm.sub(ebx, OpImmidiate32.new(1))
-    asm.push(eax)
-    asm.mov(eax, ebx)
-    asm.call(ent)
-    asm.pop(ebx)
-    asm.add(eax, ebx)
-    asm.ret
+    cmp(eax, OpImmidiate32.new(2))
+    jl(cs2.var_base_address)
+    sub(eax, OpImmidiate32.new(1))
+    push(eax)
+    call(ent)
+    pop(ebx)
+    sub(ebx, OpImmidiate32.new(1))
+    push(eax)
+    mov(eax, ebx)
+    call(ent)
+    pop(ebx)
+    add(eax, ebx)
+    ret
   end
   
   asm = Assembler.new(cs2)
 #  asm.step_mode = true
   asm.with_retry do
-    asm.mov(eax, OpImmidiate32.new(1))
-    asm.ret
+    mov(eax, OpImmidiate32.new(1))
+    ret
   end
 
   cs0.call(cs0.base_address)

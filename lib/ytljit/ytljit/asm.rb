@@ -74,15 +74,15 @@ module YTLJit
       @output_stream.emit(out)
     end
 
-    def with_retry
+    def with_retry(&body)
       org_base_address = @output_stream.base_address
-      yield
+      self.instance_eval(&body)
       while org_base_address != @output_stream.base_address do
         @retry_mode = true
         org_base_address = @output_stream.base_address
         reset
         @output_stream.reset
-        yield
+        self.instance_eval(&body)
         @output_stream.update_refer
       end
       @retry_mode = false
