@@ -41,20 +41,20 @@ def hello
   cs.fill_disasm_cache
   cs.call(cs.base_address)
 end
-hello
+#hello
 
 # Hello World (Use puts)
 def hello2
+  csentry = CodeSpace.new
   asm = Assembler.new(cs = CodeSpace.new)
   
   # registor definition
   eax = OpEAX.instance
   esp = OpESP.instance
-  hello = OpImmidiate32.new("Hello World1234".address)
+  hello = OpImmidiate32.new("Hello World11234".address)
   asm.step_mode = true
+  RubyType::rstring_ptr(hello, csentry, cs)
   asm.with_retry do
-    rshello = TypedData.new(RubyType::RString, hello)
-    mov(eax, rshello[:as][:heap][:ptr])
     push(eax)
     rbp = address_of("puts")
     call(rbp)
@@ -62,7 +62,8 @@ def hello2
     ret
   end
   cs.disassemble
-  cs.call(cs.base_address)
+  csentry.disassemble
+  csentry.call(csentry.base_address)
 end
 hello2
 

@@ -97,6 +97,11 @@ module YTLJit
 
     def method_missing(mn, *args)
       result = nil
+      if @step_mode
+        out = @generator.call(@step_handler)
+        store_outcode(out)
+      end
+
       if args.any? {|e| e.is_a?(OpVarImmidiate32) } and !@retry_mode then
         offset = @offset
         stfunc = lambda {
@@ -109,11 +114,6 @@ module YTLJit
             e.add_refer(stfunc)
           end
         end
-      end
-
-      if @step_mode
-        out = @generator.call(@step_handler)
-        store_outcode(out)
       end
 
       out = @generator.send(mn, *args)

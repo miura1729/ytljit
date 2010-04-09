@@ -460,17 +460,21 @@ module YTLJit
     end
 
     def jmp(addr)
-      case addr
+      addr2 = addr
+      if addr.is_a?(OpImmidiate32) then
+        addr2 = addr.value
+      end
+      case addr2
       when Integer
-        offset = addr - @asm.current_address - 2
+        offset = addr2 - @asm.current_address - 2
         if offset > -128 and offset < 127 then
           [0xeb, offset].pack("C2")
         else
-          offset = addr - @asm.current_address - 5
+          offset = addr2 - @asm.current_address - 5
           [0xe9, offset].pack("CL")
         end
       else
-        modseq, modfmt = modrm(:jmp, 4, addr, dst, src)
+        modseq, modfmt = modrm(:jmp, 4, addr2, addr2, nil)
         ([0xff] + modseq).pack("C#{modfmt}")
       end
     end

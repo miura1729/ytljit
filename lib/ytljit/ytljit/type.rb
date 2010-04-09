@@ -22,12 +22,14 @@ module YTLJit
     end
 
     class PointedData<TypeCommon
-      def initialize(type, index)
+      def initialize(type, index, offset)
         @type = type
         @index = index
+        @offset = offset
       end
 
       attr :index
+      attr :offset
 
       def size
         @reftype.size
@@ -51,8 +53,8 @@ module YTLJit
         4
       end
       
-      def [](n = 0)
-        PointedData.new(@reftype, n)
+      def [](n = 0, offset = 0)
+        PointedData.new(@reftype, n, offset)
       end
     end
 
@@ -70,8 +72,8 @@ module YTLJit
         @type.alignment
       end
       
-      def [](n = 0)
-        PointedData.new(@reftype, n)
+      def [](n = 0, offset = 0)
+        PointedData.new(@reftype, n, offset)
       end
     end
     

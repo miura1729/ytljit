@@ -1,6 +1,6 @@
-# require 'lib/ytljit/ytljit.rb'
+require 'ytljit.rb'
 
-#include YTLJit
+include YTLJit
 
 class State
   @@num = 0
@@ -16,12 +16,14 @@ class State
     @@num += 1
     @transfer = {}
     @transfer[nil] = []
+    @transfer[true] = []
     @isend = false
   end
 
   def reset
     @transfer = {}
     @transfer[nil] = []
+    @transfer[true] = []
   end
 
   def clone
@@ -62,6 +64,7 @@ class State
 
   def collect_edge(nodes)
     trans = {}
+    trans[true] = []
     nodes.each do |st|
       st.transfer.each do |c, st2|
         if c then
@@ -72,7 +75,7 @@ class State
     end
     trans.each do |c, nodes|
       if nodes.size > 1 then
-        nodes.each_cons(2) do |e0, e1|
+        (nodes + trans[true]).each_cons(2) do |e0, e1|
           e0.add_edge(nil, e1)
         end
         trans[c] = [nodes[0]]
@@ -97,6 +100,22 @@ class State
     end
 
     res
+  end
+end
+
+class StateCompiler
+  def initialize
+    @state_codespace = []
+    State.states.each do |s|
+      @state_codespace[s.id] = CodeSpace.new
+    end
+  end
+
+  def compile_1state(st)
+    ccs = @state_codespace[st.id]
+    asm = Assembler.new(ccs)
+    asm.with_retry do
+    end
   end
 end
 
@@ -129,6 +148,17 @@ def parse_aux(regstr, cp, nest)
         s2 = State.new
       end
       s1.add_edge(regstr[cp], s2)
+      s0 = s1
+      s1 = s2
+
+    when '.'
+      if orxst then
+        s2 = orxst
+        orxst = nil
+      else
+        s2 = State.new
+      end
+      s1.add_edge(true, s2)
       s0 = s1
       s1 = s2
 
@@ -184,21 +214,15 @@ end
 #s, e = parse("cb*ab")
 #s, e = parse("(ab)(abc)*(ab)")
 #s, e = parse("c(abc)*ab")
-s, e = parse("c(abc)*a|b|c")
+#s, e = parse("c(abc)*a|b|c")
+s, e = parse(".*cabc.*a|b|c")
 State.states.each do |s|
   s.translate_dfa
 end
 
 State.states.each do |s|
-  p s
+#  p s
 end
 
-def raw_str(str)
-  eax = OpEAX.instance
-  esp = OpESP.instance
-
-  asm = Assembler.new(cs = CodeSpace.new)
-  asm.with_retry do
-    asm.mov(ebx, eax)
-  end
-end
+sc = StateCompiler.new
+sc.raw_str("foo")
