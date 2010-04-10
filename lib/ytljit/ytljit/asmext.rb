@@ -22,7 +22,9 @@ module YTLJit
       case type
       when Type::Scalar, Type::Pointer, Type::Array
         if base != EAX then
-          [mov(EAX, base), type]
+          code = ""
+          code += @asm.update_state(mov(EAX, base))
+          [code, type]
         else
           ["", type]
         end
@@ -30,13 +32,15 @@ module YTLJit
       when Type::StructMember
         code = ""
         if base != EAX then
-          code += mov(EAX, base)
+          code += @asm.update_state(mov(EAX, base))
         end
         oi = OpIndirect.new(EAX, type.offset)
         if type.type.is_a?(Type::Array) then
-          code += lea(EAX, oi)
+          code += @asm.update_state(call_stephandler) if code != ""
+          code += @asm.update_state(lea(EAX, oi))
         else
-          code += mov(EAX, oi)
+          code += @asm.update_state(call_stephandler)  if code != ""
+          code += @asm.update_state(mov(EAX, oi))
         end
         [code, type.type]
 
@@ -44,14 +48,16 @@ module YTLJit
         # Now support only index == 0
         code = ""
         if base != EAX then
-          code += mov(EAX,  base)
+          code += @asm.update_state(mov(EAX,  base))
         end
         if type.offset != 0 then
           oi = OpIndirect.new(EAX, type.offset)
-          code += lea(EAX, oi)
+          code += @asm.update_state(call_stephandler)  if code != ""
+          code += @asm.update_state(lea(EAX, oi))
         end
         ineax = OpIndirect.new(EAX)
-        code += mov(EAX,  ineax)
+        code += @asm.update_state(call_stephandler) if code != ""
+        code += @asm.update_state(mov(EAX,  ineax))
         [code, type.type]
       end
     end
@@ -60,11 +66,14 @@ module YTLJit
       case inst
       when :mov
         if src.is_a?(TypedData) then
+          orgaddress = @asm.current_address
           rcode = ""
           rcode, rtype = gen_access(src)
           if dst != EAX then
-            rcode += mov(dst, EAX)
+            rcode += @asm.update_state(call_stephandler) if rcode != ""
+            rcode += @asm.update_state(mov(dst, EAX))
           end
+          @asm.current_address = orgaddress
           return [rcode, TypedData.new(rtype, dst)]
         end
       end

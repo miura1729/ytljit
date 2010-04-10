@@ -255,6 +255,19 @@ module YTLJit
   class GeneratorX86Binary<Generator
     include AssemblerUtilX86
 
+    def initialize(asm, handler = "ytl_step_handler")
+      super(asm)
+      @step_handler = address_of(handler)
+    end
+
+    def call_stephandler
+      if @asm.step_mode
+        call(@step_handler)
+      else
+        ""
+      end
+    end
+
     def add(dst, src)
       common_operand_80(dst, src, 0x00, 0x0, :add)
     end

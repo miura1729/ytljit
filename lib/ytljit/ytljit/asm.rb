@@ -45,14 +45,12 @@ module YTLJit
       @output_stream = out
       @retry_mode = false
       @step_mode = false
-      @step_handler = address_of("ytl_step_handler")
       reset
     end
 
     def reset
       @current_address = @output_stream.base_address
       @offset = 0
-      @generated_code = []
     end
 
     attr_accessor :current_address
@@ -68,10 +66,15 @@ module YTLJit
     attr_accessor :generated_code
 
     def store_outcode(out)
-      @current_address += out.bytesize
+      update_state(out)
       @offset += out.bytesize
-      @generated_code.push [@offset, out]
       @output_stream.emit(out)
+      out
+    end
+
+    def update_state(out)
+      @current_address += out.bytesize
+      out
     end
 
     def with_retry(&body)
@@ -88,19 +91,9 @@ module YTLJit
       @retry_mode = false
     end
 
-    def with_current_address(address)
-      org_curret_address = self.current_address
-      self.current_address = address
-      yield
-      self.current_address = org_curret_address
-    end
-
     def method_missing(mn, *args)
-      result = nil
-      if @step_mode
-        out = @generator.call(@step_handler)
-        store_outcode(out)
-      end
+      out = @generator.call_stephandler
+      store_outcode(out)
 
       if args.any? {|e| e.is_a?(OpVarImmidiate32) } and !@retry_mode then
         offset = @offset
@@ -123,6 +116,15 @@ module YTLJit
         store_outcode(out)
       end
       out
+    end
+
+    private
+
+    def with_current_address(address)
+      org_curret_address = self.current_address
+      self.current_address = address
+      yield
+      self.current_address = org_curret_address
     end
   end
 end

@@ -94,8 +94,10 @@ class State
   def inspect
     res = "#{@id}\n"
     @transfer.each do |c, st|
-      st.each do |ele|
-        res += "  #{c} -> #{ele.id} #{"  END" if @isend}\n"
+      if c != nil then
+        st.each do |ele|
+          res += "  #{c} -> #{ele.id} #{"  END" if @isend}\n"
+        end
       end
     end
 
@@ -109,13 +111,78 @@ class StateCompiler
     State.states.each do |s|
       @state_codespace[s.id] = CodeSpace.new
     end
+    @csstart = CodeSpace.new
+    @csstart2 = CodeSpace.new
+    @csmain = CodeSpace.new
+    @failend = CodeSpace.new
   end
 
+  #  Register map
+  #
+  # eax work 
+  # esi work
+  # edi pointer to current char
   def compile_1state(st)
+    cstab =  @state_codespace
     ccs = @state_codespace[st.id]
     asm = Assembler.new(ccs)
-    asm.with_retry do
+    if st.isend then
+      asm.with_retry do
+        asm.mov(X86::EAX, OpImmidiate32.new(2))
+        asm.ret
+      end
+    else
+      failend = @failend
+      asm.with_retry do
+        asm.mov(X86::AL, X86::INDIRECT_EDI)
+        asm.add(X86::EDI, OpImmidiate32.new(1))
+        st.transfer.each do |c, ns|
+          if c.is_a?(String) then
+            asm.cmp(X86::AL, OpImmidiate8.new(c.ord))
+            asm.jz(cstab[ns[0].id].var_base_address)
+          end
+        end
+        asm.cmp(X86::AL, OpImmidiate8.new(0))
+        asm.jz(failend.var_base_address)
+        if st.transfer[true][0] then
+          asm.jmp(cstab[st.transfer[true][0].id].var_base_address)
+        else
+          asm.mov(X86::EAX, OpImmidiate32.new(0))
+          asm.ret
+        end
+      end
     end
+  end
+
+  def compile
+    asm = Assembler.new(@csstart)
+    cs2 = @csstart2
+    asm.with_retry do
+      asm.mov(X86::ESI, X86::EAX)
+      asm.jmp(cs2.var_base_address)
+    end
+    RubyType::rstring_ptr(X86::ESI, @csstart2, @csmain)
+
+    asm = Assembler.new(@csmain)
+    cstab =  @state_codespace
+    asm.with_retry do
+      asm.mov(X86::EDI, X86::EAX)
+      asm.jmp(cstab[0].var_base_address)
+    end
+
+    asm = Assembler.new(@failend)
+    asm.with_retry do
+      asm.mov(X86::EAX, OpImmidiate32.new(0))
+      asm.ret
+    end
+
+    State.states.each do |s|
+      compile_1state(s)
+    end
+  end
+
+  def exec(str)
+    @csstart.call(@csstart.base_address, str)
   end
 end
 
@@ -221,8 +288,11 @@ State.states.each do |s|
 end
 
 State.states.each do |s|
-#  p s
+  p s
 end
 
 sc = StateCompiler.new
-sc.raw_str("foo")
+sc.compile
+p sc.exec("foo")
+p sc.exec("cabcd")
+p sc.exec("cabcccaasssccccddswa")
