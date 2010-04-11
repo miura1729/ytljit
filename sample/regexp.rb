@@ -3,17 +3,10 @@ require 'ytljit.rb'
 include YTLJit
 
 class State
-  @@num = 0
-  @@states = []
-
-  def self.states
-    @@states
-  end
-
-  def initialize()
-    @id = @@num
-    @@states.push self
-    @@num += 1
+  def initialize(regobj)
+    @regobj = regobj
+    @id = regobj.curid
+    regobj.add_state self
     @transfer = {}
     @transfer[nil] = []
     @transfer[true] = []
@@ -27,7 +20,7 @@ class State
   end
 
   def clone
-    no = State.new
+    no = @regobj.newstate
     no.transfer = @transfer.clone
     no.isend = @isend
     no
@@ -40,14 +33,13 @@ class State
   def add_edge(c, to)
     trans = @transfer[c]
     if c and trans then
-      ns = State.new
+      ns = @regobj.newstate
       @transfer[nil].push ns
       trans = ns.transfer[c] = []
     elsif trans == nil then
       trans = @transfer[c] = []
     end
     trans.push to
-
   end
 
   def epsilon_nodes(res)
@@ -106,9 +98,10 @@ class State
 end
 
 class StateCompiler
-  def initialize
+  def initialize(regobj)
+    @regobj = regobj
     @state_codespace = []
-    State.states.each do |s|
+    regobj.states.each do |s|
       @state_codespace[s.id] = CodeSpace.new
     end
     @csstart = CodeSpace.new
@@ -176,7 +169,7 @@ class StateCompiler
       asm.ret
     end
 
-    State.states.each do |s|
+    @regobj.states.each do |s|
       compile_1state(s)
     end
   end
@@ -186,113 +179,139 @@ class StateCompiler
   end
 end
 
-def parse(regstr)
-  parse_aux(regstr, 0, 0)
-end
-
-def parse_letter(curstate, c)
-  newstate = State.new
-#  curstate.add_edge(c, newstate)
-  newstate
-end
-
-def parse_aux(regstr, cp, nest)
-  start_state = end_state = State.new
-  s0 = State.new
-  start_state.add_edge(nil, s0)
-  s1 = s0
-  s2 = s1
-  orxst = nil
-  while cp < regstr.size do
-    c = regstr[cp]
-    case c
-    when '\\'
-      cp += 1
-      if orxst then
-        s2 = orxst
-        orxst = nil
-      else
-        s2 = State.new
-      end
-      s1.add_edge(regstr[cp], s2)
-      s0 = s1
-      s1 = s2
-
-    when '.'
-      if orxst then
-        s2 = orxst
-        orxst = nil
-      else
-        s2 = State.new
-      end
-      s1.add_edge(true, s2)
-      s0 = s1
-      s1 = s2
-
-    when '('
-      s0 = s1
-      s1, s2, cp = parse_aux(regstr, cp + 1, nest + 1)
-      s0.add_edge(nil, s1)
-
-    when ')'
-      if nest > 0 then
-        return [start_state, s1, cp]
-      end
-
-      raise "Illigal \')\'"
-
-    when '*'
-      ns0 = s0.clone
-      s0.reset
-      n1 = s0
-      s1 = ns0
-      n2 = State.new
-      n1.add_edge(nil, s1)
-      s2.add_edge(nil, n2)
-      s2.add_edge(nil, s1)
-      n1.add_edge(nil, n2)
-      s0 = s1
-      s1 = n2
-
-    when '|'
-      s1 = s0
-      orxst = s2
-
-    else
-      if orxst then
-        s2 = orxst
-        orxst = nil
-      else
-        s2 = State.new
-      end
-      s1.add_edge(c, s2)
-      s0 = s1
-      s1 = s2
-    end
-    
-    cp += 1
+class YTLRegexp
+  def initialize
+    @states = []
+    @numstate = 0
   end
-  end_state = s1
-  s1.isend = true
 
-  [start_state, end_state, cp]
+  attr :states
+
+  def curid
+    rc = @numstate
+    @numstate += 1
+    rc
+  end
+
+  def add_state(state)
+    @states.push state
+  end
+
+  def newstate
+    ns = State.new(self)
+  end
+  
+  def parse(regstr)
+    parse_aux(regstr, 0, 0)
+  end
+  
+  def parse_letter(curstate, c)
+    ns = newstate
+    #  curstate.add_edge(c, newstate)
+    ns
+  end
+  
+  def parse_aux(regstr, cp, nest)
+    start_state = end_state = newstate
+    s0 = newstate
+
+    start_state.add_edge(nil, s0)
+    s1 = s0
+    s2 = s1
+    orxst = nil
+    while cp < regstr.size do
+      c = regstr[cp]
+      case c
+      when '\\'
+        cp += 1
+        if orxst then
+          s2 = orxst
+          orxst = nil
+        else
+          s2 = newstate
+        end
+        s1.add_edge(regstr[cp], s2)
+        s0 = s1
+        s1 = s2
+        
+      when '.'
+        if orxst then
+          s2 = orxst
+          orxst = nil
+        else
+          s2 = newstate
+        end
+        s1.add_edge(true, s2)
+        s0 = s1
+        s1 = s2
+        
+      when '('
+        s0 = s1
+        s1, s2, cp = parse_aux(regstr, cp + 1, nest + 1)
+        s0.add_edge(nil, s1)
+        
+      when ')'
+        if nest > 0 then
+          return [start_state, s1, cp]
+        end
+        
+        raise "Illigal \')\'"
+        
+      when '*'
+        ns0 = s0.clone
+        s0.reset
+        n1 = s0
+        s1 = ns0
+        n2 = newstate
+        n1.add_edge(nil, s1)
+        s2.add_edge(nil, n2)
+        s2.add_edge(nil, s1)
+        n1.add_edge(nil, n2)
+        s0 = s1
+        s1 = n2
+        
+      when '|'
+        s1 = s0
+        orxst = s2
+        
+      else
+        if orxst then
+          s2 = orxst
+          orxst = nil
+        else
+          s2 = newstate
+        end
+        s1.add_edge(c, s2)
+        s0 = s1
+        s1 = s2
+      end
+      
+      cp += 1
+    end
+    end_state = s1
+    s1.isend = true
+    
+    [start_state, end_state, cp]
+  end
 end
 
-#s, e = parse("cb*ab")
-#s, e = parse("(ab)(abc)*(ab)")
-#s, e = parse("c(abc)*ab")
-#s, e = parse("c(abc)*a|b|c")
-s, e = parse(".*cabc.*a|b|c")
-State.states.each do |s|
+regobj = YTLRegexp.new
+#regobj.parse("cb*ab")
+#regobj.parse("(ab)(abc)*(ab)")
+#regobj.parse("c(abc)*ab")
+#regobj.parse("c(abc)*a|b|c")
+regobj.parse(".*cabc.*a|b|c")
+regobj.states.each do |s|
   s.translate_dfa
 end
 
-State.states.each do |s|
+regobj.states.each do |s|
   p s
 end
 
-sc = StateCompiler.new
+sc = StateCompiler.new(regobj)
 sc.compile
 p sc.exec("foo")
 p sc.exec("cabcd")
+p sc.exec("cabcb")
 p sc.exec("cabcccaasssccccddswa")
