@@ -31,17 +31,17 @@ def hello
   hello = OpImmidiate32.new("Hello World".address)
   asm.step_mode = true
   asm.with_retry do
-    mov(eax, hello)
-    push(eax)
+    asm.mov(eax, hello)
+    asm.push(eax)
     rbp = address_of("rb_p")
-    call(rbp)
-    add(esp, OpImmidiate8.new(4))
-    ret
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
   end
   cs.fill_disasm_cache
   cs.call(cs.base_address)
 end
-#hello
+hello
 
 # Hello World (Use puts)
 def hello2
@@ -55,11 +55,11 @@ def hello2
   asm.step_mode = true
   RubyType::rstring_ptr(hello, csentry, cs)
   asm.with_retry do
-    push(eax)
+    asm.push(eax)
     rbp = address_of("puts")
-    call(rbp)
-    add(esp, OpImmidiate8.new(4))
-    ret
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
   end
   cs.disassemble
   csentry.disassemble
@@ -83,36 +83,36 @@ def fib(n)
   ent = nil
   asm.with_retry do
     ent = cs1.var_base_address
-    mov(eax, OpImmidiate32.new(n))
-    call(ent)
-    add(eax, eax)
-    add(eax, OpImmidiate8.new(1))
-    ret
+    asm.mov(eax, OpImmidiate32.new(n))
+    asm.call(ent)
+    asm.add(eax, eax)
+    asm.add(eax, OpImmidiate8.new(1))
+    asm.ret
   end
   
   asm = Assembler.new(cs1)
 #  asm.step_mode = true
   asm.with_retry do
-    cmp(eax, OpImmidiate32.new(2))
-    jl(cs2.var_base_address)
-    sub(eax, OpImmidiate32.new(1))
-    push(eax)
-    call(ent)
-    pop(ebx)
-    sub(ebx, OpImmidiate32.new(1))
-    push(eax)
-    mov(eax, ebx)
-    call(ent)
-    pop(ebx)
-    add(eax, ebx)
-    ret
+    asm.cmp(eax, OpImmidiate32.new(2))
+    asm.jl(cs2.var_base_address)
+    asm.sub(eax, OpImmidiate32.new(1))
+    asm.push(eax)
+    asm.call(ent)
+    asm.pop(ebx)
+    asm.sub(ebx, OpImmidiate32.new(1))
+    asm.push(eax)
+    asm.mov(eax, ebx)
+    asm.call(ent)
+    asm.pop(ebx)
+    asm.add(eax, ebx)
+    asm.ret
   end
   
   asm = Assembler.new(cs2)
 #  asm.step_mode = true
   asm.with_retry do
-    mov(eax, OpImmidiate32.new(1))
-    ret
+    asm.mov(eax, OpImmidiate32.new(1))
+    asm.ret
   end
 
   cs0.call(cs0.base_address)

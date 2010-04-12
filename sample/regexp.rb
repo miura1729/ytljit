@@ -39,7 +39,9 @@ class State
     elsif trans == nil then
       trans = @transfer[c] = []
     end
-    trans.push to
+    unless trans.include?(to)
+      trans.push to
+    end
   end
 
   def epsilon_nodes(res)

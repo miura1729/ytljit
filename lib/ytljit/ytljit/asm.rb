@@ -79,13 +79,13 @@ module YTLJit
 
     def with_retry(&body)
       org_base_address = @output_stream.base_address
-      self.instance_eval(&body)
+      yield
+      @retry_mode = true
       while org_base_address != @output_stream.base_address do
-        @retry_mode = true
         org_base_address = @output_stream.base_address
         reset
         @output_stream.reset
-        self.instance_eval(&body)
+        yield
         @output_stream.update_refer
       end
       @retry_mode = false
