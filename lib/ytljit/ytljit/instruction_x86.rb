@@ -257,7 +257,7 @@ module YTLJit
 
     def initialize(asm, handler = "ytl_step_handler")
       super(asm)
-      @step_handler = address_of(handler)
+      @step_handler = YTLJit.address_of(handler)
     end
 
     def call_stephandler
