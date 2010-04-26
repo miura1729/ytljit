@@ -13,4 +13,4 @@ require 'ytljit/asmext'
 
 require 'ytljit/codespace'
 
-require 'ext/ytljit.#{RbConfig::CONFIG['DLEXT']}'
+require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
