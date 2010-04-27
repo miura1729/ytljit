@@ -24,8 +24,16 @@ module YTLJit
     INDIRECT_EDI = OpIndirect.new(EDI)
   end
 
+  module AbsArch
+    case RbConfig::CONFIG["target_cpu"] 
+    when /i?86/
+      TMPR = OpEAX.instance
+      RETR = OpEAX.instance
+    end
+  end
+
   module RubyType
-    VALUE = Type::INT32
+    VALUE = Type::MACHINE_WORD
     P_CHAR = Type::Pointer.new(Type::INT8)
 
     RBasic = Type::Struct.new(
@@ -55,19 +63,19 @@ module YTLJit
       cs_embed = CodeSpace.new
       asm = Assembler.new(csstart)
       
-      rshello = TypedData.new(RubyType::RString, str)
+      rsstr = TypedData.new(RubyType::RString, str)
       # asm.step_mode = true
       asm.with_retry do
-        asm.mov(X86::EAX, rshello[:basic][:flags])
+        asm.mov(X86::EAX, rsstr[:basic][:flags])
         asm.and(X86::EAX, EMBEDER_FLAG)
         asm.jz(cs_embed.var_base_address)
-        asm.mov(X86::EAX, rshello[:as][:heap][:ptr])
+        asm.mov(X86::EAX, rsstr[:as][:heap][:ptr])
         asm.jmp(cscont.var_base_address)
       end
       asm = Assembler.new(cs_embed)
       # asm.step_mode = true
       asm.with_retry do
-        asm.mov(X86::EAX, rshello[:as][:ary])
+        asm.mov(X86::EAX, rsstr[:as][:ary])
         asm.jmp(cscont.var_base_address)
       end
     end

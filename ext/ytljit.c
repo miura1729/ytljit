@@ -141,12 +141,21 @@ ytl_code_call(int argc, VALUE *argv, VALUE self)
   rb_scan_args(argc, argv, "11", &addr, &args);
   raddr = (void *)NUM2ULONG(addr);
 
+#ifdef __ia64
+  asm("movl %1, %%rax\n"
+      "call *%2 \n"
+      "movl %%rax, %0\n"
+      : "=r"(rc) 
+      : "r"(args), "r"(raddr) 
+      : "%rax", "%rbx");
+#else
   asm("movl %1, %%eax\n"
       "call *%2 \n"
       "movl %%eax, %0\n"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%eax", "%ebx");
+#endif
 
   return rc;
 }
@@ -172,7 +181,11 @@ ytl_code_space_to_s(VALUE self)
 }
 
 static VALUE *
+#ifdef __ia64
+get_registers(unsigned long long *regs, VALUE *argv)
+#else
 get_registers(unsigned long *regs, VALUE *argv)
+#endif
 {
   argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
 
@@ -197,6 +210,18 @@ ytl_step_handler()
 {
   void body() {
     VALUE *argv;
+
+#ifdef __ia64
+    unsigned long long *regs;
+
+    asm("mov (%%rbp), %0"
+	: "=r" (regs) : : "%rax");
+    argv = ALLOCA_N(VALUE, 8);
+    argv = get_registers(regs, argv);
+
+    rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
+  }
+#else
     unsigned long *regs;
 
     asm("mov (%%ebp), %0"
@@ -206,12 +231,31 @@ ytl_step_handler()
 
     rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
   }
+#endif
 
   /* Don't add local variables. Maybe break consistency of stack */
 
+#ifdef __ia64
+  asm("push rax"
+      "push rbx"
+      "push rcx"
+      "push rdx"
+      "push rsi"
+      "push rdi"
+      "push rbp");
+  body();
+  asm("pop rbp"
+      "pop rdi"
+      "pop rsi"
+      "pop rdx"
+      "pop rcx"
+      "pop rbx"
+      "pop rax");
+#else
   asm("pusha");
   body();
   asm("popa");
+#endif
 }
 
 void 
@@ -242,11 +286,16 @@ Init_ytljit()
   rb_define_method(ytl_cCodeSpace, "to_s", ytl_code_space_to_s, 0);
 
   /* Open Handles */
+#ifdef __CYGWIN__
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));
   used_dl_handles++;
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygruby191.dll", RTLD_LAZY));
   used_dl_handles++;
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("ytljit.so", RTLD_LAZY));
   used_dl_handles++;
+#else
+  OPEN_CHECK(dl_handles[used_dl_handles] = dlopen(NULL, RTLD_LAZY));
+  used_dl_handles++;
+#endif
 }
 

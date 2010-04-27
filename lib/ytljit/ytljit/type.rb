@@ -46,11 +46,11 @@ module YTLJit
       end
       
       def size
-        4
+        MACHINE_WORD.size
       end
       
       def alignment
-        4
+        MACHINE_WORD.alignment
       end
       
       def [](n = 0, offset = 0)
@@ -98,5 +98,13 @@ module YTLJit
     deftype :uint32, [4, 4]
     deftype :int64, [8, 8]
     deftype :uint64, [8, 8]
+
+    case RbConfig::CONFIG["target_cpu"] 
+    when /i?86/ 
+      deftype :machine_word, [4, 4]
+
+    when /x86_64/
+      deftype :machine_word, [8, 8]
+    end
   end
 end

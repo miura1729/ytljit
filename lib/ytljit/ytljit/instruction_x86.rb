@@ -77,12 +77,106 @@ module YTLJit
     end
   end
 
-  module AssemblerUtilX86
-    def nosupported_addressing_mode(inst, dst, src, src2 = nil)
-      mess = "Not supported addessing mode in #{inst} #{dst} #{src} #{src2}"
-      raise IlligalOperand, mess
-    end
+  class OpReg64<OpRegistor
+  end
 
+  class OpRAX<OpReg64
+    def reg_no
+      0
+    end
+  end
+
+  class OpRBX<OpReg64
+    def reg_no
+      1
+    end
+  end
+
+  class OpRCX<OpReg64
+    def reg_no
+      2
+    end
+  end
+
+  class OpRDX<OpReg64
+    def reg_no
+      3
+    end
+  end
+
+  class OpRDI<OpReg64
+    def reg_no
+      4
+    end
+  end
+
+  class OpRSI<OpReg64
+    def reg_no
+      5
+    end
+  end
+
+  class OpRBP<OpReg64
+    def reg_no
+      6
+    end
+  end
+
+  class OpRSP<OpReg64
+    def reg_no
+      7
+    end
+  end
+
+  class OpR8<OpReg64
+    def reg_no
+      8
+    end
+  end
+
+  class OpR9<OpReg64
+    def reg_no
+      9
+    end
+  end
+
+  class OpR10<OpReg64
+    def reg_no
+      10
+    end
+  end
+
+  class OpR11<OpReg64
+    def reg_no
+      11
+    end
+  end
+
+  class OpR12<OpReg64
+    def reg_no
+      12
+    end
+  end
+
+  class OpR13<OpReg64
+    def reg_no
+      13
+    end
+  end
+
+  class OpR14<OpReg64
+    def reg_no
+      14
+    end
+  end
+
+  class OpR15<OpReg64
+    def reg_no
+      15
+    end
+  end
+  
+  module AssemblerUtilX86Modrm
     def modrm_indirect(reg, rm)
       regv = nil
       case reg
@@ -154,6 +248,18 @@ module YTLJit
       else
           return nosupported_addressing_mode(inst, dst, src, src2)
       end
+    end
+  end
+
+  module AssemblerUtilX86
+    case RbConfig::CONFIG["target_cpu"] 
+    when /i?86/
+      include AssemblerUtilX86Modrm
+    end
+
+    def nosupported_addressing_mode(inst, dst, src, src2 = nil)
+      mess = "Not supported addessing mode in #{inst} #{dst} #{src} #{src2}"
+      raise IlligalOperand, mess
     end
 
     def common_operand_80(dst, src, bopc, optc, inst)
@@ -503,7 +609,8 @@ module YTLJit
         [0xe8, offset].pack("CL")
 
       else
-        modseq, modfmt = modrm(:call, 2, addr, dst, src)
+        p addr
+        modseq, modfmt = modrm(:call, 2, addr, nil, addr)
         ([0xff] + modseq).pack("C#{modfmt}")
       end
     end
