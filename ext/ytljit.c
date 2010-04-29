@@ -148,16 +148,16 @@ ytl_code_call(int argc, VALUE *argv, VALUE self)
       "mov %%rax, %0;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
-      : "%rax");
+      : "%rax", "%rbx");
 #elif  __i386__
   asm("mov %1, %%eax;"
       "call *%2;"
       "mov %%eax, %0;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
-      : "%eax");
+      : "%eax", "%ebx");
 #else
-#error "only i386 or x86_64 is supported"
+#error "only i386 or x86-64 is supported"
 #endif
 
   return rc;
@@ -210,8 +210,15 @@ body(void)
   VALUE *argv;
   unsigned long *regs;
 
+#if defined(__i386__) || defined(__i386)
   asm("mov (%%ebp), %0"
       : "=r" (regs) : : "%eax");
+#elif defined(__x86_64__) || defined(__x86_64)
+  asm("mov (%%rbp), %0"
+      : "=r" (regs) : : "%rax");
+#else
+#error "only i386 or x86-64 is supported"
+#endif
   argv = ALLOCA_N(VALUE, 8);
   argv = get_registers(regs, argv);
 
@@ -232,7 +239,7 @@ pushall(void)
 #elif __i386__
   asm("pushal");
 #else
-#error "only i386 or x86_64 is supported"
+#error "only i386 or x86-64 is supported"
 #endif
 }
 
@@ -250,7 +257,7 @@ popall(void)
 #elif __i386__
   asm("popal");
 #else
-#error "only i386 or x86_64 is supported"
+#error "only i386 or x86-64 is supported"
 #endif
 }
 void
@@ -292,7 +299,16 @@ Init_ytljit()
   rb_define_method(ytl_cCodeSpace, "to_s", ytl_code_space_to_s, 0);
 
   /* Open Handles */
+#ifdef __CYGWIN__
+  OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));
+  used_dl_handles++;
+  OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygruby191.dll", RTLD_LAZY));
+  used_dl_handles++;
+  OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("ytljit.so", RTLD_LAZY));
+  used_dl_handles++;
+#else
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen(NULL, RTLD_LAZY));
   used_dl_handles++;
+#endif
 }
 
