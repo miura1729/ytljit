@@ -32,7 +32,6 @@ class CodeSpaceTests < Test::Unit::TestCase
     asm.call(rbp)
     asm.add(esp, OpImmidiate8.new(4))
     asm.ret
-    asm.flush
     cs.call(cs.base_address)
   end
 end
