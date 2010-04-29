@@ -29,7 +29,10 @@ module YTLJit
     when /i?86/
       TMPR = OpEAX.instance
       RETR = OpEAX.instance
+      SPR = OpESP.instance
+      BPR = OpEBP.instance
     end
+    FUNC_ARG = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key)}
   end
 
   module RubyType

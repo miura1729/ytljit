@@ -609,7 +609,6 @@ module YTLJit
         [0xe8, offset].pack("CL")
 
       else
-        p addr
         modseq, modfmt = modrm(:call, 2, addr, nil, addr)
         ([0xff] + modseq).pack("C#{modfmt}")
       end

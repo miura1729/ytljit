@@ -128,4 +128,10 @@ class InstructionTests < Test::Unit::TestCase
     assert_equal(cd, 
                  [0x89, 0xd8, 0x8b, 0x80, 0x10, 0x0, 0x0, 0x0, 0x89, 0xc2].pack("C*"))
    end
+
+  def test_callseq_macro
+    @asm.mov(AbsArch::FUNC_ARG[0], OpImmidiate32.new(1))
+    @asm.call_with_arg(OpImmidiate32.new(0), 1)
+    @cs.disassemble
+  end
 end

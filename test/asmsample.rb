@@ -22,20 +22,17 @@ def file_output
 end
 
 # Hello World
+include AbsArch
 def hello
   asm = Assembler.new(cs = CodeSpace.new)
   
   # registor definition
-  eax = OpEAX.instance
-  esp = OpESP.instance
   hello = OpImmidiate32.new("Hello World".address)
   asm.step_mode = true
   asm.with_retry do
-    asm.mov(eax, hello)
-    asm.push(eax)
+    asm.mov(FUNC_ARG[0], hello)
     rbp = address_of("rb_p")
-    asm.call(rbp)
-    asm.add(esp, OpImmidiate8.new(4))
+    asm.call_with_arg(rbp, 1)
     asm.ret
   end
   cs.fill_disasm_cache

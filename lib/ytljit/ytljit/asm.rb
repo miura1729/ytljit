@@ -13,6 +13,7 @@ module YTLJit
     def initialize(asm)
       @asm = asm
     end
+    attr :asm
   end
 
   class OutputStream

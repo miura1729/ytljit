@@ -4,12 +4,12 @@ module YTLJit
   Stack layout (on stack frame)
 
 
-Hi     |  |Arg0(self)             |   |
+Hi     |  |Argn                   |   |
+       |  |   :                   |   |
+       |  |Arg3(exception status) |   |
+       |  |Arg2(block pointer)    |   |
        |  |Arg1(parent frame)     |  -+
-       |  |Arg2(block pointer)    |
-       |  |Arg3(exception status) |
-       |  |   :                   |
-       |  |Arg n                  |
+       |  |Arg0(self)             |
        |  |Return Address         |
        +- |old bp                 | <-+
           |old bp on stack        |  -+
@@ -45,12 +45,12 @@ LO        |                       |   |  |
        |  |T_DATA                 | <-+  |                                      
        |                                 |
        |                                 |
-       |  |Arg0(self)             |      |   
-       |  |Arg1(parent frame)     |      |
-       |  |Arg2(block pointer)    |      |
-       |  |Arg3(exception status) |      |
-       |  |   :                   |      |
        |  |Arg n                  |      |
+       |  |   :                   |      |
+       |  |Arg3(exception status) |      |
+       |  |Arg2(block pointer)    |      |
+       |  |Arg1(parent frame)     |      |
+       |  |Arg0(self)             |      |   
        |  |Not used(reserved)     |      |
        |  |old bp on stack        | -----+
     EBP-> |Local Vars1            |   
