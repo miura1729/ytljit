@@ -5,7 +5,7 @@ include YTLJit
 class InstructionTests < Test::Unit::TestCase
   def setup
     @cs = CodeSpace.new
-    @asm = Assembler.new(@cs, GeneratorX86Extend)
+    @asm = Assembler.new(@cs, GeneratorExtend)
     @eax = OpEAX.instance
     @ecx = OpECX.instance
     @esp = OpESP.instance

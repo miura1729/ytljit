@@ -41,7 +41,7 @@ module YTLJit
   end
 
   class Assembler
-    def initialize(out, gen = GeneratorX86Extend)
+    def initialize(out, gen = GeneratorExtend)
       @generator = gen.new(self)
       @output_stream = out
       @retry_mode = false

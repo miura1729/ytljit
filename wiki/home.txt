@@ -1,0 +1,92 @@
+ytljitのページです
+
+h1. ytljitとは
+
+ ytljitはRubyからネイティブコードを生成するためのライブラリです。
+ytljitを作成したきっかけは、yarv2llvmでllvmを使用していて、llvmではサポートされておらずllvmの設計思想から今後もサポートすることがないであろうさまざまな機能が、Rubyコンパイラを実装するにあたって有効であると考えたからです。そのような機能のうち代表的なものが実行時のコード書き換えです。実行時のコード書き換えはRubyを効率的にコンパイルするにあたってキーになる手法で、これによってメソッド再定義、効率的なメソッド検索、Bignum等が実装出来るようになります。
+ytljitは階層構造になっており、最下層はアセンブラでその上により抽象度の高いVMを実装します。VMはytljitのシステムによりネイティブコードに変換されます。
+
+h1. アセンブラ
+
+ytljitのアセンブラは特別なDSLなどは無く、Rubyのオブジェクトとメソッドによって実装されています。アセンブラの使い方を簡単な例を用いて説明します。
+
+h2. Hello World
+
+初めにとても簡単な例として、Hello Worldを見てみます。これは単に"Hello World"と表示するだけです。ただし、デバッグ用に実行した命令とその時のレジスタの値も同時に表示されます。
+
+bc. require 'ytljit.rb'
+　
+include YTLJit
+　
+def hello
+  cs = CodeSpace.new
+  asm = Assembler.new(cs)
+ 　
+  # registor definition
+  eax = OpEAX.instance
+  esp = OpESP.instance
+  hello = OpImmidiate32.new("Hello World".address)
+  asm.step_mode = true
+  asm.with_retry do
+    asm.mov(eax, hello)
+    asm.push(eax)
+    rbp = address_of("rb_p")
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
+  end
+  cs.fill_disasm_cache
+  cs.call(cs.base_address)
+end
+hello
+
+コードを見て分かる通り、記述は普通のRubyのプログラムです。何も特別な文法はありません。ただし、間違えると確実にRubyのインタプリタごと落ちます。それでは最初から解説していきます。
+
+bc. require 'ytljit.rb'
+　
+include YTLJit
+
+よくあるおまじないです。
+
+bc.   cs = CodeSpace.new
+  asm = Assembler.new(cs)
+
+CodeSpaceとは生成されたネイティブコードが格納される場所です。配列のような形をしています。CodeSpaceは可変長で初めは小さく(16バイト)、必要に応じて拡大します。この拡大はコード生成時に起きるため後で説明するようにちょっと変わった形でアセンブラを記述する必要があります。なぜ、可変長なのか、あらかじめコードサイズを決定してからCodeSpaceをアロケートすればいいのではないかと思われると思います。可変長であることの理由を理解するために、最初に述べたytljitはコード書き換えを重視しているという事柄を思い出してください。コードを書き換えると当然コードのサイズが変わってきます。もちろん、あらかじめnopを入れておいたりjmpで飛ばすなどすればサイズを変えないようにすることも可能ですが、自由度が減りますし速度も落ちてしまいます。そこで、CodeSpaceを可変長にして必要なコードが常に格納できるようにしているのです。
+
+bc.   eax = OpEAX.instance
+  esp = OpESP.instance
+  hello = OpImmidiate32.new("Hello World".address)
+
+必要なオペランドを用意します。ytljitはレジスタや即値などのオペランドはすべてRubyのオブジェクトになっています。使う側は面倒だと思いますが、作る側からすれば簡単で効率が良いです。ytljitは基本的に人間が直接使うのではなくコンパイラ等のバックエンドとして使うことを意図していますので、少々面倒でも効率が良い方法を採用しました。特に説明しなくてもX86のアセンブラをご存じの方はだいたい何をやっているかわかると思います。ただ1つaddressメソッドだけは説明がいると思います。addressメソッドはオブジェクトのアドレスを返します。これを使うことで、Rubyのオブジェクトをネィティブコードに渡していろいろな操作ができます。ちなみに、このaddressメソッドは拡張ライブラリを使っておらずすべてRubyで書いています。どうやるのか興味のある方はソースを読んでみてください。
+
+bc.   asm.step_mode = true
+
+step modeを設定します。step modeを設定するとネィティブコードの各命令ごとにStepHandler#step_hadlerメソッドを呼び出すコードを生成します。引数にレジスタの値を渡すので、いろんなことに使えるはずです。デフォルトでは、命令とレジスタの値を表示します。ytljitはどこにネイティブコードを生成するか決められないし、スタックフレームの構造がCとは異なる場合がほとんどなので通常のデバッガによるデバッグがきわめて困難です。そのため、デバッグ支援の機能が非常に重要になります。
+
+step modeは基本的にデバッグ用ですが、CPUの内部情報をRubyで扱えることから他にも応用範囲があると思います。
+例えば、アセンブラの学習用なんかに使えるじゃないかなと思います。
+
+bc.    asm.with_retry do
+    asm.mov(eax, hello)
+    asm.push(eax)
+    rbp = address_of("rb_p")
+    asm.call(rbp)
+    asm.add(esp, OpImmidiate8.new(4))
+    asm.ret
+  end
+
+ここが実際のコード生成を行う場所です。コード生成はasm#with_retryメソッドに渡すブロック内に書く必要があります。これは、前述のCodeSpaceのサイズが変わるという話に関係します。具体的にはwith_retry内でCodeSpaceのサイズが拡張されたときは、with_retryに渡されたブロックを再度実行します。STMをご存じの方はSTMのようにCodeSpaceの状態が変わったらリトライするという風に理解されると分かりやすいと思います。このようにwith_retryに渡すブロックは何回実行されるかわからないので、副作用のあるコードは書くことができません。
+
+ブロックの内部を見てみましょう。ニモニックと同じ名前のメソッドがAssemblerオブジェクトに定義されています。引数はIntelの流儀です。つまり、第1引数がディスティネーションになります。step modeで表示されるアセンブルリストはobjdumpを使っているのでAT&Tの流儀になっちゃいます。ややこしくなってすみません。
+
+asm.movとasm.をつけなければいけません。面倒なのですが、省略できるようにいろいろ試したのですが余計使いにくくなるので、ここは我慢してください。
+
+address_ofは引数に文字列を渡し、その文字列と同じ名前のCRubyの外部シンボルの値を返します。この例についてはrb_p(p メソッドの本体)という関数のアドレスを得ています。
+
+bc.   cs.fill_disasm_cache
+  cs.call(cs.base_address)
+
+CodeSpace#fill_disasm_cacheメソッドはCodeSpace内のネイティブコードを逆アセンブルしてキャッシュに格納するメソッドです。こんなことユーザにやらせるな勝手にやれと思うと思いますが、逆アセンブルするというのは結構重い処理(objcopy/objdumpコマンドを呼んでるから)なのであえて明示的に行っています。RubyなりCなりで逆アセンブルルーチンを書けば逆アセンブルが軽い処理になるのでその時はいらなくなる予定です。
+
+最後にこれまで生成したネイティブコードを実行します。ネイティブコードの先頭アドレスはCodeSpace#base_addressで得られます。CodeSpace#callは引数のアドレスを実行します。
+

@@ -28,6 +28,7 @@ module YTLJit
     case RbConfig::CONFIG["target_cpu"] 
     when /i?86/
       TMPR = OpEAX.instance
+      TMPR2 = OpEBX.instance
       RETR = OpEAX.instance
       SPR = OpESP.instance
       BPR = OpEBP.instance
@@ -36,6 +37,7 @@ module YTLJit
   end
 
   module RubyType
+    include AbsArch
     VALUE = Type::MACHINE_WORD
     P_CHAR = Type::Pointer.new(Type::INT8)
 
@@ -69,16 +71,16 @@ module YTLJit
       rsstr = TypedData.new(RubyType::RString, str)
       # asm.step_mode = true
       asm.with_retry do
-        asm.mov(X86::EAX, rsstr[:basic][:flags])
-        asm.and(X86::EAX, EMBEDER_FLAG)
+        asm.mov(TMPR, rsstr[:basic][:flags])
+        asm.and(TMPR, EMBEDER_FLAG)
         asm.jz(cs_embed.var_base_address)
-        asm.mov(X86::EAX, rsstr[:as][:heap][:ptr])
+        asm.mov(TMPR, rsstr[:as][:heap][:ptr])
         asm.jmp(cscont.var_base_address)
       end
       asm = Assembler.new(cs_embed)
       # asm.step_mode = true
       asm.with_retry do
-        asm.mov(X86::EAX, rsstr[:as][:ary])
+        asm.mov(TMPR, rsstr[:as][:ary])
         asm.jmp(cscont.var_base_address)
       end
     end

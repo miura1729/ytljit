@@ -79,7 +79,9 @@ module YTLJit
       end
       fainfo.used_arg_tab[@no] = true
       code = ""
-      code += asm.update_state(gen.send(inst, TMPR, src))
+      unless inst == :mov and src == TMPR then
+        code += asm.update_state(gen.send(inst, TMPR, src))
+      end
       code += asm.update_state(gen.push(TMPR))
       code
     end
@@ -107,7 +109,7 @@ module YTLJit
     attr_accessor :used_arg_tab
   end
 
-  class GeneratorX86Extend<GeneratorX86Binary
+  module GeneratorExtendMixin
     include AbsArch
 
     def initialize(asm)
@@ -162,5 +164,9 @@ module YTLJit
       @funcarg_info.used_arg_tab = {}
       code
     end
+  end
+
+  class GeneratorExtend<GeneratorIABinary
+    include GeneratorExtendMixin
   end
 end

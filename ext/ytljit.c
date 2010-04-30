@@ -184,11 +184,7 @@ ytl_code_space_to_s(VALUE self)
 }
 
 static VALUE *
-#ifdef __ia64
-get_registers(unsigned long long *regs, VALUE *argv)
-#else
 get_registers(unsigned long *regs, VALUE *argv)
-#endif
 {
   argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
 
@@ -264,6 +260,7 @@ popall(void)
 #error "only i386 or x86-64 is supported"
 #endif
 }
+
 void
 ytl_step_handler()
 {
