@@ -251,7 +251,7 @@ module YTLJit
     end
   end
 
-  module AssemblerUtilX86
+  module AssemblerUtilIA
     case RbConfig::CONFIG["target_cpu"] 
     when /i?86/
       include AssemblerUtilX86Modrm
@@ -358,12 +358,12 @@ module YTLJit
     end
   end
   
-  class GeneratorX86Binary<Generator
-    include AssemblerUtilX86
+  class GeneratorIABinary<Generator
+    include AssemblerUtilIA
 
     def initialize(asm, handler = "ytl_step_handler")
       super(asm)
-      @step_handler = address_of(handler)
+      @step_handler = YTLJit.address_of(handler)
     end
 
     def call_stephandler
