@@ -8,8 +8,8 @@ do {                                                            \
  } while(0)
 
 struct CodeSpace {
-  int size;
-  int used;
+  size_t  size;
+  size_t  used;
   char body[1];
 };
 

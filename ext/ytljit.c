@@ -53,9 +53,9 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
 {
   struct CodeSpace *raw_cs;
   char *src_ptr;
-  int src_len;
+  size_t src_len;
   int raw_offset;
-  int cooked_offset;
+  size_t cooked_offset;
   struct RData *data_cs;
 
   raw_cs = (struct CodeSpace *)DATA_PTR(self);
@@ -68,7 +68,7 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
   }
 
   while (raw_cs->size <= src_len + cooked_offset + 4) {
-    int newsize = raw_cs->size * 2;
+    size_t newsize = raw_cs->size * 2;
     
     raw_cs = realloc(raw_cs, newsize);
     raw_cs->size = newsize;
@@ -90,13 +90,14 @@ ytl_code_space_ref(VALUE self, VALUE offset)
   struct CodeSpace *raw_cs;
 
   int raw_offset;
-  int cooked_offset;
+  size_t cooked_offset;
 
   raw_cs = (struct CodeSpace *)DATA_PTR(self);
   raw_offset = FIX2INT(offset);
   cooked_offset = raw_offset;
   if (raw_offset < 0) {
-    cooked_offset = raw_cs->used - raw_offset + 1;
+    size_t rev_offset = -raw_offset;
+    cooked_offset = raw_cs->used + rev_offset + 1;
   }
 
   return INT2FIX(raw_cs->body[cooked_offset]);
@@ -141,20 +142,22 @@ ytl_code_call(int argc, VALUE *argv, VALUE self)
   rb_scan_args(argc, argv, "11", &addr, &args);
   raddr = (void *)NUM2ULONG(addr);
 
-#ifdef __ia64
-  asm("movl %1, %%rax\n"
-      "call *%2 \n"
-      "movl %%rax, %0\n"
+#ifdef __x86_64__
+  asm("mov %1, %%rax;"
+      "call *%2;"
+      "mov %%rax, %0;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%rax", "%rbx");
-#else
-  asm("movl %1, %%eax\n"
-      "call *%2 \n"
-      "movl %%eax, %0\n"
+#elif  __i386__
+  asm("mov %1, %%eax;"
+      "call *%2;"
+      "mov %%eax, %0;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%eax", "%ebx");
+#else
+#error "only i386 or x86-64 is supported"
 #endif
 
   return rc;
@@ -177,7 +180,7 @@ ytl_code_space_to_s(VALUE self)
 
   raw_cs = (struct CodeSpace *)DATA_PTR(self);
 
-  return rb_sprintf("#<codeSpace %x base=%x:...>", (unsigned int)self, (unsigned int)raw_cs->body);
+  return rb_sprintf("#<codeSpace %p base=%p:...>", (void *)self, (void *)raw_cs->body);
 }
 
 static VALUE *
@@ -205,57 +208,71 @@ get_registers(unsigned long *regs, VALUE *argv)
   return argv;
 }
 
+static void
+body(void)
+{
+  VALUE *argv;
+  unsigned long *regs;
+
+#if defined(__i386__) || defined(__i386)
+  asm("mov (%%ebp), %0"
+      : "=r" (regs) : : "%eax");
+#elif defined(__x86_64__) || defined(__x86_64)
+  asm("mov (%%rbp), %0"
+      : "=r" (regs) : : "%rax");
+#else
+#error "only i386 or x86-64 is supported"
+#endif
+  argv = ALLOCA_N(VALUE, 8);
+  argv = get_registers(regs, argv);
+
+  rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
+}
+
+static void
+pushall(void)
+{
+#ifdef __x86_64__
+  asm("push %rax");
+  asm("push %rcx");
+  asm("push %rdx");
+  asm("push %rbx");
+  asm("push %rbp");
+  asm("push %rsi");
+  asm("push %rdi");
+#elif __i386__
+  asm("pushal");
+#else
+#error "only i386 or x86-64 is supported"
+#endif
+}
+
+static void
+popall(void)
+{
+#ifdef __x86_64__
+  asm("pop %rdi");
+  asm("pop %rsi");
+  asm("pop %rbp");
+  asm("pop %rbx");
+  asm("pop %rdx");
+  asm("pop %rcx");
+  asm("pop %rax");
+#elif __i386__
+  asm("popal");
+#else
+#error "only i386 or x86-64 is supported"
+#endif
+}
 void
 ytl_step_handler()
 {
-  void body() {
-    VALUE *argv;
-
-#ifdef __ia64
-    unsigned long long *regs;
-
-    asm("mov (%%rbp), %0"
-	: "=r" (regs) : : "%rax");
-    argv = ALLOCA_N(VALUE, 8);
-    argv = get_registers(regs, argv);
-
-    rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
-  }
-#else
-    unsigned long *regs;
-
-    asm("mov (%%ebp), %0"
-	: "=r" (regs) : : "%eax");
-    argv = ALLOCA_N(VALUE, 8);
-    argv = get_registers(regs, argv);
-
-    rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
-  }
-#endif
 
   /* Don't add local variables. Maybe break consistency of stack */
 
-#ifdef __ia64
-  asm("push rax"
-      "push rbx"
-      "push rcx"
-      "push rdx"
-      "push rsi"
-      "push rdi"
-      "push rbp");
+  pushall();
   body();
-  asm("pop rbp"
-      "pop rdi"
-      "pop rsi"
-      "pop rdx"
-      "pop rcx"
-      "pop rbx"
-      "pop rax");
-#else
-  asm("pusha");
-  body();
-  asm("popa");
-#endif
+  popall();
 }
 
 void 

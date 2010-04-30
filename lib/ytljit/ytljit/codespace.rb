@@ -47,8 +47,17 @@ module YTLJit
       tmpfp = Tempfile.open("ytljitcode")
       tmpfp.write code
       tmpfp.close(false)
-      system("objcopy -I binary -O elf32-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}")
-      File.popen("objdump -D #{tmpfp.path}") {|fp|
+      # quick dirty hack to work on Cygwin & Mac OS X/Core2Duo
+      # TODO: bdf and instruction set architecture should be automatically selected
+      if /x86_64-darwin/ =~ RUBY_PLATFORM
+        objcopy_cmd = "gobjcopy -I binary -O mach-o-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
+        objdump_cmd = "gobjdump -M i386 -D #{tmpfp.path}"
+      else
+        objcopy_cmd = "objcopy -I binary -O elf32-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
+        objdump_cmd = "objdump -D #{tmpfp.path}"
+      end
+      system(objcopy_cmd)
+      File.popen(objdump_cmd, "r") {|fp|
         fp.readlines.each do |lin|
           if /([0-9a-f]*):\t[0-9a-f ]+? *\t(.*)/ =~ lin then
             @@disasm_cache[$1] = $2
