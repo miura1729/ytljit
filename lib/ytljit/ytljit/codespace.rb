@@ -49,12 +49,18 @@ module YTLJit
       tmpfp.close(false)
       # quick dirty hack to work on Cygwin & Mac OS X/Core2Duo
       # TODO: bdf and instruction set architecture should be automatically selected
-      if /x86_64-darwin/ =~ RUBY_PLATFORM
+      case $ruby_platform
+      when /x86_64-darwin/
         objcopy_cmd = "gobjcopy -I binary -O mach-o-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
-        objdump_cmd = "gobjdump -M i386 -D #{tmpfp.path}"
-      else
+        objdump_cmd = "gobjdump -M x86-64 -D #{tmpfp.path}"
+
+      when /x86_64/
         objcopy_cmd = "objcopy -I binary -O elf32-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
-        objdump_cmd = "objdump -D #{tmpfp.path}"
+        objdump_cmd = "objdump -M x86-64 -D #{tmpfp.path}"
+
+      when /i.86/
+        objcopy_cmd = "objcopy -I binary -O elf32-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
+        objdump_cmd = "objdump -M i386 -D #{tmpfp.path}"
       end
       system(objcopy_cmd)
       File.popen(objdump_cmd, "r") {|fp|

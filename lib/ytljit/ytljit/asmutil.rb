@@ -24,14 +24,49 @@ module YTLJit
     INDIRECT_EDI = OpIndirect.new(EDI)
   end
 
+  module X64
+    RAX = OpRAX.instance
+    RDX = OpRDX.instance
+    RCX = OpRCX.instance
+    RBX = OpRBX.instance
+    RSP = OpRSP.instance
+    RBP = OpRBP.instance
+    RSI = OpRSI.instance
+    RDI = OpRDI.instance
+
+    R8 = OpR8.instance
+    R9 = OpR9.instance
+    R10 = OpR10.instance
+    R11 = OpR11.instance
+    R12 = OpR12.instance
+    R13 = OpR13.instance
+    R14 = OpR14.instance
+    R15 = OpR15.instance
+
+    INDIRECT_RAX = OpIndirect.new(RAX)
+    INDIRECT_RDX = OpIndirect.new(RDX)
+    INDIRECT_RCX = OpIndirect.new(RCX)
+    INDIRECT_RBX = OpIndirect.new(RBX)
+    INDIRECT_RSP = OpIndirect.new(RSP)
+    INDIRECT_RBP = OpIndirect.new(RBX)
+    INDIRECT_RSI = OpIndirect.new(RSI)
+    INDIRECT_RDI = OpIndirect.new(RDI)
+  end
+
   module AbsArch
-    case RbConfig::CONFIG["target_cpu"] 
-    when /i?86/
+    case $ruby_platform
+    when /i.86/
       TMPR = OpEAX.instance
       TMPR2 = OpEBX.instance
       RETR = OpEAX.instance
       SPR = OpESP.instance
       BPR = OpEBP.instance
+    when /x86_64/
+      TMPR = OpRAX.instance
+      TMPR2 = OpRBX.instance
+      RETR = OpRAX.instance
+      SPR = OpRSP.instance
+      BPR = OpRBP.instance
     end
     FUNC_ARG = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key)}
   end

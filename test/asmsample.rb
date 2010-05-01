@@ -27,8 +27,8 @@ def hello
   asm = Assembler.new(cs = CodeSpace.new)
   
   # registor definition
-  hello = OpImmidiate32.new("Hello World".address)
-  asm.step_mode = true
+  hello = "Hello World".address
+#  asm.step_mode = true
   asm.with_retry do
     asm.mov(FUNC_ARG[0], hello)
     rbp = address_of("rb_p")
@@ -36,6 +36,7 @@ def hello
     asm.ret
   end
   cs.fill_disasm_cache
+  cs.disassemble
   cs.call(cs.base_address)
 end
 hello
@@ -46,8 +47,8 @@ def hello2
   asm = Assembler.new(cs = CodeSpace.new)
   
   # registor definition
-  hello = OpImmidiate32.new("Hello World11234".address)
-  asm.step_mode = true
+  hello ="Hello World11234".address
+#  asm.step_mode = true
   RubyType::rstring_ptr(hello, csentry, cs)
   asm.with_retry do
     asm.mov(FUNC_ARG[0], TMPR)

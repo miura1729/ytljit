@@ -99,8 +99,8 @@ module YTLJit
     deftype :int64, [8, 8]
     deftype :uint64, [8, 8]
 
-    case RbConfig::CONFIG["target_cpu"] 
-    when /i?86/ 
+    case $ruby_platform
+    when /i.86/ 
       deftype :machine_word, [4, 4]
 
     when /x86_64/
