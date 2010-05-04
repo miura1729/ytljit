@@ -644,18 +644,23 @@ module YTLJit
     end
 
     def call(addr)
+      offset = 0
       case addr
       when Integer
         offset = addr - @asm.current_address - 5
-        [0xe8, offset].pack("CL")
 
       when OpImmidiate32
         offset = addr.value - @asm.current_address - 5
-        [0xe8, offset].pack("CL")
 
       else
         modseq, modfmt = modrm(:call, 2, addr, nil, addr)
-        ([0xff] + modseq).pack("C#{modfmt}")
+        return ([0xff] + modseq).pack("C#{modfmt}")
+      end
+
+      if offset > 0xffff_ffff then
+        [0x48, 0xe8, offset].pack("CCQ")
+      else
+        [0xe8, offset].pack("CL")
       end
     end
 

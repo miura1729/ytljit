@@ -16,6 +16,10 @@ struct CodeSpace {
 VALUE ytl_address_of(VALUE, VALUE);
 VALUE ytl_code_space_allocate(VALUE);
 
+void init_csarena();
+void *csalloc(int);
+void csfree(void *);
+
 extern VALUE ytl_mYTLJit;
 extern VALUE ytl_cCodeSpace;
 extern VALUE ytl_cStepHandler;

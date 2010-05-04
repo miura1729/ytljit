@@ -55,7 +55,7 @@ module YTLJit
         objdump_cmd = "gobjdump -M x86-64 -D #{tmpfp.path}"
 
       when /x86_64/
-        objcopy_cmd = "objcopy -I binary -O elf32-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
+        objcopy_cmd = "objcopy -I binary -O elf64-x86-64 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
         objdump_cmd = "objdump -M x86-64 -D #{tmpfp.path}"
 
       when /i.86/

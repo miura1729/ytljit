@@ -42,10 +42,10 @@ ytl_code_space_allocate(VALUE klass)
 {
   struct CodeSpace *obj;
  
-  obj = malloc(sizeof(struct CodeSpace) + 16);
-  obj->size = 16;
+  obj = csalloc(32);
+  obj->size = 32 - sizeof(struct CodeSpace);
   obj->used = 0;
-  return Data_Wrap_Struct(klass, NULL, NULL, (void *)obj);
+  return Data_Wrap_Struct(klass, NULL, csfree, (void *)obj);
 }
 
 VALUE
@@ -68,10 +68,11 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
   }
 
   while (raw_cs->size <= src_len + cooked_offset + 4) {
-    size_t newsize = raw_cs->size * 2;
+    size_t newsize = (raw_cs->size + sizeof(struct CodeSpace)) * 2;
     
-    raw_cs = realloc(raw_cs, newsize);
-    raw_cs->size = newsize;
+    csfree(raw_cs);
+    raw_cs = csalloc(newsize);
+    raw_cs->size = newsize - sizeof(struct CodeSpace);
   }
   
   memcpy(raw_cs->body + cooked_offset, src_ptr, src_len);
@@ -276,6 +277,8 @@ void
 Init_ytljit() 
 {
   VALUE *argv;
+
+  init_csarena();
 
   ytl_mYTLJit = rb_define_module("YTLJit");
 

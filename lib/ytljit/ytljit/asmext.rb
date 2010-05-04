@@ -80,9 +80,22 @@ module YTLJit
   class FuncArgInfo
     def initialize
       @used_arg_tab = {}
+      @stack_content = []
     end
 
     attr_accessor :used_arg_tab
+
+    def push(cont)
+      @stack_content.push cont
+    end
+
+    def pop
+      @stack_content.pop
+    end
+
+    def empty?
+      @stack_content.size == 0
+    end
   end
 
   module GeneratorExtendMixin

@@ -36,9 +36,11 @@ module YTLJit
     include AbsArch
 
     def call_with_arg(addr, argnum)
-      code = call(addr)
-      code += add(SPR, OpImmidiate8.new(argnum * 4))
+      orgaddress = @asm.current_address
+      code = @asm.update_state(call(addr))
+      code += @asm.update_state(add(SPR, OpImmidiate8.new(argnum * 4)))
       @funcarg_info.used_arg_tab = {}
+      @asm.current_address = orgaddress
       code
     end
   end
