@@ -117,13 +117,13 @@ popcount(__uint64_t x)
 inline int
 ffs64(__uint64_t x)
 {
-  x = x | (x >> 1);
-  x = x | (x >> 2);
-  x = x | (x >> 4);
-  x = x | (x >> 8);
-  x = x | (x >> 16);
-  x = x | (x >> 32);
-  return 64 - popcount(~x);
+  x = x | (x << 1);
+  x = x | (x << 2);
+  x = x | (x << 4);
+  x = x | (x << 8);
+  x = x | (x << 16);
+  x = x | (x << 32);
+  return popcount(~x);
 }
 
 /* from Ypsilon Scheme System */
@@ -161,13 +161,15 @@ search_free_chunk(void *arena)
     for (i = 0;(cbitmap = csaheader->bitmap[i]) == 0; i++);
     if (i < alocarea_off) {
       /* found free chunk */
+      int bitpos = ffs64(cbitmap);
 
       /* bitmap free -> used */
+      // fprintf(stderr, "%x %x\n", bitpos, csaheader->bitmap[i]);
       csaheader->bitmap[i] = cbitmap & (cbitmap - 1);
 
       /* Compute chunk address */
       alocarea = (char *)(&csaheader->bitmap[alocarea_off]);
-      return (alocarea + (16 << logsiz) * (i * 64 + ffs64(cbitmap) - 1));
+      return (alocarea + (16 << logsiz) * (i * 64 + bitpos));
     }
 
     /* Not found. Allocate new arena */
@@ -188,9 +190,12 @@ void *
 csalloc(int size)
 {
   int logsize;
+  void *res;
   
   logsize = bytes_to_bucket(size);
-  return search_free_chunk(arena_tab[logsize]);
+  res = search_free_chunk(arena_tab[logsize]);
+  // fprintf(stderr, "%x \n", res);
+  return res;
 }
 
 void

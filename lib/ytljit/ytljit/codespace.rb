@@ -22,11 +22,11 @@ module YTLJit
       self[self.current_pos] = code
     end
 
-    def var_base_address
+    def var_base_address(offset = 0)
       func = lambda {
-        base_address
+        base_address + offset
       }
-      ovi32 = OpVarImmidiate32.new(func)
+      ovi32 = OpVarImmidiateAddress.new(func)
       @refer_operands.push ovi32
       ovi32
     end

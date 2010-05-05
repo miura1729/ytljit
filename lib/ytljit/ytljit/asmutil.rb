@@ -101,8 +101,8 @@ module YTLJit
     EMBEDER_FLAG = (1 << 13)
     def self.rstring_ptr(str, csstart, cscont)
       cs_embed = CodeSpace.new
+
       asm = Assembler.new(csstart)
-      
       rsstr = TypedData.new(RubyType::RString, str)
       # asm.step_mode = true
       asm.with_retry do
@@ -112,6 +112,7 @@ module YTLJit
         asm.mov(TMPR, rsstr[:as][:heap][:ptr])
         asm.jmp(cscont.var_base_address)
       end
+
       asm = Assembler.new(cs_embed)
       # asm.step_mode = true
       asm.with_retry do

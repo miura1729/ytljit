@@ -232,6 +232,9 @@ module YTLJit
         when OpIndirect
           modrm_indirect(reg, rm)
 
+        when Integer, OpImmidiate
+          [[0b00000000 | ((reg & 7) << 3) | 5], "C"]
+
         else
           return nosupported_addressing_mode(inst, dst, src, src2)
         end
@@ -331,7 +334,7 @@ module YTLJit
 
     def common_jcc(addr, opc, lopc, inst)
       addr2 = addr
-      if addr.is_a?(OpImmidiate32) then
+      if addr.is_a?(OpImmidiate) then
         addr2 = addr.value
       end
       offset = addr2 - @asm.current_address - 2
@@ -625,7 +628,7 @@ module YTLJit
 
     def jmp(addr)
       addr2 = addr
-      if addr.is_a?(OpImmidiate32) then
+      if addr.is_a?(OpImmidiate) then
         addr2 = addr.value
       end
       case addr2
@@ -657,8 +660,11 @@ module YTLJit
         return ([0xff] + modseq).pack("C#{modfmt}")
       end
 
-      if offset > 0xffff_ffff then
-        [0x48, 0xe8, offset].pack("CCQ")
+      if offset.abs > 0x7fff_ffff then
+        addrent = @asm.add_value_entry(addr)
+        offset = addrent.value - @asm.current_address - 7
+        modseq, modfmt = modrm(:call, 2, offset, nil, addr)
+        [0x48, 0xff, *modseq, offset].pack("CC#{modfmt}L")
       else
         [0xe8, offset].pack("CL")
       end

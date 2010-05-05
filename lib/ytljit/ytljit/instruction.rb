@@ -25,7 +25,10 @@ module YTLJit
   class OpImmidiate32<OpImmidiate
   end
 
-  class OpVarImmidiate32<OpImmidiate32
+  class OpImmidiate64<OpImmidiate
+  end
+
+  module OpVarImmidiateMixin
     def initialize(var)
       @var = var
       @refer = []
@@ -44,7 +47,19 @@ module YTLJit
     end
   end
 
-  class OpImmidiate64<OpImmidiate
+  class OpVarImmidiate32<OpImmidiate32
+    include OpVarImmidiateMixin
+  end
+
+  class OpVarImmidiate64<OpImmidiate64
+    include OpVarImmidiateMixin
+  end
+
+  case $ruby_platform
+  when /x86_64/
+    class OpVarImmidiateAddress<OpVarImmidiate64; end
+  when /i.86/
+    class OpVarImmidiateAddress<OpVarImmidiate32; end
   end
 
   class OpMemory<Operand

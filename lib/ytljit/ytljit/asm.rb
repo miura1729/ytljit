@@ -26,7 +26,7 @@ module YTLJit
     end
 
     def var_base_address
-      OpVarImmidiate32.new(lambda {0})
+      OpVarImmidiateAddress.new(lambda {0})
     end
   end
 
@@ -41,6 +41,18 @@ module YTLJit
   end
 
   class Assembler
+    @@value_table_cache = {}
+    @@value_table_entity = CodeSpace.new
+
+    def self.set_value_table(out)
+      @@value_table_cache = {}
+      @@value_table_entity = out
+    end
+
+    def self.get_value_table(out)
+      [@@value_table_entity, @@value_table_cache]
+    end
+
     def initialize(out, gen = GeneratorExtend)
       @generator = gen.new(self)
       @output_stream = out
@@ -61,7 +73,7 @@ module YTLJit
       func = lambda {
         @current_address
       }
-      OpVarImmidiate32.new(func)
+      OpVarImmidiateAddress.new(func)
     end
 
     attr_accessor :generated_code
@@ -92,11 +104,20 @@ module YTLJit
       @retry_mode = false
     end
 
-    def method_missing(mn, *args)
-      out = @generator.call_stephandler
-      store_outcode(out)
+    def add_value_entry(val)
+      off= nil
+      unless off = @@value_table_cache[val] then
+        off = @@value_table_entity.current_pos
+        @@value_table_entity.emit([val].pack("Q"))
+        @@value_table_cache[val] = off
+      end
 
-      if args.any? {|e| e.is_a?(OpVarImmidiate32) } and !@retry_mode then
+      @@value_table_entity.var_base_address(off)
+    end
+
+    def add_var_immdiate_retry_func(mn, args)
+      if args.any? {|e| e.is_a?(OpVarImmidiateAddress) } and 
+         !@retry_mode then
         offset = @offset
         stfunc = lambda {
           with_current_address(@output_stream.base_address + offset) {
@@ -104,12 +125,18 @@ module YTLJit
           }
         }
         args.each do |e|
-          if e.is_a?(OpVarImmidiate32) then
+          if e.is_a?(OpVarImmidiateAddress) then
             e.add_refer(stfunc)
           end
         end
       end
+    end
 
+    def method_missing(mn, *args)
+      out = @generator.call_stephandler
+      store_outcode(out)
+
+      add_var_immdiate_retry_func(mn, args)
       out = @generator.send(mn, *args)
       if out.is_a?(Array) then
         store_outcode(out[0])

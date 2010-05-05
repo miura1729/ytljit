@@ -69,9 +69,12 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
 
   while (raw_cs->size <= src_len + cooked_offset + 4) {
     size_t newsize = (raw_cs->size + sizeof(struct CodeSpace)) * 2;
-    
+    void *new_cs = csalloc(newsize);
+
+    //*(struct CodeSpace *)new_cs = *(struct CodeSpace *)raw_cs;
+    memcpy(new_cs, raw_cs, newsize / 2);
     csfree(raw_cs);
-    raw_cs = csalloc(newsize);
+    raw_cs = new_cs;
     raw_cs->size = newsize - sizeof(struct CodeSpace);
   }
   

@@ -109,5 +109,5 @@ def fib(n)
 end
 
 (1..20).each do |i|
-  p fib(i)
+#  p fib(i)
 end

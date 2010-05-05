@@ -3,6 +3,10 @@ require 'rbconfig'
 $ruby_platform = RUBY_PLATFORM
 # $ruby_platform = "x86_64" #  You can select CPU type for debug.
 
+require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
+
+require 'ytljit/codespace'
+
 require 'ytljit/util'
 require 'ytljit/error'
 require 'ytljit/asm'
@@ -17,6 +21,3 @@ require 'ytljit/asmext_x86'
 require 'ytljit/asmext_x64'
 require 'ytljit/asmext'
 
-require 'ytljit/codespace'
-
-require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
