@@ -1,4 +1,6 @@
 #define MAX_DL_HANDLES 10
+#define INIT_CODE_SPACE_SIZE 64
+#define VALUE_SPACE_SIZE (32 * 1024)
 
 #define OPEN_CHECK(COND)                                        \
 do {                                                            \
@@ -22,6 +24,7 @@ void csfree(void *);
 
 extern VALUE ytl_mYTLJit;
 extern VALUE ytl_cCodeSpace;
+extern VALUE ytl_cValueSpace;
 extern VALUE ytl_cStepHandler;
 extern VALUE ytl_eStepHandler;
 

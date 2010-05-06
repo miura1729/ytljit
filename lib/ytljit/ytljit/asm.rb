@@ -42,7 +42,7 @@ module YTLJit
 
   class Assembler
     @@value_table_cache = {}
-    @@value_table_entity = CodeSpace.new
+    @@value_table_entity = ValueSpace.new
 
     def self.set_value_table(out)
       @@value_table_cache = {}

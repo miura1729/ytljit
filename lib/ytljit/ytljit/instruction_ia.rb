@@ -652,7 +652,7 @@ module YTLJit
       when Integer
         offset = addr - @asm.current_address - 5
 
-      when OpImmidiate32
+      when OpImmidiate
         offset = addr.value - @asm.current_address - 5
 
       else

@@ -55,6 +55,7 @@ static int csarena_allocarea_tab[ALOCSIZLOG_MAX] = {
 };
 
 static void *arena_tab[ALOCSIZLOG_MAX];
+static void *arena_search_tab[ALOCSIZLOG_MAX];
 
 static size_t page_size;
 
@@ -160,6 +161,8 @@ search_free_chunk(void *arena)
     csaheader = (CodeSpaceArenaHeader *)arena;
     for (i = 0;(cbitmap = csaheader->bitmap[i]) == 0; i++);
     if (i < alocarea_off) {
+      arena_search_tab[logsiz] = arena;
+
       /* found free chunk */
       int bitpos = ffs64(cbitmap);
 
@@ -193,7 +196,7 @@ csalloc(int size)
   void *res;
   
   logsize = bytes_to_bucket(size);
-  res = search_free_chunk(arena_tab[logsize]);
+  res = search_free_chunk(arena_search_tab[logsize]);
   // fprintf(stderr, "%x \n", res);
   return res;
 }
@@ -223,5 +226,6 @@ init_csarena()
 
   for (i = 0; i < ALOCSIZLOG_MAX; i++) {
     arena_tab[i] = alloc_arena(i, NULL);
+    arena_search_tab[i] = alloc_arena(i, NULL);
   }
 }

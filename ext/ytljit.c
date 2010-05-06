@@ -7,6 +7,7 @@
 
 VALUE ytl_mYTLJit;
 VALUE ytl_cCodeSpace;
+VALUE ytl_cValueSpace;
 VALUE ytl_cStepHandler;
 VALUE ytl_eStepHandler;
 static ID ytl_v_step_handler_id;
@@ -42,8 +43,19 @@ ytl_code_space_allocate(VALUE klass)
 {
   struct CodeSpace *obj;
  
-  obj = csalloc(32);
-  obj->size = 32 - sizeof(struct CodeSpace);
+  obj = csalloc(INIT_CODE_SPACE_SIZE);
+  obj->size = INIT_CODE_SPACE_SIZE - sizeof(struct CodeSpace);
+  obj->used = 0;
+  return Data_Wrap_Struct(klass, NULL, csfree, (void *)obj);
+}
+
+VALUE
+ytl_value_space_allocate(VALUE klass)
+{
+  struct CodeSpace *obj;
+ 
+  obj = csalloc(VALUE_SPACE_SIZE);
+  obj->size = VALUE_SPACE_SIZE - sizeof(struct CodeSpace);
   obj->used = 0;
   return Data_Wrap_Struct(klass, NULL, csfree, (void *)obj);
 }
@@ -187,6 +199,16 @@ ytl_code_space_to_s(VALUE self)
   return rb_sprintf("#<codeSpace %p base=%p:...>", (void *)self, (void *)raw_cs->body);
 }
 
+VALUE
+ytl_value_space_to_s(VALUE self)
+{
+  struct CodeSpace *raw_cs;
+
+  raw_cs = (struct CodeSpace *)DATA_PTR(self);
+
+  return rb_sprintf("#<valueSpace %p base=%p:...>", (void *)self, (void *)raw_cs->body);
+}
+
 static VALUE *
 get_registers(unsigned long *regs, VALUE *argv)
 {
@@ -305,6 +327,11 @@ Init_ytljit()
   rb_define_method(ytl_cCodeSpace, "code", ytl_code_space_code, 0);
   rb_define_method(ytl_cCodeSpace, "to_s", ytl_code_space_to_s, 0);
 
+  ytl_cValueSpace = 
+    rb_define_class_under(ytl_mYTLJit, "ValueSpace", ytl_cCodeSpace);
+  rb_define_alloc_func(ytl_cValueSpace, ytl_value_space_allocate);
+  rb_define_method(ytl_cValueSpace, "to_s", ytl_value_space_to_s, 0);
+  
   /* Open Handles */
 #ifdef __CYGWIN__
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));

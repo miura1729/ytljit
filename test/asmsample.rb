@@ -105,9 +105,13 @@ def fib(n)
     asm.ret
   end
 
+#  cs0.disassemble
+#  cs1.disassemble
+#  cs2.disassemble
+
   cs0.call(cs0.base_address)
 end
 
 (1..20).each do |i|
-#  p fib(i)
+  p fib(i)
 end
