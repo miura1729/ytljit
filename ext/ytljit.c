@@ -324,6 +324,7 @@ Init_ytljit()
   ytl_cStepHandler = rb_define_class_under(ytl_mYTLJit, "StepHandler", rb_cObject);
   argv = ALLOCA_N(VALUE, 1);
   ytl_eStepHandler = rb_class_new_instance(0, argv, ytl_cStepHandler);
+  rb_global_variable(&ytl_eStepHandler);
 
   ytl_cCodeSpace = rb_define_class_under(ytl_mYTLJit, "CodeSpace", rb_cObject);
   rb_define_alloc_func(ytl_cCodeSpace, ytl_code_space_allocate);
