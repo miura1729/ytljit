@@ -165,13 +165,22 @@ ytl_code_call(int argc, VALUE *argv, VALUE self)
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%rax", "%rbx");
-#elif  __i386__
+#elif  __CYGWIN__
   asm("mov %1, %%eax;"
       "call *%2;"
       "mov %%eax, %0;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%eax", "%ebx");
+#elif  __i386__
+  /* push %ebx ? */
+  asm("mov %1, %%eax;"
+      "call *%2;"
+      "mov %%eax, %0;"
+      : "=r"(rc) 
+      : "r"(args), "r"(raddr) 
+      : "%eax");
+  /* pop %ebx ? */
 #else
 #error "only i386 or x86-64 is supported"
 #endif
