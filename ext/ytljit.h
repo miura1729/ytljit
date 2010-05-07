@@ -1,6 +1,6 @@
 #define MAX_DL_HANDLES 10
 #define INIT_CODE_SPACE_SIZE 64
-#define VALUE_SPACE_SIZE (32 * 1024)
+#define VALUE_SPACE_SIZE (8 * 1024)
 
 #define OPEN_CHECK(COND)                                        \
 do {                                                            \

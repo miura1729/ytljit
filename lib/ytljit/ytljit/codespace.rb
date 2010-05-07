@@ -12,7 +12,7 @@ module YTLJit
     end
 
     attr :disasm_cache
-    
+
     def reset
       @org_base_address = base_address
       self.current_pos = 0
