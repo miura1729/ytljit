@@ -80,10 +80,23 @@ class CodeSpaceTests < Test::Unit::TestCase
 
   def test_manyspace
     cs = []
-    100.times do |i|
-      cs.push CodeSpace.new
-      cs.last[4090] = "Hello"
+    100.times do 
+      cs = []
+      100.times do |i|
+        cs.push CodeSpace.new
+        cs.last[4090] = "Hello"
+        cs.push CodeSpace.new
+        cs.last[90] = "Hello"
+      end
+      GC.start
+
+      321.times do |i|
+        cs.push CodeSpace.new
+        cs.last[18] = "Hello"
+        cs.push CodeSpace.new
+        cs.last[289] = "Hello"
+      end
     end
-    assert_equal(cs.last[4094], 'o'.ord)
+    assert_equal(cs.last[293], 'o'.ord)
   end
 end

@@ -30,9 +30,9 @@
 */
 
 typedef struct {
-  __uint64_t next_and_size;
-  __uint64_t bitmap[1];
-}  CodeSpaceArenaHeader;
+  uintptr_t next_and_size;
+  uint64_t bitmap[1];
+}  CodeSpaceArena;
 
 #define ARENA_SIZE 16 * 1024
 
@@ -59,51 +59,51 @@ static int csarena_allocarea_tab[ALOCSIZLOG_MAX] = {
   HEADER_SIZE(8192),
 };
 
-static void *arena_tab[ALOCSIZLOG_MAX];
-static void *arena_search_tab[ALOCSIZLOG_MAX];
+static CodeSpaceArena *arena_tab[ALOCSIZLOG_MAX];
+static CodeSpaceArena *arena_search_tab[ALOCSIZLOG_MAX];
 
 static size_t page_size;
 
-void *
-alloc_arena(size_t aloclogsiz, void *prev_csa)
+CodeSpaceArena *
+alloc_arena(size_t aloclogsiz, CodeSpaceArena *prev_csa)
 {
-  __uint64_t rbitmap;
-  CodeSpaceArenaHeader *csaheader;
-  void *arena;
+  uint64_t rbitmap;
+  CodeSpaceArena *arena;
+  void *newmem;
   int allocsiz;
   int bitmap_size;
   int allff_size;
   int rest_size;
   
 #if !defined(__CYGWIN__)
-  if (posix_memalign(&arena, ARENA_SIZE, ARENA_SIZE)) {
+  if (posix_memalign(&newmem, ARENA_SIZE, ARENA_SIZE)) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
-  if(mprotect((void*)arena, ARENA_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+  if(mprotect(newmem, ARENA_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
     rb_raise(rb_eNoMemError, "mprotect failed");
   }
+  arena = (CodeSpaceArena *)newmem;
 #else
-  if (!(arena = memalign(page_size, ARENA_SIZE))) {
+  if (!(arena = memalign(ARENA_SIZE, ARENA_SIZE))) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
 #endif
   
-  csaheader = (CodeSpaceArenaHeader *)arena;
-  csaheader->next_and_size = ((__uint64_t)prev_csa) | aloclogsiz;
+  arena->next_and_size = ((uintptr_t)prev_csa) | aloclogsiz;
 
   /* fill bitmap: 1 means free */
   allocsiz = 16 << aloclogsiz;
   bitmap_size = BITMAP_SIZE(allocsiz);
   allff_size = (bitmap_size / 64) * 8;
-  memset(csaheader->bitmap, 0xff, allff_size);
+  memset(arena->bitmap, 0xff, allff_size);
   
   /* rest of bit */
   rest_size = bitmap_size - allff_size * 8;
   rbitmap = (1 << (rest_size)) - 1;
   //fprintf(stderr, "%x %x \n", csarena_allocarea_tab[aloclogsiz], bitmap_size);
-  csaheader->bitmap[csarena_allocarea_tab[aloclogsiz] - 2] = rbitmap;
+  arena->bitmap[csarena_allocarea_tab[aloclogsiz] - 2] = rbitmap;
   /* gatekeeper bit */
-  csaheader->bitmap[csarena_allocarea_tab[aloclogsiz] - 1] = 0xff;
+  arena->bitmap[csarena_allocarea_tab[aloclogsiz] - 1] = 0xff;
 
   return arena;
 }
@@ -113,7 +113,7 @@ alloc_arena(size_t aloclogsiz, void *prev_csa)
      Ypsilon Scheme System (src/bit.cpp)
  */
 inline int
-popcount(__uint64_t x)
+popcount(uint64_t x)
 {
   x = x - ((x >> 1) & 0x5555555555555555ull);
   x = (x & 0x3333333333333333ull) + ((x >> 2) & 0x3333333333333333ull);
@@ -124,7 +124,7 @@ popcount(__uint64_t x)
 
 /* Ref. Hacker's dilight (Japanese ver) Page.86 */
 inline int
-ffs64(__uint64_t x)
+ffs64(uint64_t x)
 {
   x = x | (x << 1);
   x = x | (x << 2);
@@ -151,42 +151,40 @@ bytes_to_bucket(int x)
 }
 
 void *
-search_free_chunk(void *arena)
+search_free_chunk(CodeSpaceArena *arena)
 {
-  CodeSpaceArenaHeader *csaheader;
   char *alocarea;
-  void *new_arena;
+  CodeSpaceArena *new_arena;
   int i;
   int alocarea_off;
   int cbitmap;
-  int logsiz;
+  int logsize;
 
-  csaheader = (CodeSpaceArenaHeader *)arena;
-  logsiz = csaheader->next_and_size & 0xf;
-  alocarea_off = csarena_allocarea_tab[logsiz] - 1;
+  logsize = arena->next_and_size & 0xf;
+  alocarea_off = csarena_allocarea_tab[logsize] - 1;
 
   while (arena) {
-    csaheader = (CodeSpaceArenaHeader *)arena;
-    for (i = 0;(cbitmap = csaheader->bitmap[i]) == 0; i++);
+    for (i = 0;(cbitmap = arena->bitmap[i]) == 0; i++);
     if (i < alocarea_off) {
-      arena_search_tab[logsiz] = arena;
+      arena_search_tab[logsize] = arena;
 
       /* found free chunk */
       int bitpos = ffs64(cbitmap);
 
       /* bitmap free -> used */
-      //fprintf(stderr, "%x %x\n", bitpos, csaheader->bitmap[i]);
-      csaheader->bitmap[i] = cbitmap & (cbitmap - 1);
+      // fprintf(stderr, "%x %x\n", bitpos, arena->bitmap[i]);
+      arena->bitmap[i] = cbitmap & (cbitmap - 1);
 
       /* Compute chunk address */
-      alocarea = (char *)(&csaheader->bitmap[alocarea_off + 1]);
-      return (alocarea + (16 << logsiz) * (i * 64 + bitpos));
+      alocarea = (char *)(&arena->bitmap[alocarea_off + 1]);
+      return (alocarea + (16 << logsize) * (i * 64 + bitpos));
     }
 
     /* Not found. Allocate new arena */
-    new_arena = (void *)(csaheader->next_and_size & ~(0xf));
+    new_arena = (CodeSpaceArena *)(arena->next_and_size & ~(0xf));
     if (new_arena == NULL) {
-      arena = alloc_arena(logsiz, arena);
+      arena = alloc_arena(logsize, arena_tab[logsize]);
+      arena_tab[logsize] = arena_search_tab[logsize] = arena;
     }
     else {
       arena = new_arena;
@@ -205,13 +203,43 @@ csalloc(int size)
   
   logsize = bytes_to_bucket(size);
   res = search_free_chunk(arena_search_tab[logsize]);
-  //fprintf(stderr, "%x \n", res);
+  //  fprintf(stderr, "%x \n", res);
   return res;
 }
 
 void
 csfree(void *chunk)
 {
+  CodeSpaceArena *arena;
+  CodeSpaceArena *tmpa;
+  CodeSpaceArena *sarena;
+  size_t offset;
+  size_t alocoff;
+  size_t bitpos;
+  int logsize;
+  int alocsize;
+
+  arena = (CodeSpaceArena *)(((uintptr_t)chunk) & (~(ARENA_SIZE - 1)));
+  logsize = arena->next_and_size & 0xf;
+  alocsize = 16 << logsize;
+
+  alocoff = csarena_allocarea_tab[logsize];
+  offset =(uintptr_t) chunk - (uintptr_t)(&(arena->bitmap[alocoff]));
+  if ((offset & (alocsize - 1)) != 0) {
+    rb_raise(rb_eArgError, "Maybe free illgal chunk");
+  }
+  bitpos = offset / alocsize;
+  arena->bitmap[bitpos / 64] ^= (1 << (bitpos & (64 - 1)));
+
+  /* Update arena_search_tab */
+  for (tmpa = arena_tab[logsize], sarena = arena_search_tab[logsize];
+       tmpa != sarena;
+       tmpa = (CodeSpaceArena *)(tmpa->next_and_size & (~0xf))) {
+    if (tmpa == arena) {
+      arena_search_tab[logsize] = tmpa;
+      break;
+    }
+  }
 }
 
 void
