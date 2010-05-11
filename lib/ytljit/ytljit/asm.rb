@@ -58,6 +58,7 @@ module YTLJit
       @output_stream = out
       @retry_mode = false
       @step_mode = false
+      @asmsend_history = []
       reset
     end
 
@@ -98,7 +99,9 @@ module YTLJit
         org_base_address = @output_stream.base_address
         reset
         @output_stream.reset
-        yield
+        @asmsend_history.each do |arg|
+          send(arg[0], *arg[1])
+        end
         @output_stream.update_refer
       end
       @retry_mode = false
@@ -136,6 +139,10 @@ module YTLJit
       out = @generator.call_stephandler
       store_outcode(out)
 
+      if @retry_mode == false then
+        @asmsend_history.push [mn, args]
+      end
+        
       add_var_immdiate_retry_func(mn, args)
       out = @generator.send(mn, *args)
       if out.is_a?(Array) then

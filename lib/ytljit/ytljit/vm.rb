@@ -77,6 +77,14 @@ LO        |                       |   |  |
     module Node
       # Top of method definition
       class MethodTop
+        def initialize(name = nil)
+          @name = name
+          @body = []
+        end
+
+        def add_body(node)
+          @body.push node
+        end
       end
 
       # End of method definition

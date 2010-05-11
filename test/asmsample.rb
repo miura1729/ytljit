@@ -28,7 +28,7 @@ def hello
   
   # registor definition
   hello = "Hello World".address
-#  asm.step_mode = true
+  asm.step_mode = true
   asm.with_retry do
     asm.mov(FUNC_ARG[0], hello)
     rbp = address_of("rb_p")
