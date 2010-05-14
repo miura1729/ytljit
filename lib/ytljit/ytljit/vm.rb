@@ -75,40 +75,152 @@ LO        |                       |   |  |
   module VM
     # Expression of VM is a set of Nodes
     module Node
+      class BaseNode
+        def initialize
+          cs = CodeSpace.new
+          asm = Assembler.new(cs)
+          asm.with_retry do
+            asm.ret
+          end
+          @type_inference_proc = cs
+          @type_cache = nil
+
+          @parent = nil
+        end
+        attr_accessor :parent
+
+        def inference_type
+          cs = @type_inference_proc
+          cs.call(cs.base_address)
+        end
+
+        def gen_type_inference_proc(code)
+          
+        end
+
+        # dummy methods
+        def add_modified_var(var); end
+      end
+
+      class HaveChildlen<BaseNode
+        def initialize
+          super()
+          @modified_var = []
+        end
+
+        def add_modified_var(lvar)
+          unless @modified_var.include?(lvar)
+            @modified_var.push lvar
+          end
+          @parent.add_modified_var(lvar)
+        end
+      end
+
       # Top of method definition
-      class MethodTop
-        def initialize(name = nil)
+      class MethodTopNode<HaveChildlen
+        def initialize(parent, args, name = nil)
+          super()
+          @arg_list = args
           @name = name
           @body = []
+          @parent = parent
+          @frame_size = nil
         end
 
         def add_body(node)
           @body.push node
         end
+
+        def to_asmcode(context)
+          context = gen_method_prologe(context)
+          @body.each do |ele|
+            ele.to_asmcode(context)
+          end
+        end
       end
 
       # End of method definition
-      class MethodEnd
+      class MethodEndNode<BaseNode
+        def initialize
+          super
+          @parent_method = nil
+        end
+
+        def to_asmcode(context)
+          context = gen_method_prologe(context)
+          curcs = context.code_space
+          curas = Assembler.new(curcs)
+          curas.with_retry do
+            curas.ret
+          end
+        end
       end
 
       # if statement
-      class If
+      class IfNode<HaveChildlen
+        def initialize(cond, tpart, epart)
+          super()
+          @cond = cond
+          @tpart = tpart
+          @epart = epart
+
+          @else_cs = CodeSpace.new
+          @cont_cs = CodeSpace.new
+        end
+
+        def to_asmcode(context)
+          context = @cond.to_asmcode(context)
+          curcs = context.code_space
+          curas = Assembler.new(curcs)
+          elsecs = @else_cs
+          contcs = @cont_cs
+
+          curas.with_retry do
+            curas.and(context.ret_reg, OpImmdiate(~4))
+            curas.jn(elsecs.var_base_address)
+          end
+          context = tpart.to_asmcode(context)
+          curcs = context.code_space
+          curcs.with_retry do
+            curcs.jmp(contcs.var_base_address)
+          end
+
+          context.code_space = elsecs
+          curcs = context.code_space
+          context = epart.to_asmcode(context)
+          curcs.with_retry do
+            curcs.jmp(contcs.var_base_address)
+          end
+          context.code_space = context
+        end
       end
 
       # Guard (type information holder and type checking of tree)
-      class Guard
+      class GuardNode<HaveChildlen
       end
 
       # Holder of Nodes Assign. These assignes execute parallel potencially.
-      class Let
+      class LetNode<HaveChildlen
       end
 
       # Define and assign local variable
-      class Assign
+      class AssignNode<HaveChildlen
       end
 
       # Call methodes
-      class Call
+      class CallNode<HaveChildlen
+      end
+
+      # Variable Common
+      class VariableCommonNode<BaseNode
+      end
+
+      # Local Variable
+      class LocalVarNode<VariableCommonNode
+      end
+
+      # Instance Variable
+      class InstanceVarNode<VariableCommonNode
       end
 
       # Reference Register

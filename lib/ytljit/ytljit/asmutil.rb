@@ -68,6 +68,11 @@ module YTLJit
       SPR = OpRSP.instance
       BPR = OpRBP.instance
     end
+    INDIRECT_TMPR = OpIndirect.new(TMPR)
+    INDIRECT_TMPR2 = OpIndirect.new(TMPR2)
+    INDIRECT_RETR = OpIndirect.new(RETR)
+    INDIRECT_SPR = OpIndirect.new(SPR)
+    INDIRECT_BPR = OpIndirect.new(BPR)
     FUNC_ARG = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key)}
   end
 
