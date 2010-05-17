@@ -144,7 +144,7 @@ ytl_code_base_address(VALUE self)
   struct CodeSpace *raw_cs;
 
   raw_cs = (struct CodeSpace *)DATA_PTR(self);
-  return UINT2NUM((unsigned long)raw_cs->body);
+  return ULONG2NUM((unsigned long)raw_cs->body);
 }
 
 VALUE
