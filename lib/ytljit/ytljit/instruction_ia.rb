@@ -651,22 +651,15 @@ module YTLJit
       case addr
       when Integer
         offset = addr - @asm.current_address - 5
+        immidiate_call(addr, offset)      
 
       when OpImmidiate
         offset = addr.value - @asm.current_address - 5
+        immidiate_call(addr, offset)      
 
       else
         modseq, modfmt = modrm(:call, 2, addr, nil, addr)
-        return ([0xff] + modseq).pack("C#{modfmt}")
-      end
-
-      if offset.abs > 0x7fff_ffff then
-        addrent = @asm.add_value_entry(addr)
-        offset = addrent.value - @asm.current_address - 7
-        modseq, modfmt = modrm(:call, 2, offset, nil, addr)
-        [0x48, 0xff, *modseq, offset].pack("CC#{modfmt}L")
-      else
-        [0xe8, offset].pack("CL")
+        ([0xff] + modseq).pack("C#{modfmt}")
       end
     end
 

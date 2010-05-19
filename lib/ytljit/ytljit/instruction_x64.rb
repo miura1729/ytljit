@@ -26,5 +26,16 @@ module YTLJit
         [[], ""]
       end
     end
+
+    def immidiate_call(addr, offset)
+      if offset.abs > 0x7fff_ffff then
+        addrent = @asm.add_value_entry(addr)
+        offset = addrent.value - @asm.current_address - 7
+        modseq, modfmt = modrm(:call, 2, offset, nil, addr)
+        [0x48, 0xff, *modseq, offset].pack("CC#{modfmt}L")
+      else
+        [0xe8, offset].pack("CL")
+      end
+    end
   end
 end
