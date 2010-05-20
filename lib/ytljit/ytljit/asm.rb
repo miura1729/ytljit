@@ -59,6 +59,10 @@ module YTLJit
       @retry_mode = false
       @step_mode = false
       @asmsend_history = []
+
+      # Instruction pach table for forwarding reference
+      # This is array of proc object.
+      @after_patch_tab = []
       reset
     end
 
@@ -69,6 +73,9 @@ module YTLJit
 
     attr_accessor :current_address
     attr_accessor :step_mode
+    attr          :offset
+    attr          :output_stream
+    attr          :after_patch_tab
 
     def var_current_address
       func = lambda {
@@ -105,6 +112,10 @@ module YTLJit
         @output_stream.update_refer
       end
       @retry_mode = false
+
+      @after_patch_tab.each do |patproc|
+        patproc.call
+      end
     end
 
     def add_value_entry(val)
@@ -152,8 +163,6 @@ module YTLJit
       end
       out
     end
-
-    private
 
     def with_current_address(address)
       org_curret_address = self.current_address

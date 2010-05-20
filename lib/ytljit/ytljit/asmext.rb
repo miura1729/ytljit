@@ -68,6 +68,7 @@ module YTLJit
     def initialize(no)
       @no = no
     end
+
     case $ruby_platform
     when /x86_64/
       include FunctionArgumentX64Mixin
@@ -79,11 +80,15 @@ module YTLJit
 
   class FuncArgInfo
     def initialize
+      @maxargs = 0
       @used_arg_tab = {}
       @stack_content = []
+      @area_allocate_pos = []
     end
 
     attr_accessor :used_arg_tab
+    attr          :maxargs
+    attr          :area_allocate_pos
 
     def push(cont)
       @stack_content.push cont
@@ -96,12 +101,18 @@ module YTLJit
     def empty?
       @stack_content.size == 0
     end
+
+    def update_maxargs(args)
+      if @maxargs < args then
+        @maxargs = args
+      end
+    end
   end
 
   module GeneratorExtendMixin
     include AbsArch
 
-    def initialize(asm)
+    def initialize(asm, handler = "ytl_step_handler")
       super
       @funcarg_info = FuncArgInfo.new
     end
@@ -150,6 +161,7 @@ module YTLJit
 
   class GeneratorExtend<GeneratorIABinary
     include GeneratorExtendMixin
+
     case $ruby_platform
     when /x86_64/
       include GeneratorExtendX64Mixin

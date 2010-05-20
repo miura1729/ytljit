@@ -6,11 +6,22 @@ module YTLJit
 
   module FunctionArgumentX64Mixin
     include FuncArgX64CommonMixin
+    ArgumentAddress = []
 
     def gen_access_dst(gen, inst, dst, src, src2)
+      if @no >= ARGPOS2REG.size and ArgumentAddress[@no] == nil then
+        spos = @no - ARGPOS2REG.size
+        ArgumentAddress[@no] = OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
+      end
+      code = ""
       asm = gen.asm
       fainfo = gen.funcarg_info
-      code = ""
+      if @no == ARGPOS2REG.size then
+        offset = asm.offset
+        code += asm.update_state(gen.sub(RSP, fainfo.maxargs * 8))
+        fainfo.area_allocate_pos.push offset
+      end
+
       if @no < ARGPOS2REG.size then
         argreg = ARGPOS2REG[@no]
         
@@ -59,11 +70,20 @@ module YTLJit
       code = ""
       code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
       code += @asm.update_state(call(addr))
+
       if argnum > ARGPOS2REG.size then
         imm = OpImmidiate8.new((argnum - ARGPOS2REG.size) * 4)
         code += @asm.update_state(add(SPR, imm))
+        offset = @funcarg_info.area_allocate_pos.pop
+        alloc_argument_area = lambda {
+          asm.with_current_address(asm.output_stream.base_address + offset) {
+            asm.output_stream[offset] = gen.sub(RSP, fainfo.maxargs * 8)
+          }
+        }
+        asm.after_patch_tab.push alloc_argument_area
       end
 
+      @funcarg_info.update_maxargs(argnum)
       @funcarg_info.used_arg_tab = {}
       uat = @funcarg_info.used_arg_tab
       while !fainfo.empty? do

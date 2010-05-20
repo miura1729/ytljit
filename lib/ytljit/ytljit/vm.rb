@@ -1,77 +1,84 @@
 module YTLJit
 
 =begin
-  Stack layout (on stack frame)
+Typical struct of node
+
+def fact(x)
+  if x == 0 then
+    return 1
+  else
+    return x * fact(x - 1)
+  end
+end
 
 
-Hi     |  |Argn                   |   |
-       |  |   :                   |   |
-       |  |Arg3(exception status) |   |
-       |  |Arg2(block pointer)    |   |
-       |  |Arg1(parent frame)     |  -+
-       |  |Arg0(self)             |
-       |  |Return Address         |
-       +- |old bp                 | <-+
-          |old bp on stack        |  -+
-    EBP-> |Local Vars1            |   
-          |                       |   
-          |                       |   
-          |Local Varsn            |   
-          |Pointer to Env         |   
-   SP ->  |                       |
-          |                       |
-LO        
-
-
-  Stack layout (on heap frame)
-
-
-Hi     |  |Arg0(self)             |   |
-       |  |Arg1(parent frame)     |  -+
-       |  |Arg2(block pointer)    |
-       |  |Arg3(exception status) |
-       |  |   :                   |
-       |  |Arg n                  |
-       |  |Return Address         |
-       +- |old bp                 |  <---+
-          |Pointer to Env         |  -+  |
-   SP ->  |                       |   |  |
-LO        |                       |   |  |
-                                      |  |
-                                      |  |
-       +- |                       |   |  |
-       |  |free func              |   |  |
-       |  |mark func              |   |  |
-       |  |T_DATA                 | <-+  |                                      
-       |                                 |
-       |                                 |
-       |  |Arg n                  |      |
-       |  |   :                   |      |
-       |  |Arg3(exception status) |      |
-       |  |Arg2(block pointer)    |      |
-       |  |Arg1(parent frame)     |      |
-       |  |Arg0(self)             |      |   
-       |  |Not used(reserved)     |      |
-       |  |old bp on stack        | -----+
-    EBP-> |Local Vars1            |   
-       |  |                       |   
-       |  |                       |   
-       +->|Local Varsn            |   
-
-  enter procedure
-    push EBP
-    SP -> EBP
-    allocate frame (stack or heap)    
-    Copy arguments if allocate frame on heap
-    store EBP on the top of frame
-    Address of top of frame -> EBP
- 
-  leave procedure
-    Dereference of EBP -> ESP
-    pop EBP
-    ret
+MethodTopNode
+  name -> "fact"     
+  body  
+   |
+IfNode
+  epart------------------+
+  tpart----------------+ |
+  cond                 | |
+   |                   | |
+CallNode               | |
+  func -> ==           | |
+  arg[0]------------+  | |
+  arg[1]            |  | |
+   |                |  | |
+LiteralNode         |  | |
+  value -> 0        |  | |
+                    |  | |
+    +---------------+  | |
+    |                  | |
+LocalVarNode           | |
+  offset -> 0          | |
+  depth -> 0           | |
+                       | |
+    +------------------+ |
+    |                    |
+MethodEndNode            |
+  value                  |
+    |                    |
+LiteralNode              |
+  value -> 0             |
+                         |
+    +--------------------+
+    |
+MethodEndNode
+  value
+    |
+CallNode
+   func -> *
+   arg[0] --------------+
+   arg[1]               |
+    |                   |
+CallNode                |
+   func -> fact         |
+   arg[0]               |
+    |                   |
+CallNode                |
+   func -> -            |
+   arg[0] -----+        |
+   arg[1]      |        |
+    |          |        |
+LiteralNode    |        |
+  value -> 0   |        |
+               |        |
+    +----------+        |
+    |                   |
+LocalVarNode            |
+  offset -> 0           |
+  depth -> 0            |
+                        |
+    +-------------------+
+    |
+LocalVarNode            
+  offset -> 0           
+  depth -> 0            
 
 =end
+
   module VM
     # Expression of VM is a set of Nodes
     module Node
@@ -118,29 +125,27 @@ LO        |                       |   |  |
 
       # Top of method definition
       class MethodTopNode<HaveChildlen
+        include MethodTopCodeGen
         def initialize(parent, args, name = nil)
           super()
           @arg_list = args
           @name = name
-          @body = []
+          @body = nil
           @parent = parent
           @frame_size = nil
         end
 
-        def add_body(node)
-          @body.push node
-        end
-
         def to_asmcode(context)
           context = gen_method_prologe(context)
-          @body.each do |ele|
-            ele.to_asmcode(context)
-          end
+          context = @body.to_asmcode(context)
+          context
         end
       end
 
       # End of method definition
       class MethodEndNode<BaseNode
+        include MethodEndCodeGen
+
         def initialize
           super
           @parent_method = nil
@@ -148,16 +153,18 @@ LO        |                       |   |  |
 
         def to_asmcode(context)
           context = gen_method_prologe(context)
-          curcs = context.code_space
-          curas = Assembler.new(curcs)
+          curas = context.assembler
           curas.with_retry do
             curas.ret
           end
+          context
         end
       end
 
       # if statement
       class IfNode<HaveChildlen
+        include IfNodeCodeGen
+
         def initialize(cond, tpart, epart)
           super()
           @cond = cond
@@ -170,28 +177,40 @@ LO        |                       |   |  |
 
         def to_asmcode(context)
           context = @cond.to_asmcode(context)
-          curcs = context.code_space
-          curas = Assembler.new(curcs)
           elsecs = @else_cs
           contcs = @cont_cs
 
+          curas = context.assembler
           curas.with_retry do
             curas.and(context.ret_reg, OpImmdiate(~4))
             curas.jn(elsecs.var_base_address)
           end
+
           context = tpart.to_asmcode(context)
-          curcs = context.code_space
-          curcs.with_retry do
-            curcs.jmp(contcs.var_base_address)
+          tretr = context.ret_reg
+          tas = context.assembler
+
+          context.add_code_space(code_space)
+          context = epart.to_asmcode(context)
+          eretr = context.ret_reg
+          eas = context.assembler
+
+          tas.with_retry do
+            unify_retreg_tpart(tretr, eretr, tas)
+            tas.jmp(contcs.var_base_address)
           end
 
-          context.code_space = elsecs
-          curcs = context.code_space
-          context = epart.to_asmcode(context)
-          curcs.with_retry do
-            curcs.jmp(contcs.var_base_address)
+          eas.with_retry do
+            unify_retreg_epart(tretr, eretr, eas)
+            eas.jmp(contcs.var_base_address)
           end
-          context.code_space = context
+
+          context.add_code_space(contcs)
+          cas = context.assembler
+          cas.with_retry do
+            unify_retreg_cont(tretr, eretr, cas)
+          end
+          context
         end
       end
 
@@ -209,6 +228,31 @@ LO        |                       |   |  |
 
       # Call methodes
       class CallNode<HaveChildlen
+        def initialize
+          super()
+          @arguments = []
+          @func = nil
+        end
+
+        attr_accrssor :func
+        attr_accrssor :arguments
+
+        def to_asmcode(context)
+          @arguments.each_with_index do |arg, i|
+            context = arg.to_asmcode(context)
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG[i], context.ret_reg)
+            end
+          end
+          context = @func.to_asmcode(context)
+          fnc = context.ret_reg
+          context
+        end
+      end
+
+      # Literal
+      class LiteralNode<BaseNode
       end
 
       # Variable Common
