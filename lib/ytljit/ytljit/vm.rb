@@ -147,7 +147,7 @@ LocalVarNode
         include MethodEndCodeGen
 
         def initialize
-          super
+          super()
           @parent_method = nil
         end
 
@@ -222,10 +222,6 @@ LocalVarNode
       class LetNode<HaveChildlen
       end
 
-      # Define and assign local variable
-      class AssignNode<HaveChildlen
-      end
-
       # Call methodes
       class CallNode<HaveChildlen
         def initialize
@@ -247,12 +243,31 @@ LocalVarNode
           end
           context = @func.to_asmcode(context)
           fnc = context.ret_reg
+          casm = context.assembler
+          casm.with_retry do 
+            casm.call(fnc)
+          end
           context
         end
       end
 
       # Literal
       class LiteralNode<BaseNode
+        def initialize(obj)
+          super()
+          @object = obj
+        end
+
+        def to_asmcode(context)
+          case @objct
+          when Fixnum
+            context.ret_reg = OpImmdiateMachineWord.new(@object)
+          else
+            context.ret_reg = OpImmdiateAddress.new(address_of(@object))
+          end
+
+          context
+        end
       end
 
       # Variable Common
@@ -261,10 +276,21 @@ LocalVarNode
 
       # Local Variable
       class LocalVarNode<VariableCommonNode
+        def initialize(offset, depth)
+          @offset = offset
+          @depth = depth
+        end
+
+        def to_asmcode(context)
+        end
       end
 
       # Instance Variable
       class InstanceVarNode<VariableCommonNode
+      end
+
+      # Define and assign local variable
+      class AssignNode<HaveChildlen
       end
 
       # Reference Register

@@ -52,6 +52,7 @@ LO        |                       |   |  |
        |  |Arg1(parent frame)     |      |
        |  |Arg0(self)             |      |   
        |  |Not used(reserved)     |      |
+       |  |Not used(reserved)     |      |
        |  |old bp on stack        | -----+
     EBP-> |Local Vars1            |   
        |  |                       |   
@@ -98,8 +99,7 @@ LO        |                       |   |  |
         include AbsArch
 
         def gen_method_prologe(context)
-          curcs = context.code_space
-          asm = Assembler.new(curcs)
+          asm = context.assembler
           lsize = @local_vars.inject(0) {|res, ele| res += ele.size}
           wsize = @work_area.inject(0) {|res, ele| res += ele.size}
           @frame_size = lsize + wsize
@@ -121,16 +121,15 @@ LO        |                       |   |  |
 
           context
         end
+      end
 
       module MethodEndCodeGen
         include AbsArch
 
         def gen_method_eplogue(context)
-          curcs = context.code_space
-          asm = Assembler.new(curcs)
+          asm = context.assembler
 
           if @parent_method.frame_size != 0 then
-
             # Make linkage of frame pointer
             asm.mov BSP, BPR
             asm.pop BPR
@@ -157,6 +156,27 @@ LO        |                       |   |  |
         def unify_retreg_cont(tretr, eretr, asm)
         end
       end
+      
+      module LocalVarNodeCodeGen
+        include AbsArch
+
+        def offset_arg(n)
+          off = 16 + n * Type::MACHINE_WORD.size
+          OpIndirect.new(TMPR, off)
+        end
+
+        def gen_pursue_parent_function(context, level)
+          asm = context.assembler
+          asm.mov(BPR, TMPR)
+          level.times do 
+            asm.mov(TMPR, offset_arg(0))
+          end
+          
+          context.ret_reg = TMPR
+          context
+        end
+      end
+
     end
   end
 end

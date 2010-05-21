@@ -58,8 +58,12 @@ module YTLJit
   case $ruby_platform
   when /x86_64/
     class OpVarImmidiateAddress<OpVarImmidiate64; end
+    class OpImmidiateAddress<OpImmidiate64; end
+    class OpImmidiateMachineWord<OpImmidiate64; end
   when /i.86/
     class OpVarImmidiateAddress<OpVarImmidiate32; end
+    class OpImmidiateAddress<OpImmidiate32; end
+    class OpImmidiateMachineWord<OpImmidiate32; end
   end
 
   class OpMemory<Operand
