@@ -102,7 +102,6 @@ LocalVarNode
         end
 
         def gen_type_inference_proc(code)
-          
         end
 
         # dummy methods
@@ -135,9 +134,9 @@ LocalVarNode
           @frame_size = nil
         end
 
-        def to_asmcode(context)
+        def compile(context)
           context = gen_method_prologe(context)
-          context = @body.to_asmcode(context)
+          context = @body.compile(context)
           context
         end
       end
@@ -151,7 +150,7 @@ LocalVarNode
           @parent_method = nil
         end
 
-        def to_asmcode(context)
+        def compile(context)
           context = gen_method_prologe(context)
           curas = context.assembler
           curas.with_retry do
@@ -175,8 +174,8 @@ LocalVarNode
           @cont_cs = CodeSpace.new
         end
 
-        def to_asmcode(context)
-          context = @cond.to_asmcode(context)
+        def compile(context)
+          context = @cond.compile(context)
           elsecs = @else_cs
           contcs = @cont_cs
 
@@ -186,12 +185,12 @@ LocalVarNode
             curas.jn(elsecs.var_base_address)
           end
 
-          context = tpart.to_asmcode(context)
+          context = tpart.compile(context)
           tretr = context.ret_reg
           tas = context.assembler
 
           context.add_code_space(code_space)
-          context = epart.to_asmcode(context)
+          context = epart.compile(context)
           eretr = context.ret_reg
           eas = context.assembler
 
@@ -224,29 +223,43 @@ LocalVarNode
 
       # Call methodes
       class CallNode<HaveChildlen
+        @@current_node = nil
+        
+        def self.nodes
+          @@current_node
+        end
+
         def initialize
           super()
           @arguments = []
           @func = nil
+          @var_return_address = nil
+          @next_node = @@current_node
+          @@current_node = self
         end
 
         attr_accrssor :func
         attr_accrssor :arguments
+        attr          :var_return_address
+        attr          :next_node
 
-        def to_asmcode(context)
+        def compile(context)
           @arguments.each_with_index do |arg, i|
-            context = arg.to_asmcode(context)
+            context = arg.compile(context)
             casm = context.assembler
             casm.with_retry do 
               casm.mov(FUNC_ARG[i], context.ret_reg)
             end
           end
-          context = @func.to_asmcode(context)
+          context = @func.compile(context)
           fnc = context.ret_reg
           casm = context.assembler
           casm.with_retry do 
             casm.call(fnc)
           end
+          off = casm.offset
+          @var_return_address = casm.output_stream.var_base_address(off)
+
           context
         end
       end
@@ -258,7 +271,7 @@ LocalVarNode
           @object = obj
         end
 
-        def to_asmcode(context)
+        def compile(context)
           case @objct
           when Fixnum
             context.ret_reg = OpImmdiateMachineWord.new(@object)
@@ -276,12 +289,17 @@ LocalVarNode
 
       # Local Variable
       class LocalVarNode<VariableCommonNode
+        include LocalVarNodeCodeGen
+
         def initialize(offset, depth)
+          super()
           @offset = offset
           @depth = depth
         end
 
-        def to_asmcode(context)
+        def compile(context)
+          context = gen_pursue_parent_function(context, @depth)
+          
         end
       end
 

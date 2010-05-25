@@ -46,6 +46,18 @@
 #
 
 #
+class QuotedObj
+  def self.quote(obj)
+    self.new(obj)
+  end
+
+  def initialize(obj)
+    @obj = obj
+  end
+
+  attr :obj
+end
+
 class Matcher
   def initialize
     @cache = {}
@@ -117,6 +129,9 @@ class Matcher
           env[pat] = get_patref(stack).to_s
         end
       end
+
+    when QuotedObj
+      cond.push "(#{get_patref(stack)} == #{pat.obj.inspect})"
 
     else
       cond.push "(#{get_patref(stack)} == #{pat})"
@@ -208,9 +223,13 @@ if __FILE__ == $0 then
   mat.pattern([:a, [Array, :d], :c]) {|hash|
     p hash
   }
+  mat.pattern([QuotedObj.quote(:a), [Array, :d], :c]) {|hash|
+    p hash
+  }
   mat.match([1, [2, 3]])
   mat.match([1, [2, 3, 4], 4, :a])
   mat.match([1, [2, 3, 4], 1])
   mat.match([1, [2, 3], 4, 5])
+  mat.match([:a, [2, 3], 2 ])
 end
 

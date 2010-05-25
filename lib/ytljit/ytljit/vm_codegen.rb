@@ -165,10 +165,10 @@ LO        |                       |   |  |
           OpIndirect.new(TMPR, off)
         end
 
-        def gen_pursue_parent_function(context, level)
+        def gen_pursue_parent_function(context, depth)
           asm = context.assembler
           asm.mov(BPR, TMPR)
-          level.times do 
+          depth.times do 
             asm.mov(TMPR, offset_arg(0))
           end
           
