@@ -85,7 +85,8 @@ module YTLJit
         locals = code.header['locals']
         args   = code.header['args']
 
-        p context.current_vm = mtopnode.construct_frame_info(locals, args)
+        context.current_vm = mtopnode.construct_frame_info(locals, args)
+        context.current_vm.inspect_by_graph
       end
 
       def visit_block_end(code, ins, info, context)

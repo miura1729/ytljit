@@ -24,5 +24,6 @@ require 'ytljit/asmext'
 require 'ytljit/rubyvm'
 
 require 'ytljit/vm_codegen'
+require 'ytljit/vm_inspect'
 require 'ytljit/vm'
 require 'ytljit/vm_trans'

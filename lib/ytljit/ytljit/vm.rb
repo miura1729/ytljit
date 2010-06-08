@@ -92,6 +92,7 @@ LocalVarNode
     # Expression of VM is a set of Nodes
     module Node
       class BaseNode
+        include Inspect
         def initialize(parent)
           cs = CodeSpace.new
           asm = Assembler.new(cs)
@@ -160,20 +161,23 @@ LocalVarNode
           # construct frame
           frame_layout = Array.new(lsize)
           i = 0
+          fargstart = lsize - argnum
           argnum.times do
             lnode = LocalVarNode.new(finfo, locals[i])
-            frame_layout[lsize - argnum + i] = lnode
+            frame_layout[fargstart + i] = lnode
             i += 1
           end
           
-          frame_layout[i] = SystemValueNode.new(finfo, :OLD_BP)
-          frame_layout[i + 1] = SystemValueNode.new(finfo, :RET_ADDR)
+          frame_layout[fargstart - 1] = SystemValueNode.new(finfo, :RET_ADDR)
+          frame_layout[fargstart - 2] = SystemValueNode.new(finfo, :OLD_BP)
           i += 2
-          
+
+          j = 0
           while i < lsize do
             lnode = LocalVarNode.new(finfo, locals[i])
-            frame_layout[i - argnum - 2] = lnode
+            frame_layout[j] = lnode
             i += 1
+            j += 1
           end
           finfo.frame_layout = frame_layout
           
