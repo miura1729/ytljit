@@ -98,22 +98,19 @@ LO        |                       |   |  |
       module MethodTopCodeGen
         include AbsArch
 
-        def gen_method_prologe(context)
+        def gen_method_prologue(context)
           asm = context.assembler
-          lsize = @local_vars.inject(0) {|res, ele| res += ele.size}
-          wsize = @work_area.inject(0) {|res, ele| res += ele.size}
-          @frame_size = lsize + wsize
 
-          if @frame_size != 0 then
+          if fsize != 0 then
 
             # Make linkage of frame pointer
-            asm.push BPR
-            asm.mov BPR, SPR
-            asm.push BPR
-            asm.mov BPR, SPR
+            asm.push(BPR)
+            asm.mov(BPR, SPR)
+            asm.push(BPR)
+            asm.mov(BPR, SPR)
 
             # Make Local Variable area
-            asm.add BSP, (lwsize)
+            asm.add(BSP, @body.frame_size)
             
           else
             # No local var. and work area
@@ -126,21 +123,39 @@ LO        |                       |   |  |
       module MethodEndCodeGen
         include AbsArch
 
-        def gen_method_eplogue(context)
+        def gen_method_epilogue(context)
           asm = context.assembler
 
           if @parent_method.frame_size != 0 then
             # Make linkage of frame pointer
-            asm.mov BSP, BPR
-            asm.pop BPR
-            asm.mov BSP, BPR
-            asm.pop BPR
+            asm.mov(BSP, BPR)
+            asm.pop(BPR)
+            asm.mov(BSP, BPR)
+            asm.pop(BPR)
 
           else
             # No local var. and work area
           end
 
           context
+        end
+      end
+
+      module LocalFrameInfoCodeGen
+        include AbsArch
+
+        OffsetCache = {}
+        def offset_arg(n)
+          rc = OffsetCache[n]
+          unless rc
+            off = 16
+            @frame_layout.each do |slot|
+              off += slot.size
+            end
+            rc = OffsetCache[n] = OpIndirect.new(TMPR, off)
+          end
+
+          rc
         end
       end
 
@@ -160,23 +175,17 @@ LO        |                       |   |  |
       module LocalVarNodeCodeGen
         include AbsArch
 
-        def offset_arg(n)
-          off = 16 + n * Type::MACHINE_WORD.size
-          OpIndirect.new(TMPR, off)
-        end
-
         def gen_pursue_parent_function(context, depth)
           asm = context.assembler
           asm.mov(BPR, TMPR)
           depth.times do 
-            asm.mov(TMPR, offset_arg(0))
+            asm.mov(TMPR, frame_info.offset_arg(0))
           end
           
           context.ret_reg = TMPR
           context
         end
       end
-
     end
   end
 end

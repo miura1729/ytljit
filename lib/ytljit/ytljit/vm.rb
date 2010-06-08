@@ -16,6 +16,15 @@ MethodTopNode
   name -> "fact"     
   body  
    |
+LocalFrameInfo
+  frame       -- infomation of frame (access via insptance methodes)
+  body
+   |
+GuardInfo
+  type_list -> [[a, Fixnum], [v, Fixnum]], [[a, Float], [v, Fixnum]] ...
+  body
+       # Compile each element of type_list.
+   |
 IfNode
   epart------------------+
   tpart----------------+ |
@@ -83,16 +92,17 @@ LocalVarNode
     # Expression of VM is a set of Nodes
     module Node
       class BaseNode
-        def initialize
+        def initialize(parent)
           cs = CodeSpace.new
           asm = Assembler.new(cs)
           asm.with_retry do
             asm.ret
           end
+          @type = nil
           @type_inference_proc = cs
           @type_cache = nil
 
-          @parent = nil
+          @parent = parent
         end
         attr_accessor :parent
 
@@ -105,53 +115,173 @@ LocalVarNode
         end
 
         # dummy methods
-        def add_modified_var(var); end
+        def add_modified_var(var, assnode); end
       end
 
-      class HaveChildlen<BaseNode
-        def initialize
-          super()
-          @modified_var = []
+      class HaveChildlenNode<BaseNode
+        def initialize(parent)
+          super(parent)
+          @modified_var = {}
         end
 
-        def add_modified_var(lvar)
-          unless @modified_var.include?(lvar)
-            @modified_var.push lvar
-          end
-          @parent.add_modified_var(lvar)
+        def traverse_childlen
+          raise "You must define traverse_childlen for #{self.inspect}"
+        end
+
+        def add_modified_var(lvar, assnode)
+          @modified_var[lvar] = [assnode]
+          traverse_childlen {|child|
+            child.add_modified_var(lvar, assnode)
+          }
         end
       end
 
       # Top of method definition
-      class MethodTopNode<HaveChildlen
+      class MethodTopNode<HaveChildlenNode
         include MethodTopCodeGen
-        def initialize(parent, args, name = nil)
-          super()
-          @arg_list = args
+        def initialize(parent, name = nil)
+          super(parent)
           @name = name
           @body = nil
-          @parent = parent
-          @frame_size = nil
+        end
+
+        attr_accessor :body
+
+        def traverse_childlen
+          yield @body
+        end
+
+        def construct_frame_info(locals, argnum)
+          finfo = LocalFrameInfoNode.new(self)
+          
+          # 2 means BP and SP
+          lsize = locals.size + 2
+          
+          # construct frame
+          frame_layout = Array.new(lsize)
+          i = 0
+          argnum.times do
+            lnode = LocalVarNode.new(finfo, locals[i])
+            frame_layout[lsize - argnum + i] = lnode
+            i += 1
+          end
+          
+          frame_layout[i] = SystemValueNode.new(finfo, :OLD_BP)
+          frame_layout[i + 1] = SystemValueNode.new(finfo, :RET_ADDR)
+          i += 2
+          
+          while i < lsize do
+            lnode = LocalVarNode.new(finfo, locals[i])
+            frame_layout[i - argnum - 2] = lnode
+            i += 1
+          end
+          finfo.frame_layout = frame_layout
+          
+          @body = finfo
         end
 
         def compile(context)
-          context = gen_method_prologe(context)
+          context = gen_method_prologue(context)
           context = @body.compile(context)
           context
         end
+      end
+
+      class BlockTopNode<MethodTopNode
+        include MethodTopCodeGen
+      end
+
+      class ClassTopNode<MethodTopNode
+        include MethodTopCodeGen
+      end
+
+      class LocalFrameInfoNode<HaveChildlenNode
+        include LocalFrameInfoCodeGen
+        
+        def initialize(parent)
+          super(parent)
+          @frame_layout = []
+          @body = nil
+        end
+
+        attr_accessor :frame_layout
+        attr_accessor :body
+
+        def traverse_childlen
+          yield @body
+          @frame_layout.each do |vinf|
+            yield vinf
+          end
+        end
+
+        def frame_size
+          @frame_layout.inject(0) {|sum, slot| sum += slot.size}
+        end
+
+        def compile(context)
+          if @frame_layout.size != 0 then
+            siz = frame_size
+            asm = context.assembler
+            asm.with_retry do
+              asm.sub(SPR, siz)
+            end
+          end
+          context = @body.compile(context)
+        end
+      end
+
+      class LocalVarNode<BaseNode
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @assigns = []
+        end
+
+        def add_assigns(node)
+          @assigns.push node
+        end
+
+        def size
+          inference_type.asm_type.size
+        end
+
+        def compile(context)
+          context
+        end
+      end
+
+      class SystemValueNode<BaseNode
+        def initialize(parent, kind)
+          @kind = kind
+          @offset = offset
+        end
+
+        attr :offset
+
+        def size
+          Type::MACHINE_WORD.size
+        end
+
+        def compile(context)
+          context
+        end
+      end
+
+      # Guard (type information holder and type checking of tree)
+      class GuardNode<HaveChildlenNode
       end
 
       # End of method definition
       class MethodEndNode<BaseNode
         include MethodEndCodeGen
 
-        def initialize
-          super()
+        def initialize(parent)
+          super(parent)
           @parent_method = nil
         end
 
         def compile(context)
-          context = gen_method_prologe(context)
+          context = gen_method_epilogue(context)
           curas = context.assembler
           curas.with_retry do
             curas.ret
@@ -160,18 +290,32 @@ LocalVarNode
         end
       end
 
+      class BlockEndNode<MethodEndNode
+        include MethodEndCodeGen
+      end
+
+      class ClassEndNode<MethodEndNode
+        include MethodEndCodeGen
+      end
+
       # if statement
-      class IfNode<HaveChildlen
+      class IfNode<HaveChildlenNode
         include IfNodeCodeGen
 
-        def initialize(cond, tpart, epart)
-          super()
+        def initialize(parent, cond, tpart, epart)
+          super(parent)
           @cond = cond
           @tpart = tpart
           @epart = epart
 
           @else_cs = CodeSpace.new
           @cont_cs = CodeSpace.new
+        end
+
+        def traverse_childlen
+          yield @cond
+          yield @tpart
+          yield @epart
         end
 
         def compile(context)
@@ -213,24 +357,20 @@ LocalVarNode
         end
       end
 
-      # Guard (type information holder and type checking of tree)
-      class GuardNode<HaveChildlen
-      end
-
       # Holder of Nodes Assign. These assignes execute parallel potencially.
-      class LetNode<HaveChildlen
+      class LetNode<HaveChildlenNode
       end
 
       # Call methodes
-      class CallNode<HaveChildlen
+      class CallNode<HaveChildlenNode
         @@current_node = nil
         
-        def self.nodes
+        def self.node
           @@current_node
         end
 
-        def initialize
-          super()
+        def initialize(parent)
+          super(parent)
           @arguments = []
           @func = nil
           @var_return_address = nil
@@ -238,10 +378,17 @@ LocalVarNode
           @@current_node = self
         end
 
-        attr_accrssor :func
-        attr_accrssor :arguments
+        attr_accessor :func
+        attr_accessor :arguments
         attr          :var_return_address
         attr          :next_node
+
+        def traverse_childlen
+          @arguments.each do |arg|
+            yield arg
+          end
+          yield @func
+        end
 
         def compile(context)
           @arguments.each_with_index do |arg, i|
@@ -266,8 +413,8 @@ LocalVarNode
 
       # Literal
       class LiteralNode<BaseNode
-        def initialize(obj)
-          super()
+        def initialize(parent, obj)
+          super(parent)
           @object = obj
         end
 
@@ -284,17 +431,39 @@ LocalVarNode
       end
 
       # Variable Common
-      class VariableCommonNode<BaseNode
+      class VariableRefCommonNode<BaseNode
       end
 
       # Local Variable
-      class LocalVarNode<VariableCommonNode
+      class LocalVarRefCommonNode<VariableRefCommonNode
         include LocalVarNodeCodeGen
 
-        def initialize(offset, depth)
-          super()
+        def initialize(parent, offset, depth)
+          super(parent)
           @offset = offset
           @depth = depth
+
+          tnode = @parent
+          while !tnode.is_a?(LocalFrameInfo)
+            tnode = tnode.parent
+          end
+          @frame_info = tnode
+        end
+      end
+
+      class LocalVarRefNode<LocalVarRefCommonNode
+        attr :frame_info
+
+        def compile(context)
+          context = gen_pursue_parent_function(context, @depth)
+          
+        end
+      end
+
+      class LocalAssignNode<LocalVarRefCommonNode
+        def initialize(parent, offset, depth, val)
+          super(parent, offset, depth)
+          @val = val
         end
 
         def compile(context)
@@ -304,11 +473,7 @@ LocalVarNode
       end
 
       # Instance Variable
-      class InstanceVarNode<VariableCommonNode
-      end
-
-      # Define and assign local variable
-      class AssignNode<HaveChildlen
+      class InstanceVarNode<VariableRefCommonNode
       end
 
       # Reference Register

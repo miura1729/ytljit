@@ -21,3 +21,8 @@ require 'ytljit/asmext_x86'
 require 'ytljit/asmext_x64'
 require 'ytljit/asmext'
 
+require 'ytljit/rubyvm'
+
+require 'ytljit/vm_codegen'
+require 'ytljit/vm'
+require 'ytljit/vm_trans'

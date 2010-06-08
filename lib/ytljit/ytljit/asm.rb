@@ -1,10 +1,16 @@
 module YTLJit
 
   class StepHandler
+    REG_NAME = ["EAX", "ECX", "EDX", "EBX", "EBP", "ESP", "EDI"]
     def step_handler(*regs)
-      STDERR.print "execute: 0x#{regs[0].to_s(16)}\n"
+      STDERR.print "#{regs[0].to_s(16)} "
       STDERR.print CodeSpace.disasm_cache[regs[0].to_s(16)], "\n"
-      STDERR.print regs.inspect
+      regs.each_with_index do |val, i|
+        STDERR.print REG_NAME[i]
+        STDERR.print ": 0x"
+        STDERR.print val.to_s(16)
+        STDERR.print " "
+      end
       STDERR.print "\n"
      end
   end
@@ -25,8 +31,8 @@ module YTLJit
       0
     end
 
-    def var_base_address
-      OpVarImmidiateAddress.new(lambda {0})
+    def var_base_address(offset = 0)
+      OpVarImmidiateAddress.new(lambda {offset})
     end
   end
 
