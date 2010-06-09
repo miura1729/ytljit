@@ -137,9 +137,8 @@ LocalVarNode
         end
       end
 
-      # Top of method definition
-      class MethodTopNode<HaveChildlenNode
-        include MethodTopCodeGen
+      # The top of top node
+      class TopNode<HaveChildlenNode
         def initialize(parent, name = nil)
           super(parent)
           @name = name
@@ -191,11 +190,16 @@ LocalVarNode
         end
       end
 
-      class BlockTopNode<MethodTopNode
+      # Top of method definition
+      class MethodTopNode<TopNode
         include MethodTopCodeGen
       end
 
-      class ClassTopNode<MethodTopNode
+      class BlockTopNode<TopNode
+        include MethodTopCodeGen
+      end
+
+      class ClassTopNode<TopNode
         include MethodTopCodeGen
       end
 
@@ -300,6 +304,17 @@ LocalVarNode
 
       class ClassEndNode<MethodEndNode
         include MethodEndCodeGen
+      end
+
+      class LocalLabel<HaveChildlenNode
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @body = nil
+        end
+
+        attr :name
+        attr_accessor :body
       end
 
       # if statement
@@ -417,10 +432,12 @@ LocalVarNode
 
       # Literal
       class LiteralNode<BaseNode
-        def initialize(parent, obj)
+        def initialize(parent, val)
           super(parent)
-          @object = obj
+          @value = val
         end
+        
+        attr :value
 
         def compile(context)
           case @objct

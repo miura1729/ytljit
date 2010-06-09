@@ -3,7 +3,7 @@ require 'ytljit'
 
 include YTLJit
 is = RubyVM::InstructionSequence.compile(
-              "def test(x);a = a + 1;p a;end","", "", 0,
+        "class Foo; def test(x);lambda {a = a + 1};p a;end;end","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,
                  :specialized_instruction  => false,}
