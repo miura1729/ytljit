@@ -146,6 +146,7 @@ LocalVarNode
         end
 
         attr_accessor :body
+        attr_accessor :name
 
         def traverse_childlen
           yield @body
@@ -200,6 +201,18 @@ LocalVarNode
       end
 
       class ClassTopNode<TopNode
+        include MethodTopCodeGen
+        def initialize(parent, name = nil)
+          super(parent, name)
+          @nested_class_tab = {}
+          @method_tab = {}
+        end
+
+        attr :nested_class_tab
+        attr :method_tab
+      end
+
+      class TopTopNode<ClassTopNode
         include MethodTopCodeGen
       end
 
@@ -317,29 +330,31 @@ LocalVarNode
         attr_accessor :body
       end
 
-      # if statement
-      class IfNode<HaveChildlenNode
+      class BranchCommonNode<HaveChildlenNode
         include IfNodeCodeGen
 
         def initialize(parent, cond, tpart, epart)
           super(parent)
           @cond = cond
           @tpart = tpart
-          @epart = epart
 
-          @else_cs = CodeSpace.new
           @cont_cs = CodeSpace.new
         end
 
         def traverse_childlen
           yield @cond
           yield @tpart
-          yield @epart
         end
+
+        def branch(as, address)
+          # as.jn(address)
+          # as.je(address)
+          raise "Don't use this node direct"
+        end
+          
 
         def compile(context)
           context = @cond.compile(context)
-          elsecs = @else_cs
           contcs = @cont_cs
 
           curas = context.assembler
@@ -350,22 +365,6 @@ LocalVarNode
 
           context = tpart.compile(context)
           tretr = context.ret_reg
-          tas = context.assembler
-
-          context.add_code_space(code_space)
-          context = epart.compile(context)
-          eretr = context.ret_reg
-          eas = context.assembler
-
-          tas.with_retry do
-            unify_retreg_tpart(tretr, eretr, tas)
-            tas.jmp(contcs.var_base_address)
-          end
-
-          eas.with_retry do
-            unify_retreg_epart(tretr, eretr, eas)
-            eas.jmp(contcs.var_base_address)
-          end
 
           context.add_code_space(contcs)
           cas = context.assembler
@@ -373,6 +372,18 @@ LocalVarNode
             unify_retreg_cont(tretr, eretr, cas)
           end
           context
+        end
+      end
+
+      class BranchIfNode<BranchCommonNode
+        def branch(as, address)
+          as.jn(address)
+        end
+      end
+
+      class BranchUnlessNode<BranchCommonNode
+        def branch(as, address)
+          as.je(address)
         end
       end
 

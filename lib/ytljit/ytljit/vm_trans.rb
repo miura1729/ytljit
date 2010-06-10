@@ -1,9 +1,12 @@
 module YTLJit
   module VM
     class YARVContext
+      include Node
+
       def initialize
+        the_top = TopTopNode.new(nil)
         @current_file_name = nil
-        @current_class_name = nil
+        @current_class_node = the_top
         @current_method_name = nil
 
         @enc_label = ""
@@ -11,7 +14,7 @@ module YTLJit
         @current_line_no = 0
         @current_local_label = nil
 
-        @current_vm = nil
+        @current_ndoe = the_top
         @vmtab = []
 
         @expstack = []
@@ -19,7 +22,7 @@ module YTLJit
       end
 
       attr_accessor :current_file_name
-      attr_accessor :current_class_name
+      attr_accessor :current_class_node
       attr_accessor :current_method_name
       
       attr_accessor :enc_label
@@ -27,7 +30,7 @@ module YTLJit
       attr_accessor :current_line_no
       attr_accessor :current_local_label
 
-      attr_accessor :current_vm
+      attr_accessor :current_ndoe
       attr          :vmtab
 
       attr          :expstack
@@ -52,6 +55,8 @@ module YTLJit
           end
           translate_block(code, context)
         end
+
+        context.current_ndoe.inspect_by_graph
       end
 
       def translate_block(code, context)
@@ -81,30 +86,21 @@ module YTLJit
 
       def visit_symbol(code, ins, context)
         context.current_local_label = ins
-        cvm = context.current_vm
-        cvm = LocalLabel.new(cvm, ins)
-        context.local_label_tab[ins] = cvm
-        context.current_vm = cvm
+        if (cvm = context.local_label_tab[ins]) == nil then
+          cvm = context.current_ndoe
+          cvm = LocalLabel.new(cvm, ins)
+          context.local_label_tab[ins] = cvm
+        end
+        context.current_ndoe = cvm
       end
 
       def visit_block_start(code, ins, context)
-        mtopnode = nil
-        case code.header['type']
-        when :block
-          mtopnode = BlockTopNode.new(context.current_vm)
-        when :method
-          mtopnode = MethodTopNode.new(context.current_vm)
-        when :class
-          mtopnode = ClassTopNode.new(context.current_vm)
-        when :top
-          mtopnode = TopNode.new(context.current_vm)
-        end
+        mtopnode = context.current_ndoe
 
         locals = code.header['locals']
         args   = code.header['args']
 
-        context.current_vm = mtopnode.construct_frame_info(locals, args)
-        context.current_vm.inspect_by_graph
+        context.current_ndoe = mtopnode.construct_frame_info(locals, args)
       end
 
       def visit_block_end(code, ins, context)
@@ -152,7 +148,7 @@ module YTLJit
       end
       
       def visit_putobject(code, ins, context)
-        nnode = LiteralNode.new(context.current_vm, ins[1])
+        nnode = LiteralNode.new(context.current_ndoe, ins[1])
         context.expstack.push nnode
       end
 
@@ -162,15 +158,27 @@ module YTLJit
       def visit_putiseq(code, ins, context)
         body = VMLib::InstSeqTree.new(code, ins[1])
         ncontext = YARVContext.new
+
+        case body.header['type']
+        when :block
+          mtopnode = BlockTopNode.new(context.current_ndoe)
+        when :method
+          mtopnode = MethodTopNode.new(context.current_ndoe)
+        when :class
+          mtopnode = ClassTopNode.new(context.current_ndoe)
+        when :top
+          raise "Maybe bug not appear top block."
+        end
+        ncontext.current_ndoe = mtopnode
+
         ncontext.current_file_name = context.current_file_name
-        ncontext.current_vm = context.current_vm
-        ncontext.current_class_name = context.current_class_name
+        ncontext.current_class_node = context.current_class_node
         mname = context.expstack.pop
-        ncontext.current_method_name = mname.value
+        ncontext.current_method_name = mname
 
         tr = VM::YARVTranslatorSimple.new([body])
         tr.translate(ncontext)
-        context.expstack.push ncontext.current_vm
+        context.expstack.push ncontext.current_ndoe
       end
 
       def visit_putstring(code, ins, context)
@@ -216,15 +224,18 @@ module YTLJit
 
       def visit_defineclass(code, ins, context)
         name = ins[1]
+        cnode = ClassTopNode.new(context.current_class_node, name)
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new
         ncontext.current_file_name = context.current_file_name
-        ncontext.current_vm = context.current_vm
-        ncontext.current_class_name = name
+        ncontext.current_ndoe = cnode
+        ncontext.current_class_node = cnode
 
         tr = VM::YARVTranslatorSimple.new([body])
         tr.translate(ncontext)
+
+        context.current_class_node.nested_class_tab[name] = cnode
       end
 
       def visit_send(code, ins, context)

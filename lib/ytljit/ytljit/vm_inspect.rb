@@ -35,8 +35,8 @@ module YTLJit
           when Hash
             obj.each do |key, vobj|
               emit(obj, vobj)
-              if vobj
-                @fp.print "#{obj.__id__} -> #{vobj.__id__}\n"
+              if key or vobj then
+                @fp.print "#{obj.__id__} -> #{vobj.__id__} [label=\"#{key}\"]\n"
               end
             end
             

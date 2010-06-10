@@ -1,7 +1,7 @@
 1. What is ytljit?
 
  Ytljit is a native code generator for compiler.
-You can generate native code using methods whose name is X86 nimonic.
+You can generate native code using methods whose name is X86 mnemonic.
 Why I deverop ytljit instead of using llvm? Because according to 
 my yarv2llvm's experience I think llvm don't have enough power 
 for  Ruby compiler. I need rewriting native code and operation to raw stack 
