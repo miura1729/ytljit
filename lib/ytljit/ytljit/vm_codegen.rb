@@ -97,25 +97,18 @@ LO        |                       |   |  |
     module Node
       module MethodTopCodeGen
         include AbsArch
-
+        
         def gen_method_prologue(context)
           asm = context.assembler
 
-          if fsize != 0 then
-
+          asm.with_retry do
             # Make linkage of frame pointer
             asm.push(BPR)
             asm.mov(BPR, SPR)
             asm.push(BPR)
             asm.mov(BPR, SPR)
-
-            # Make Local Variable area
-            asm.add(BSP, @body.frame_size)
-            
-          else
-            # No local var. and work area
           end
-
+            
           context
         end
       end
@@ -126,15 +119,12 @@ LO        |                       |   |  |
         def gen_method_epilogue(context)
           asm = context.assembler
 
-          if @parent_method.frame_size != 0 then
-            # Make linkage of frame pointer
+          # Make linkage of frame pointer
+          asm.with_retry do
             asm.mov(BSP, BPR)
             asm.pop(BPR)
             asm.mov(BSP, BPR)
             asm.pop(BPR)
-
-          else
-            # No local var. and work area
           end
 
           context

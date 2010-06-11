@@ -14,7 +14,7 @@ module YTLJit
         @current_line_no = 0
         @current_local_label = nil
 
-        @current_ndoe = the_top
+        @current_node = the_top
         @vmtab = []
 
         @expstack = []
@@ -30,7 +30,7 @@ module YTLJit
       attr_accessor :current_line_no
       attr_accessor :current_local_label
 
-      attr_accessor :current_ndoe
+      attr_accessor :current_node
       attr          :vmtab
 
       attr          :expstack
@@ -50,13 +50,14 @@ module YTLJit
           pos = "#{code.header['filename']}:#{context.current_line_no}"
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
-            lstr = context.enc_label + "+blk+" + code.info[2].to_s
+            lstr = context.enc_label + "+blk+" + 
+                   context.current_method_name.to_s
             context.enc_label = lstr
           end
           translate_block(code, context)
         end
 
-        context.current_ndoe.inspect_by_graph
+        context.current_node.inspect_by_graph
       end
 
       def translate_block(code, context)
@@ -87,20 +88,20 @@ module YTLJit
       def visit_symbol(code, ins, context)
         context.current_local_label = ins
         if (cvm = context.local_label_tab[ins]) == nil then
-          cvm = context.current_ndoe
+          cvm = context.current_node
           cvm = LocalLabel.new(cvm, ins)
           context.local_label_tab[ins] = cvm
         end
-        context.current_ndoe = cvm
+        context.current_node = cvm
       end
 
       def visit_block_start(code, ins, context)
-        mtopnode = context.current_ndoe
+        mtopnode = context.current_node
 
         locals = code.header['locals']
         args   = code.header['args']
 
-        context.current_ndoe = mtopnode.construct_frame_info(locals, args)
+        context.current_node = mtopnode.construct_frame_info(locals, args)
       end
 
       def visit_block_end(code, ins, context)
@@ -142,13 +143,17 @@ module YTLJit
       # setglobal
       
       def visit_putnil(code, ins, context)
+        nnode = LiteralNode.new(context.current_node, nil)
+        context.expstack.push nnode
       end
 
       def visit_putself(code, ins, context)
+        nnode = LiteralNode.new(context.current_node, nil)
+        context.expstack.push nnode
       end
       
       def visit_putobject(code, ins, context)
-        nnode = LiteralNode.new(context.current_ndoe, ins[1])
+        nnode = LiteralNode.new(context.current_node, ins[1])
         context.expstack.push nnode
       end
 
@@ -161,24 +166,24 @@ module YTLJit
 
         case body.header['type']
         when :block
-          mtopnode = BlockTopNode.new(context.current_ndoe)
+          mtopnode = BlockTopNode.new(context.current_node)
         when :method
-          mtopnode = MethodTopNode.new(context.current_ndoe)
+          mtopnode = MethodTopNode.new(context.current_node)
         when :class
-          mtopnode = ClassTopNode.new(context.current_ndoe)
+          mtopnode = ClassTopNode.new(context.current_node)
         when :top
           raise "Maybe bug not appear top block."
         end
-        ncontext.current_ndoe = mtopnode
+        ncontext.current_node = mtopnode
 
         ncontext.current_file_name = context.current_file_name
         ncontext.current_class_node = context.current_class_node
-        mname = context.expstack.pop
+        mname = context.expstack.last
         ncontext.current_method_name = mname
 
         tr = VM::YARVTranslatorSimple.new([body])
         tr.translate(ncontext)
-        context.expstack.push ncontext.current_ndoe
+        context.expstack.push ncontext.current_node
       end
 
       def visit_putstring(code, ins, context)
@@ -229,7 +234,7 @@ module YTLJit
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new
         ncontext.current_file_name = context.current_file_name
-        ncontext.current_ndoe = cnode
+        ncontext.current_node = cnode
         ncontext.current_class_node = cnode
 
         tr = VM::YARVTranslatorSimple.new([body])
@@ -239,6 +244,32 @@ module YTLJit
       end
 
       def visit_send(code, ins, context)
+        blk_iseq = ins[3]
+        numarg = ins[2]
+        arg = []
+        numarg.times do |i|
+          arg.push context.expstack.pop
+        end
+        
+        curnode = context.current_node
+        if blk_iseq then
+          body = VMLib::InstSeqTree.new(code, blk_iseq)
+          ncontext = YARVContext.new
+          ncontext.current_file_name = context.current_file_name
+          ncontext.current_class_node = context.current_class_node
+          ncontext.current_node = BlockTopNode.new(curnode)
+
+          tr = VM::YARVTranslatorSimple.new([body])
+          tr.translate(ncontext)
+          arg.push ncontext.current_node # block
+        else
+          arg.push nil # block
+        end
+        arg.push # self
+        arg = arg.reverse
+
+        func = MethodNameNode.new(curnode, ins[1])
+        context.current_node = SendNode.make_send_node(curnode, func, arg)
       end
 
       def visit_invokesuper(code, ins, context)

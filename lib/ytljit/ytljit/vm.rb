@@ -30,7 +30,7 @@ IfNode
   tpart----------------+ |
   cond                 | |
    |                   | |
-CallNode               | |
+SendNode               | |
   func -> ==           | |
   arg[0]------------+  | |
   arg[1]            |  | |
@@ -57,16 +57,16 @@ LiteralNode              |
 MethodEndNode
   value
     |
-CallNode
+SendNode
    func -> *
    arg[0] --------------+
    arg[1]               |
     |                   |
-CallNode                |
+SendNode                |
    func -> fact         |
    arg[0]               |
     |                   |
-CallNode                |
+SendNode                |
    func -> -            |
    arg[0] -----+        |
    arg[1]      |        |
@@ -180,6 +180,8 @@ LocalVarNode
             j += 1
           end
           finfo.frame_layout = frame_layout
+          finfo.argument_num = argnum
+          finfo.system_num = 2         # BP, SP
           
           @body = finfo
         end
@@ -194,9 +196,15 @@ LocalVarNode
       # Top of method definition
       class MethodTopNode<TopNode
         include MethodTopCodeGen
+        def construct_frame_info(locals, argnum)
+          locals.unshift :_self
+          locals.unshift :_block
+          argnum += 2
+          super(locals, argnum)
+        end
       end
 
-      class BlockTopNode<TopNode
+      class BlockTopNode<MethodTopNode
         include MethodTopCodeGen
       end
 
@@ -222,10 +230,14 @@ LocalVarNode
         def initialize(parent)
           super(parent)
           @frame_layout = []
+          @argument_num = nil
+          @system_num = nil
           @body = nil
         end
 
         attr_accessor :frame_layout
+        attr_accessor :argument_num
+        attr_accessor :system_num
         attr_accessor :body
 
         def traverse_childlen
@@ -239,9 +251,14 @@ LocalVarNode
           @frame_layout.inject(0) {|sum, slot| sum += slot.size}
         end
 
+        def local_area_size
+          localnum = @frame_layout.size - @argument_num - @system_num
+          @frame_layout[0, localnum].inject(0) {|sum, slot| sum += slot.size}
+        end
+
         def compile(context)
-          if @frame_layout.size != 0 then
-            siz = frame_size
+          siz = local_area_size
+          if  siz != 0 then
             asm = context.assembler
             asm.with_retry do
               asm.sub(SPR, siz)
@@ -391,56 +408,6 @@ LocalVarNode
       class LetNode<HaveChildlenNode
       end
 
-      # Call methodes
-      class CallNode<HaveChildlenNode
-        @@current_node = nil
-        
-        def self.node
-          @@current_node
-        end
-
-        def initialize(parent)
-          super(parent)
-          @arguments = []
-          @func = nil
-          @var_return_address = nil
-          @next_node = @@current_node
-          @@current_node = self
-        end
-
-        attr_accessor :func
-        attr_accessor :arguments
-        attr          :var_return_address
-        attr          :next_node
-
-        def traverse_childlen
-          @arguments.each do |arg|
-            yield arg
-          end
-          yield @func
-        end
-
-        def compile(context)
-          @arguments.each_with_index do |arg, i|
-            context = arg.compile(context)
-            casm = context.assembler
-            casm.with_retry do 
-              casm.mov(FUNC_ARG[i], context.ret_reg)
-            end
-          end
-          context = @func.compile(context)
-          fnc = context.ret_reg
-          casm = context.assembler
-          casm.with_retry do 
-            casm.call(fnc)
-          end
-          off = casm.offset
-          @var_return_address = casm.output_stream.var_base_address(off)
-
-          context
-        end
-      end
-
       # Literal
       class LiteralNode<BaseNode
         def initialize(parent, val)
@@ -458,6 +425,20 @@ LocalVarNode
             context.ret_reg = OpImmdiateAddress.new(address_of(@object))
           end
 
+          context
+        end
+      end
+
+      # Method name
+      class MethodNameNode<BaseNode
+        def initialize(parent, val)
+          super(parent)
+          @name = val
+        end
+        
+        attr :name
+
+        def compile(context)
           context
         end
       end
