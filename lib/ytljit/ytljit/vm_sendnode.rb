@@ -4,7 +4,9 @@ module YTLJit
     module Node
 
       # Send methodes
-      class SendNode<HaveChildlenNode
+      class SendNode<BaseNode
+        include HaveChildlenMixin
+        include AbsArch
         @@current_node = nil
         @@special_node_tab = {}
         
@@ -18,11 +20,18 @@ module YTLJit
 
         def self.make_send_node(parent, func, arguments)
           spcl = @@special_node_tab[func.name]
+          newobj = nil
           if spcl then
-            spcl.new(parent, func, arguments)
+            newobj = spcl.new(parent, func, arguments)
           else
-            self.new(parent, func, arguments)
+            newobj = self.new(parent, func, arguments)
           end
+          func.parent = newobj
+          arguments.each do |ele|
+            ele.parent = newobj
+          end
+
+          newobj
         end
 
         def initialize(parent, func, arguments)
@@ -71,9 +80,16 @@ module YTLJit
         add_special_send_node :"core#define_method"
         def initialize(parent, func, arguments)
           super
-          if arguments[2].is_a?(LiteralNode) then
-            parent.parent.method_tab[arguments[2].value] = arguments[3]
+          if arguments[3].is_a?(LiteralNode) then
+            parent.parent.method_tab[arguments[3].value] = arguments[4]
           end
+        end
+      end
+
+      class SendPlus<SendNode
+        add_special_send_node :+
+        def initialize(parent, func, argument)
+          super
         end
       end
     end

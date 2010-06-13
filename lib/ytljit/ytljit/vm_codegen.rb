@@ -76,9 +76,10 @@ LO        |                       |   |  |
 
   module VM
     class Context
+      include AbsArch
       def initialize
-        @code_space = cs
-        @assembler = asm
+        @code_space = CodeSpace.new
+        @assembler = Assembler.new(@code_space)
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
@@ -121,9 +122,9 @@ LO        |                       |   |  |
 
           # Make linkage of frame pointer
           asm.with_retry do
-            asm.mov(BSP, BPR)
+            asm.mov(SPR, BPR)
             asm.pop(BPR)
-            asm.mov(BSP, BPR)
+            asm.mov(SPR, BPR)
             asm.pop(BPR)
           end
 

@@ -4,7 +4,7 @@ module YTLJit
       include Node
 
       def initialize
-        the_top = TopTopNode.new(nil)
+        @the_top = TopTopNode.new(nil)
         @current_file_name = nil
         @current_class_node = the_top
         @current_method_name = nil
@@ -14,12 +14,14 @@ module YTLJit
         @current_line_no = 0
         @current_local_label = nil
 
-        @current_node = the_top
+        @current_node = @the_top
         @vmtab = []
 
         @expstack = []
         @local_label_tab = {}
       end
+
+      attr :the_top
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
@@ -56,8 +58,8 @@ module YTLJit
           end
           translate_block(code, context)
         end
-
-        context.current_node.inspect_by_graph
+        
+        context.the_top
       end
 
       def translate_block(code, context)
@@ -105,12 +107,20 @@ module YTLJit
       end
 
       def visit_block_end(code, ins, context)
-      end
-
-      def visit_local_block_start(code, ins, context)
-      end
-
-      def visit_local_block_end(code, ins, context)
+        curnode = context.current_node 
+        case code.header['type']
+        when :method
+          nnode = MethodEndNode.new(curnode)
+        when :block
+          nnode = BlockEndNode.new(curnode)
+        when :class
+          nnode = ClassEndNode.new(curnode)
+        when :top
+          nnode = ClassEndNode.new(curnode)
+        end
+        curnode.body = nnode
+        context.current_node = nnode
+        curnode
       end
 
       def visit_getlocal(code, ins, context)
@@ -123,9 +133,16 @@ module YTLJit
       # setspecial
 
       def visit_getdynamic(code, ins, context)
+        node = LocalVarRefNode.new(context.current_node, ins[1], ins[2])
+        context.expstack.push node
       end
 
       def visit_setdynamic(code, ins, context)
+        val = context.expstack.pop
+        curnode = context.current_node
+        node = LocalAssignNode.new(curnode, ins[1], ins[2], val)
+        curnode.body = node
+        context.current_node = node
       end
 
       # getinstancevariable
@@ -143,34 +160,36 @@ module YTLJit
       # setglobal
       
       def visit_putnil(code, ins, context)
-        nnode = LiteralNode.new(context.current_node, nil)
+        nnode = LiteralNode.new(nil, nil)
         context.expstack.push nnode
       end
 
       def visit_putself(code, ins, context)
-        nnode = LiteralNode.new(context.current_node, nil)
+        nnode = LiteralNode.new(nil, nil)
         context.expstack.push nnode
       end
       
       def visit_putobject(code, ins, context)
-        nnode = LiteralNode.new(context.current_node, ins[1])
+        nnode = LiteralNode.new(nil, ins[1])
         context.expstack.push nnode
       end
 
       def visit_putspecialobject(code, ins, context)
+        context.expstack.push SpecialObjectNode.new(nil, ins[1])
       end
 
       def visit_putiseq(code, ins, context)
         body = VMLib::InstSeqTree.new(code, ins[1])
+        curnode = context.current_node
         ncontext = YARVContext.new
 
         case body.header['type']
         when :block
-          mtopnode = BlockTopNode.new(context.current_node)
+          mtopnode = BlockTopNode.new(curnode)
         when :method
-          mtopnode = MethodTopNode.new(context.current_node)
+          mtopnode = MethodTopNode.new(curnode)
         when :class
-          mtopnode = ClassTopNode.new(context.current_node)
+          mtopnode = ClassTopNode.new(curnode)
         when :top
           raise "Maybe bug not appear top block."
         end
@@ -183,7 +202,7 @@ module YTLJit
 
         tr = VM::YARVTranslatorSimple.new([body])
         tr.translate(ncontext)
-        context.expstack.push ncontext.current_node
+        context.expstack.push mtopnode
       end
 
       def visit_putstring(code, ins, context)
@@ -202,9 +221,14 @@ module YTLJit
       # newrange
 
       def visit_pop(code, ins, context)
+        node = context.expstack.pop
+        curnode = context.current_node
+        curnode.body = node
+        context.current_node = node
       end
 
       def visit_dup(code, ins, context)
+        context.expstack.push context.expstack.last
       end
 
       def visit_dupn(code, ins, context)
@@ -241,35 +265,41 @@ module YTLJit
         tr.translate(ncontext)
 
         context.current_class_node.nested_class_tab[name] = cnode
+        context
       end
 
       def visit_send(code, ins, context)
         blk_iseq = ins[3]
+        curnode = context.current_node
         numarg = ins[2]
         arg = []
         numarg.times do |i|
-          arg.push context.expstack.pop
+          argele = context.expstack.pop
+          arg.push argele
         end
         
-        curnode = context.current_node
         if blk_iseq then
           body = VMLib::InstSeqTree.new(code, blk_iseq)
           ncontext = YARVContext.new
           ncontext.current_file_name = context.current_file_name
-          ncontext.current_class_node = context.current_class_node
-          ncontext.current_node = BlockTopNode.new(curnode)
+          ncontext.current_class_node = curnode
+          btn = ncontext.current_node = BlockTopNode.new(curnode)
 
           tr = VM::YARVTranslatorSimple.new([body])
           tr.translate(ncontext)
-          arg.push ncontext.current_node # block
+          arg.push btn # block
         else
-          arg.push nil # block
+          arg.push LiteralNode.new(curnode, nil) # block(dymmy)
         end
-        arg.push # self
+
+        arg.push context.expstack.pop # self
+ 
         arg = arg.reverse
 
-        func = MethodNameNode.new(curnode, ins[1])
-        context.current_node = SendNode.make_send_node(curnode, func, arg)
+        func = MethodSelectNode.new(curnode, ins[1])
+        cnode = context.current_node
+        context.expstack.push SendNode.make_send_node(cnode, func, arg)
+        context
       end
 
       def visit_invokesuper(code, ins, context)
@@ -279,6 +309,7 @@ module YTLJit
       end
 
       def visit_leave(code, ins, context)
+        visit_pop(code, ins, context)
       end
       
       def visit_throw(code, ins, context)

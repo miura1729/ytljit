@@ -118,12 +118,15 @@ LocalVarNode
         # dummy methods
         def add_modified_var(var, assnode); end
       end
-
-      class HaveChildlenNode<BaseNode
-        def initialize(parent)
-          super(parent)
+      
+      module HaveChildlenMixin
+        def initialize(*args)
+          super
           @modified_var = {}
+          @body = nil
         end
+
+        attr_accessor :body
 
         def traverse_childlen
           raise "You must define traverse_childlen for #{self.inspect}"
@@ -138,14 +141,13 @@ LocalVarNode
       end
 
       # The top of top node
-      class TopNode<HaveChildlenNode
+      class TopNode<BaseNode
+        include HaveChildlenMixin
         def initialize(parent, name = nil)
           super(parent)
           @name = name
-          @body = nil
         end
 
-        attr_accessor :body
         attr_accessor :name
 
         def traverse_childlen
@@ -184,6 +186,7 @@ LocalVarNode
           finfo.system_num = 2         # BP, SP
           
           @body = finfo
+          finfo
         end
 
         def compile(context)
@@ -224,7 +227,8 @@ LocalVarNode
         include MethodTopCodeGen
       end
 
-      class LocalFrameInfoNode<HaveChildlenNode
+      class LocalFrameInfoNode<BaseNode
+        include HaveChildlenMixin
         include LocalFrameInfoCodeGen
         
         def initialize(parent)
@@ -232,13 +236,26 @@ LocalVarNode
           @frame_layout = []
           @argument_num = nil
           @system_num = nil
-          @body = nil
+          @previous_frame = search_previous_frame(parent)
+        end
+
+        def search_previous_frame(mtop)
+          cnode = mtop.parent
+          while !cnode.is_a?(TopNode)
+            if cnode then
+              cnode = cnode.parent
+            else
+              return nil
+            end
+          end
+
+          return cnode.body
         end
 
         attr_accessor :frame_layout
         attr_accessor :argument_num
         attr_accessor :system_num
-        attr_accessor :body
+        attr          :previous_frame
 
         def traverse_childlen
           yield @body
@@ -265,6 +282,7 @@ LocalVarNode
             end
           end
           context = @body.compile(context)
+          context
         end
       end
 
@@ -280,7 +298,8 @@ LocalVarNode
         end
 
         def size
-          inference_type.asm_type.size
+#          inference_type.asm_type.size
+          4
         end
 
         def compile(context)
@@ -306,7 +325,8 @@ LocalVarNode
       end
 
       # Guard (type information holder and type checking of tree)
-      class GuardNode<HaveChildlenNode
+      class GuardNode<BaseNode
+        include HaveChildlenMixin
       end
 
       # End of method definition
@@ -336,18 +356,22 @@ LocalVarNode
         include MethodEndCodeGen
       end
 
-      class LocalLabel<HaveChildlenNode
+      class LocalLabel<BaseNode
+        include HaveChildlenMixin
         def initialize(parent, name)
           super(parent)
           @name = name
-          @body = nil
+        end
+
+        def traverse_childlen
+          yield @body
         end
 
         attr :name
-        attr_accessor :body
       end
 
-      class BranchCommonNode<HaveChildlenNode
+      class BranchCommonNode<BaseNode
+        include HaveChildlenMixin
         include IfNodeCodeGen
 
         def initialize(parent, cond, tpart, epart)
@@ -405,7 +429,8 @@ LocalVarNode
       end
 
       # Holder of Nodes Assign. These assignes execute parallel potencially.
-      class LetNode<HaveChildlenNode
+      class LetNode<BaseNode
+        include HaveChildlenMixin
       end
 
       # Literal
@@ -420,17 +445,31 @@ LocalVarNode
         def compile(context)
           case @objct
           when Fixnum
-            context.ret_reg = OpImmdiateMachineWord.new(@object)
+            context.ret_reg = OpImmidiateMachineWord.new(@object)
           else
-            context.ret_reg = OpImmdiateAddress.new(address_of(@object))
+            context.ret_reg = OpImmidiateAddress.new(@object.address)
           end
 
           context
         end
       end
 
+      class SpecialObjectNode<BaseNode
+        def initialize(parent, kind)
+          super(parent)
+          @kind = kind
+        end
+        
+        attr :kind
+
+        def compile(context)
+#          raise "Can't compile"
+          context
+        end
+      end
+
       # Method name
-      class MethodNameNode<BaseNode
+      class MethodSelectNode<BaseNode
         def initialize(parent, val)
           super(parent)
           @name = val
@@ -457,30 +496,49 @@ LocalVarNode
           @depth = depth
 
           tnode = @parent
-          while !tnode.is_a?(LocalFrameInfo)
+          while !tnode.is_a?(LocalFrameInfoNode)
             tnode = tnode.parent
           end
           @frame_info = tnode
+          
+          depth.times do |i|
+            tnode = tnode.previous_frame
+          end
+          @current_frame_info = tnode
+        end
+
+        attr :frame_info
+        attr :current_frame_info
+
+        def compile(context)
+          context = gen_pursue_parent_function(context, @depth)
+          context
         end
       end
 
       class LocalVarRefNode<LocalVarRefCommonNode
-        attr :frame_info
-
         def compile(context)
-          context = gen_pursue_parent_function(context, @depth)
-          
+          context = super(context)
         end
       end
 
       class LocalAssignNode<LocalVarRefCommonNode
+        include HaveChildlenMixin
         def initialize(parent, offset, depth, val)
           super(parent, offset, depth)
+          val.parent = self
           @val = val
+
+          # @parent.add_modified_var(@frame_info.frame_layout[offset], self)
+        end
+
+        def traverse_childlen
+          yield @val
+          yield @body
         end
 
         def compile(context)
-          context = gen_pursue_parent_function(context, @depth)
+          context = super(context)
           
         end
       end

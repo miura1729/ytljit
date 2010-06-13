@@ -17,7 +17,8 @@ module YTLJit
       end
 
       if @no > 0 and fainfo.used_arg_tab[@no - 1] then
-        STDERR.print "Wanning - priveous argument not initialized #{caller}"
+#        STDERR.print "Wanning - priveous argument not initialized #{caller}\n"
+        STDERR.print "Wanning - priveous argument not initialized \n"
       end
       fainfo.used_arg_tab[@no] = true
       unless inst == :mov and src == TMPR then

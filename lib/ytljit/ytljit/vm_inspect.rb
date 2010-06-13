@@ -1,4 +1,7 @@
 require 'tempfile'
+# require 'rubygems'
+# require 'drx'
+
 
 module YTLJit
   module VM
@@ -6,6 +9,7 @@ module YTLJit
       module Inspect
         def inspect_by_graph
           Inspector.new(self)
+#          self.see
         end
       end
 
