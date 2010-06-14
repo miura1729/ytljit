@@ -67,10 +67,13 @@ module YTLJit
           fnc = context.ret_reg
           casm = context.assembler
           casm.with_retry do 
-            casm.call(fnc)
+            casm.call_with_arg(fnc, @arguments.size)
           end
           off = casm.offset
           @var_return_address = casm.output_stream.var_base_address(off)
+          context.ret_reg = RETR
+
+          @body.compile(context)
 
           context
         end
@@ -81,8 +84,18 @@ module YTLJit
         def initialize(parent, func, arguments)
           super
           if arguments[3].is_a?(LiteralNode) then
-            parent.parent.method_tab[arguments[3].value] = arguments[4]
+            clstop = parent
+            while !clstop.is_a?(ClassTopNode)
+              clstop = clstop.parent
+            end
+            clstop.method_tab[arguments[3].value] = arguments[4]
           end
+        end
+
+        def compile(context)
+          @body.compile(context)
+
+          context
         end
       end
 

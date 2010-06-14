@@ -83,11 +83,13 @@ LO        |                       |   |  |
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
+        @used_reg = {}
       end
 
       attr_accessor :code_space
       attr_accessor :assembler
       attr_accessor :ret_reg
+      attr          :used_reg
 
       def add_code_space(cs)
         @code_space = cs
@@ -132,24 +134,6 @@ LO        |                       |   |  |
         end
       end
 
-      module LocalFrameInfoCodeGen
-        include AbsArch
-
-        OffsetCache = {}
-        def offset_arg(n)
-          rc = OffsetCache[n]
-          unless rc
-            off = 16
-            @frame_layout.each do |slot|
-              off += slot.size
-            end
-            rc = OffsetCache[n] = OpIndirect.new(TMPR, off)
-          end
-
-          rc
-        end
-      end
-
       module IfNodeCodeGen
         include AbsArch
 
@@ -168,12 +152,16 @@ LO        |                       |   |  |
 
         def gen_pursue_parent_function(context, depth)
           asm = context.assembler
-          asm.mov(BPR, TMPR)
-          depth.times do 
-            asm.mov(TMPR, frame_info.offset_arg(0))
+          if depth != 0 then
+            context.used_reg[TMPR2] = true
+            asm.mov(TMPR2, BPR)
+            depth.times do 
+              asm.mov(TMPR2, frame_info.offset_arg(0, TMPR2))
+            end
+            context.ret_reg = TMPR2
+          else
+            context.ret_reg = BPR
           end
-          
-          context.ret_reg = TMPR
           context
         end
       end

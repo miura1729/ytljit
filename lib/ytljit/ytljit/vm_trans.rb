@@ -73,7 +73,7 @@ module YTLJit
             # line no
             context.current_line_no = ins
           elsif ins.is_a?(Symbol) then
-            visit_symbol(code, nil, context)
+            visit_symbol(code, ins, context)
 
           else
             opname = ins[0].to_s
@@ -123,10 +123,25 @@ module YTLJit
         curnode
       end
 
+      def depth_of_block(code)
+        dep = 0
+        ccode = code
+        while ccode.header['type'] == :block
+          ccode = code.parent
+          dep += 1
+        end
+        
+        dep
+      end
+
       def visit_getlocal(code, ins, context)
+        dep = depth_of_block(code)
+        visit_getdynamic(code, [:getlocal, ins[1], dep], context)
       end
 
       def visit_setlocal(code, ins, context)
+        dep = depth_of_block(code)
+        visit_setdynamic(code, [:setlocal, ins[1], dep], context)
       end
 
       # getspecial

@@ -57,13 +57,15 @@ module YTLJit
     case $ruby_platform
     when /i.86/
       TMPR = OpEAX.instance
-      TMPR2 = OpEBX.instance
+      TMPR2 = OpEDX.instance
+      TMPR3 = OpECX.instance
       RETR = OpEAX.instance
       SPR = OpESP.instance
       BPR = OpEBP.instance
     when /x86_64/
       TMPR = OpRAX.instance
-      TMPR2 = OpRBX.instance
+      TMPR2 = OpR10.instance
+      TMPR3 = OpR11.instance
       RETR = OpRAX.instance
       SPR = OpRSP.instance
       BPR = OpRBP.instance

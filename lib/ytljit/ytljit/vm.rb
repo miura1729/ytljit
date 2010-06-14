@@ -93,10 +93,12 @@ LocalVarNode
     module Node
       class BaseNode
         include Inspect
+        include AbsArch
         def initialize(parent)
           cs = CodeSpace.new
           asm = Assembler.new(cs)
           asm.with_retry do
+            asm.mov(TMPR, 4)
             asm.ret
           end
           @type = nil
@@ -104,8 +106,11 @@ LocalVarNode
           @type_cache = nil
 
           @parent = parent
+          @code_space = nil
         end
+
         attr_accessor :parent
+        attr          :code_space
 
         def inference_type
           cs = @type_inference_proc
@@ -113,6 +118,11 @@ LocalVarNode
         end
 
         def gen_type_inference_proc(code)
+        end
+
+        def compile(context)
+          @code_space = context.code_space
+          context
         end
 
         # dummy methods
@@ -157,8 +167,8 @@ LocalVarNode
         def construct_frame_info(locals, argnum)
           finfo = LocalFrameInfoNode.new(self)
           
-          # 2 means BP and SP
-          lsize = locals.size + 2
+          # 3 means BP, BP and SP
+          lsize = locals.size + 3
           
           # construct frame
           frame_layout = Array.new(lsize)
@@ -172,10 +182,10 @@ LocalVarNode
           
           frame_layout[fargstart - 1] = SystemValueNode.new(finfo, :RET_ADDR)
           frame_layout[fargstart - 2] = SystemValueNode.new(finfo, :OLD_BP)
-          i += 2
+          frame_layout[fargstart - 3] = SystemValueNode.new(finfo, :OLD_BPSTACK)
 
           j = 0
-          while i < lsize do
+          while i < lsize - 3 do
             lnode = LocalVarNode.new(finfo, locals[i])
             frame_layout[j] = lnode
             i += 1
@@ -183,13 +193,14 @@ LocalVarNode
           end
           finfo.frame_layout = frame_layout
           finfo.argument_num = argnum
-          finfo.system_num = 2         # BP, SP
+          finfo.system_num = 3         # BP ON Stack, BP, RET
           
           @body = finfo
           finfo
         end
 
         def compile(context)
+          super
           context = gen_method_prologue(context)
           context = @body.compile(context)
           context
@@ -221,6 +232,13 @@ LocalVarNode
 
         attr :nested_class_tab
         attr :method_tab
+
+        def construct_frame_info(locals, argnum)
+          locals.unshift :_self
+          locals.unshift :_block
+          argnum += 2
+          super(locals, argnum)
+        end
       end
 
       class TopTopNode<ClassTopNode
@@ -229,7 +247,6 @@ LocalVarNode
 
       class LocalFrameInfoNode<BaseNode
         include HaveChildlenMixin
-        include LocalFrameInfoCodeGen
         
         def initialize(parent)
           super(parent)
@@ -237,6 +254,7 @@ LocalVarNode
           @argument_num = nil
           @system_num = nil
           @previous_frame = search_previous_frame(parent)
+          @offset_cache = {}
         end
 
         def search_previous_frame(mtop)
@@ -273,7 +291,33 @@ LocalVarNode
           @frame_layout[0, localnum].inject(0) {|sum, slot| sum += slot.size}
         end
 
+        def offset_by_byte(off)
+          if off >=  @argument_num then
+            off = off - @argument_num
+          else
+            off = off + (@frame_layout.size - @argument_num)
+          end
+
+          obyte = 0
+          off.times do |i|
+            obyte += @frame_layout[i].size
+          end
+          
+          obyte - local_area_size
+        end
+
+        def offset_arg(n, basereg)
+          rc = @offset_cache[n]
+          unless rc
+            off = offset_by_byte(n)
+            rc = @offset_cache[n] = OpIndirect.new(basereg, off)
+          end
+
+          rc
+        end
+
         def compile(context)
+          super
           siz = local_area_size
           if  siz != 0 then
             asm = context.assembler
@@ -298,11 +342,16 @@ LocalVarNode
         end
 
         def size
-#          inference_type.asm_type.size
-          4
+          itype = inference_type
+          if itype then
+            asm_type.size
+          else
+            Type::MACHINE_WORD.size
+          end
         end
 
         def compile(context)
+          super
           context
         end
       end
@@ -320,6 +369,7 @@ LocalVarNode
         end
 
         def compile(context)
+          super
           context
         end
       end
@@ -339,6 +389,7 @@ LocalVarNode
         end
 
         def compile(context)
+          super
           context = gen_method_epilogue(context)
           curas = context.assembler
           curas.with_retry do
@@ -395,6 +446,7 @@ LocalVarNode
           
 
         def compile(context)
+          super
           context = @cond.compile(context)
           contcs = @cont_cs
 
@@ -443,6 +495,7 @@ LocalVarNode
         attr :value
 
         def compile(context)
+          super
           case @objct
           when Fixnum
             context.ret_reg = OpImmidiateMachineWord.new(@object)
@@ -464,6 +517,7 @@ LocalVarNode
 
         def compile(context)
 #          raise "Can't compile"
+          super
           context
         end
       end
@@ -478,6 +532,8 @@ LocalVarNode
         attr :name
 
         def compile(context)
+          super
+          context.ret_reg = RETR
           context
         end
       end
@@ -509,16 +565,21 @@ LocalVarNode
 
         attr :frame_info
         attr :current_frame_info
-
-        def compile(context)
-          context = gen_pursue_parent_function(context, @depth)
-          context
-        end
       end
 
       class LocalVarRefNode<LocalVarRefCommonNode
         def compile(context)
-          context = super(context)
+          super
+          context = gen_pursue_parent_function(context, @depth)
+          asm = context.assembler
+          base = context.ret_reg
+          offarg = @current_frame_info.offset_arg(@offset, base)
+          asm.with_retry do
+            asm.mov(TMPR, offarg)
+          end
+
+          context.ret_reg = TMPR
+          context
         end
       end
 
@@ -529,7 +590,7 @@ LocalVarNode
           val.parent = self
           @val = val
 
-          # @parent.add_modified_var(@frame_info.frame_layout[offset], self)
+          #          @parent.add_modified_var(@frame_info.frame_layout[offset], self)
         end
 
         def traverse_childlen
@@ -538,8 +599,20 @@ LocalVarNode
         end
 
         def compile(context)
-          context = super(context)
-          
+          super
+          context = @val.compile(context)
+          valr = context.ret_reg
+          context = gen_pursue_parent_function(context, @depth)
+          asm = context.assembler
+          base = context.ret_reg
+          offarg = @current_frame_info.offset_arg(@offset, base)
+          asm.with_retry do
+            asm.mov(offarg, valr)
+          end
+
+          context.ret_reg = valr
+          context = @body.compile(context)
+          context
         end
       end
 
