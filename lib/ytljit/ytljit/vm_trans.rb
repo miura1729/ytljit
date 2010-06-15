@@ -181,7 +181,8 @@ module YTLJit
       end
 
       def visit_putself(code, ins, context)
-        nnode = LiteralNode.new(nil, nil)
+        curnode = context.current_node
+        nnode = LocalVarRefNode.new(curnode, 0, 0)
         context.expstack.push nnode
       end
       

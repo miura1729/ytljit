@@ -498,11 +498,11 @@ LocalVarNode
 
         def compile(context)
           super
-          case @objct
+          case @value
           when Fixnum
-            context.ret_reg = OpImmidiateMachineWord.new(@object)
+            context.ret_reg = OpImmidiateMachineWord.new(@value)
           else
-            context.ret_reg = OpImmidiateAddress.new(@object.address)
+            context.ret_reg = OpImmidiateAddress.new(@value.address)
           end
 
           context
