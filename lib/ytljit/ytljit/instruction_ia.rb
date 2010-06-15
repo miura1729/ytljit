@@ -505,6 +505,10 @@ module YTLJit
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
 
+        when OpImmidiate64
+          modseq, modfmt = modrm(:mov, 0, dst, dst, src)
+          (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
+
         when Integer
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           (rexseq + [0xC7] + modseq + [src]).pack("#{rexfmt}C#{modfmt}L")

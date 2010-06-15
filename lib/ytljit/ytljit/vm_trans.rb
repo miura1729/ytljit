@@ -89,12 +89,13 @@ module YTLJit
 
       def visit_symbol(code, ins, context)
         context.current_local_label = ins
-        if (cvm = context.local_label_tab[ins]) == nil then
-          cvm = context.current_node
-          cvm = LocalLabel.new(cvm, ins)
-          context.local_label_tab[ins] = cvm
+        curnode = context.current_node
+        if (nllab = context.local_label_tab[ins]) == nil then
+          nllab = LocalLabel.new(curnode, ins)
+          context.local_label_tab[ins] = nllab
         end
-        context.current_node = cvm
+        curnode.body = nllab
+        context.current_node = nllab
       end
 
       def visit_block_start(code, ins, context)
@@ -238,6 +239,7 @@ module YTLJit
       def visit_pop(code, ins, context)
         node = context.expstack.pop
         curnode = context.current_node
+        node.parent = curnode
         curnode.body = node
         context.current_node = node
       end
@@ -313,7 +315,9 @@ module YTLJit
 
         func = MethodSelectNode.new(curnode, ins[1])
         cnode = context.current_node
-        context.expstack.push SendNode.make_send_node(cnode, func, arg)
+        op_flag = ins[4]
+        sn = SendNode.make_send_node(cnode, func, arg, op_flag)
+        context.expstack.push sn
         context
       end
 

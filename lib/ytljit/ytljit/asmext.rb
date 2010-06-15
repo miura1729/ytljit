@@ -65,8 +65,9 @@ module YTLJit
   end
 
   class FunctionArgument
-    def initialize(no)
+    def initialize(no, size)
       @no = no
+      @size = size
     end
 
     case $ruby_platform

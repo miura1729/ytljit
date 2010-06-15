@@ -19,7 +19,8 @@ context = VM::Context.new
 tnode = tr.translate
 tnode.inspect_by_graph
 context = tnode.compile(context)
-context.code_space.disassemble
+tnode.code_space.disassemble
+# context.code_space.disassemble
 
 
 

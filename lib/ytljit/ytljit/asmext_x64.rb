@@ -33,16 +33,13 @@ module YTLJit
         code += asm.update_state(gen.mov(argreg, src))
       else
         # spilled reg 
-        if fainfo.used_arg_tab[@no - 1] then
-          STDERR.print "Wanning - priveous argument not initialized #{caller}"
-        end
         unless inst == :mov and src == RAX then
           code += asm.update_state(gen.send(inst, RAX, src))
         end
         code += asm.update_state(gen.push(RAX))
       end
 
-      fainfo.used_arg_tab[@no] = true
+      fainfo.used_arg_tab[@no] = @size
       code
     end
 
@@ -72,7 +69,7 @@ module YTLJit
       code += @asm.update_state(call(addr))
 
       if argnum > ARGPOS2REG.size then
-        imm = OpImmidiate8.new((argnum - ARGPOS2REG.size) * 4)
+        imm = OpImmidiate8.new((argnum - ARGPOS2REG.size) * 8)
         code += @asm.update_state(add(SPR, imm))
         offset = @funcarg_info.area_allocate_pos.pop
         alloc_argument_area = lambda {

@@ -1,6 +1,7 @@
-#include <stdlib.h>
 #include <setjmp.h>
 #include <dlfcn.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include "ruby.h"
 
 #include "ytljit.h"
@@ -25,11 +26,27 @@ ytl_address_of(VALUE self, VALUE symstr)
   sym = StringValuePtr(symstr);
   for (i = 0; i < used_dl_handles; i++) {
     if ((add = dlsym(dl_handles[i], sym)) != NULL) {
-      return ULONG2NUM((unsigned long)add);
+      return ULONG2NUM((uintptr_t)add);
     }
   }
 
   return Qnil;
+}
+
+VALUE 
+ytl_method_address_of(VALUE self, VALUE klass, VALUE mname)
+{
+  rb_method_entry_t *me;
+  ID mid = SYM2ID(mname);
+
+  me = rb_method_entry(klass, mid);
+
+  if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC) {
+      return ULONG2NUM((uintptr_t)me->def->body.cfunc.func);
+  }
+  else {
+    return Qnil;
+  }
 }
 
 VALUE 
@@ -317,6 +334,8 @@ Init_ytljit()
   ytl_mYTLJit = rb_define_module("YTLJit");
 
   rb_define_module_function(ytl_mYTLJit, "address_of", ytl_address_of, 1);
+  rb_define_module_function(ytl_mYTLJit, "method_address_of", 
+			    ytl_method_address_of, 2);
   rb_define_module_function(ytl_mYTLJit, "memref", ytl_memref, 1);
 
   ytl_v_step_handler_id = rb_intern("step_handler");

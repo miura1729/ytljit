@@ -75,7 +75,8 @@ module YTLJit
     INDIRECT_RETR = OpIndirect.new(RETR)
     INDIRECT_SPR = OpIndirect.new(SPR)
     INDIRECT_BPR = OpIndirect.new(BPR)
-    FUNC_ARG = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key)}
+    FUNC_ARG = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key, 4)}
+    FUNC_ARG64 = Hash.new {|hash, key| hash[key] = FunctionArgument.new(key, 8)}
   end
 
   module RubyType

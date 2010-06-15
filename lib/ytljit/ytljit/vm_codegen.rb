@@ -78,8 +78,8 @@ LO        |                       |   |  |
     class Context
       include AbsArch
       def initialize
-        @code_space = CodeSpace.new
-        @assembler = Assembler.new(@code_space)
+        @code_space = nil
+        @assembler = nil
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR

@@ -156,6 +156,7 @@ LocalVarNode
         def initialize(parent, name = nil)
           super(parent)
           @name = name
+          @code_space = CodeSpace.new
         end
 
         attr_accessor :name
@@ -200,6 +201,8 @@ LocalVarNode
         end
 
         def compile(context)
+          context.code_space = @code_space
+          context.assembler = Assembler.new(@code_space)
           super
           context = gen_method_prologue(context)
           context = @body.compile(context)
@@ -342,12 +345,7 @@ LocalVarNode
         end
 
         def size
-          itype = inference_type
-          if itype then
-            asm_type.size
-          else
-            Type::MACHINE_WORD.size
-          end
+          8
         end
 
         def compile(context)
@@ -416,6 +414,10 @@ LocalVarNode
 
         def traverse_childlen
           yield @body
+        end
+
+        def compile(context)
+          @body.compile(context)
         end
 
         attr :name
@@ -527,13 +529,36 @@ LocalVarNode
         def initialize(parent, val)
           super(parent)
           @name = val
+          @written_in = :unkown
         end
         
         attr :name
+        attr :written_in
 
         def compile(context)
           super
-          context.ret_reg = RETR
+          reciver = nil
+          if @parent.is_fcall then
+            mtop = @parent.class_top.method_tab[@name]
+            if mtop then
+              context.ret_reg = mtop.code_space.var_base_address
+              @written_in = :ytl
+            else
+              reciver = Object
+              addr = method_address_of(reciver, @name)
+              if addr then
+                context.ret_reg = OpImmidiateAddress.new(addr)
+                @written_in = :c
+              else
+#                raise "Unkown method - #{@name}"
+                context.ret_reg = OpImmidiateAddress.new(0)
+                @written_in = :c
+              end
+            end
+          else
+            context.ret_reg = OpImmidiateAddress.new(3)
+            @written_in = :c
+          end
           context
         end
       end
@@ -551,8 +576,8 @@ LocalVarNode
           @offset = offset
           @depth = depth
 
-          tnode = @parent
-          while !tnode.is_a?(LocalFrameInfoNode)
+          tnode = parent
+          while tnode and !tnode.is_a?(LocalFrameInfoNode)
             tnode = tnode.parent
           end
           @frame_info = tnode
@@ -574,11 +599,7 @@ LocalVarNode
           asm = context.assembler
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
-          asm.with_retry do
-            asm.mov(TMPR, offarg)
-          end
-
-          context.ret_reg = TMPR
+          context.ret_reg = offarg
           context
         end
       end
@@ -589,7 +610,6 @@ LocalVarNode
           super(parent, offset, depth)
           val.parent = self
           @val = val
-
           #          @parent.add_modified_var(@frame_info.frame_layout[offset], self)
         end
 

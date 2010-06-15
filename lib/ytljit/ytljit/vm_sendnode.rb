@@ -2,11 +2,46 @@ module YTLJit
   module VM
     # Expression of VM is a set of Nodes
     module Node
+      # Opt_flag operation
+      module OptFlagOp
+        def is_args_splat
+          (@opt_flag & (1 << 1)) != 0
+        end
+
+        def is_args_blockarg
+          (@opt_flag & (1 << 2)) != 0
+        end
+
+        def is_fcall
+          (@opt_flag & (1 << 3)) != 0
+        end
+
+        def is_vcall
+          (@opt_flag & (1 << 4)) != 0
+        end
+
+        def is_tailcall
+          (@opt_flag & (1 << 5)) != 0
+        end
+
+        def is_tailrecursion
+          (@opt_flag & (1 << 6)) != 0
+        end
+
+        def is_super
+          (@opt_flag & (1 << 7)) != 0
+        end
+
+        def is_opt_send
+          (@opt_flag & (1 << 8)) != 0
+        end
+      end
 
       # Send methodes
       class SendNode<BaseNode
         include HaveChildlenMixin
-        include AbsArch
+        include OptFlagOp
+
         @@current_node = nil
         @@special_node_tab = {}
         
@@ -18,13 +53,13 @@ module YTLJit
           @@special_node_tab[name] = self
         end
 
-        def self.make_send_node(parent, func, arguments)
+        def self.make_send_node(parent, func, arguments, op_flag)
           spcl = @@special_node_tab[func.name]
           newobj = nil
           if spcl then
-            newobj = spcl.new(parent, func, arguments)
+            newobj = spcl.new(parent, func, arguments, op_flag)
           else
-            newobj = self.new(parent, func, arguments)
+            newobj = self.new(parent, func, arguments, op_flag)
           end
           func.parent = newobj
           arguments.each do |ele|
@@ -34,19 +69,28 @@ module YTLJit
           newobj
         end
 
-        def initialize(parent, func, arguments)
+        def initialize(parent, func, arguments, op_flag)
           super(parent)
           @func = func
           @arguments = arguments
+          @op_flag = op_flag
           @var_return_address = nil
           @next_node = @@current_node
           @@current_node = self
+
+          clstop = parent
+          while !clstop.is_a?(ClassTopNode)
+            clstop = clstop.parent
+          end
+          @class_top = clstop
         end
 
         attr_accessor :func
         attr_accessor :arguments
+        attr          :op_flag
         attr          :var_return_address
         attr          :next_node
+        attr          :class_top
 
         def traverse_childlen
           @arguments.each do |arg|
@@ -56,15 +100,25 @@ module YTLJit
         end
 
         def compile(context)
-          @arguments.each_with_index do |arg, i|
-            context = arg.compile(context)
-            casm = context.assembler
-            casm.with_retry do 
-              casm.mov(FUNC_ARG[i], context.ret_reg)
-            end
-          end
           context = @func.compile(context)
           fnc = context.ret_reg
+          if @func.written_in == :c then
+            @arguments.each_with_index do |arg, i|
+              context = arg.compile(context)
+              casm = context.assembler
+              casm.with_retry do 
+                casm.mov(FUNC_ARG[i], context.ret_reg)
+              end
+            end
+          else
+            @arguments.each_with_index do |arg, i|
+              context = arg.compile(context)
+              casm = context.assembler
+              casm.with_retry do 
+                casm.mov(FUNC_ARG64[i], context.ret_reg)
+              end
+            end
+          end
           casm = context.assembler
           casm.with_retry do 
             casm.call_with_arg(fnc, @arguments.size)
@@ -81,19 +135,18 @@ module YTLJit
 
       class SendCoreDefineMethod<SendNode
         add_special_send_node :"core#define_method"
-        def initialize(parent, func, arguments)
+        def initialize(parent, func, arguments, op_flag)
           super
+          @new_method = arguments[4]
           if arguments[3].is_a?(LiteralNode) then
-            clstop = parent
-            while !clstop.is_a?(ClassTopNode)
-              clstop = clstop.parent
-            end
-            clstop.method_tab[arguments[3].value] = arguments[4]
+            @class_top.method_tab[arguments[3].value] = arguments[4]
           end
         end
 
         def compile(context)
-          @body.compile(context)
+          context = @body.compile(context)
+          context = @new_method.compile(context)
+          context.code_space.disassemble
 
           context
         end
@@ -101,7 +154,7 @@ module YTLJit
 
       class SendPlus<SendNode
         add_special_send_node :+
-        def initialize(parent, func, argument)
+        def initialize(parent, func, argument, op_flag)
           super
         end
       end
