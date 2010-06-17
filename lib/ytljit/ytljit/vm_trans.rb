@@ -149,14 +149,17 @@ module YTLJit
       # setspecial
 
       def visit_getdynamic(code, ins, context)
-        node = LocalVarRefNode.new(context.current_node, ins[1], ins[2])
+        # + 1 mean pointer to block function
+        offset = code.header['misc'][:local_size] + 2 - ins[1]
+        node = LocalVarRefNode.new(context.current_node, offset, ins[2])
         context.expstack.push node
       end
 
       def visit_setdynamic(code, ins, context)
         val = context.expstack.pop
         curnode = context.current_node
-        node = LocalAssignNode.new(curnode, ins[1], ins[2], val)
+        offset = code.header['misc'][:local_size] + 2 - ins[1]
+        node = LocalAssignNode.new(curnode, offset, ins[2], val)
         curnode.body = node
         context.current_node = node
       end

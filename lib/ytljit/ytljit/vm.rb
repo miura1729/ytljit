@@ -614,7 +614,7 @@ LocalVarNode
           super(parent, offset, depth)
           val.parent = self
           @val = val
-          #          @parent.add_modified_var(@frame_info.frame_layout[offset], self)
+          # @parent.add_modified_var(@frame_info.frame_layout[offset], self)
         end
 
         def traverse_childlen
@@ -631,7 +631,8 @@ LocalVarNode
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
           asm.with_retry do
-            asm.mov(offarg, valr)
+            asm.mov(TMPR, valr)
+            asm.mov(offarg, TMPR)
           end
 
           context.ret_reg = valr
