@@ -530,22 +530,24 @@ LocalVarNode
           super(parent)
           @name = val
           @written_in = :unkown
+          @reciever = nil
         end
         
         attr :name
         attr :written_in
+        attr :reciever
 
         def compile(context)
           super
-          reciver = nil
+          reciever = nil
           if @parent.is_fcall then
             mtop = @parent.class_top.method_tab[@name]
             if mtop then
               context.ret_reg = mtop.code_space.var_base_address
               @written_in = :ytl
             else
-              reciver = Object
-              addr = method_address_of(reciver, @name)
+              reciever = Object
+              addr = method_address_of(reciever, @name)
               if addr then
                 context.ret_reg = OpImmidiateAddress.new(addr)
                 @written_in = :c
@@ -559,6 +561,8 @@ LocalVarNode
             context.ret_reg = OpImmidiateAddress.new(3)
             @written_in = :c
           end
+
+          @reciever = reciever
           context
         end
       end

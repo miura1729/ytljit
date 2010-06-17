@@ -1,29 +1,48 @@
 module YTLJit
   module FuncArgX64CommonMixin
+    include AbsArch
     include X64
     ARGPOS2REG = [RDI, RSI, RDX, RCX, R8, R9]
   end
 
   module FunctionArgumentX64Mixin
     include FuncArgX64CommonMixin
-    ArgumentAddress = []
+
+    def argpos2reg
+      case @kind
+      when :c
+        ARGPOS2REG
+
+      when :ytl
+        []
+
+      else
+        raise "#{@kind}"
+      end
+    end
 
     def gen_access_dst(gen, inst, dst, src, src2)
-      if @no >= ARGPOS2REG.size and ArgumentAddress[@no] == nil then
-        spos = @no - ARGPOS2REG.size
-        ArgumentAddress[@no] = OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
+      if @no >= argpos2reg.size then
+        spos = @no - argpos2reg.size
       end
+
       code = ""
       asm = gen.asm
       fainfo = gen.funcarg_info
-      if @no == ARGPOS2REG.size then
-        offset = asm.offset
-        code += asm.update_state(gen.sub(RSP, fainfo.maxargs * 8))
-        fainfo.area_allocate_pos.push offset
+
+      if @no == 0 then
+        fainfo.area_allocate_pos.push nil
       end
 
-      if @no < ARGPOS2REG.size then
-        argreg = ARGPOS2REG[@no]
+      # It can be argpos2reg.size == 0, so this "if" isn't "elsif"
+      if @no == argpos2reg.size then
+        offset = asm.offset
+        code += asm.update_state(gen.sub(SPR, 0))
+        fainfo.area_allocate_pos[-1] = offset
+      end
+
+      if @no < argpos2reg.size then
+        argreg = argpos2reg[@no]
         
         # for nested function call. need save previous reg.
         if fainfo.used_arg_tab[@no] then
@@ -33,10 +52,12 @@ module YTLJit
         code += asm.update_state(gen.mov(argreg, src))
       else
         # spilled reg 
-        unless inst == :mov and src == RAX then
-          code += asm.update_state(gen.send(inst, RAX, src))
+        argdst = OpIndirect.new(SPR, OpImmidiate8.new(@no * 8))
+
+        unless inst == :mov and src == TMPR then
+          code += asm.update_state(gen.send(inst, TMPR, src))
         end
-        code += asm.update_state(gen.push(RAX))
+        code += asm.update_state(gen.mov(argdst, TMPR))
       end
 
       fainfo.used_arg_tab[@no] = @size
@@ -49,10 +70,13 @@ module YTLJit
       asm = gen.asm
       fainfo = gen.funcarg_info
       code = ""
-      if @no < ARGPOS2REG.size then
-        code += asm.update_state(gen.mov(RAX, ARGPOS2REG[@no]))
+      if @no < argpos2reg.size then
+        code += asm.update_state(gen.mov(TMPR, argpos2reg[@no]))
+      else
+        offset = 8 + @no * 8
+        code += asm.update_state(gen.mov(TMPR, OpIndirect.new(SPR, offset)))
       end
-      code += asm.update_state(gen.send(inst, src, RAX))
+      code += asm.update_state(gen.send(inst, src, TMPR))
       code
     end
   end
@@ -68,20 +92,23 @@ module YTLJit
       code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
       code += @asm.update_state(call(addr))
 
-      if argnum > ARGPOS2REG.size then
-        imm = OpImmidiate8.new((argnum - ARGPOS2REG.size) * 8)
+      offset = @funcarg_info.area_allocate_pos.pop
+      if offset then
+        imm = OpImmidiate8.new(argnum * 8)
         code += @asm.update_state(add(SPR, imm))
-        offset = @funcarg_info.area_allocate_pos.pop
         alloc_argument_area = lambda {
-          asm.with_current_address(asm.output_stream.base_address + offset) {
-            asm.output_stream[offset] = gen.sub(RSP, fainfo.maxargs * 8)
+          @asm.with_current_address(@asm.output_stream.base_address + offset) {
+            @asm.output_stream[offset] = sub(SPR, argnum * 8)
           }
         }
-        asm.after_patch_tab.push alloc_argument_area
+        @asm.after_patch_tab.push alloc_argument_area
       end
 
       @funcarg_info.update_maxargs(argnum)
       @funcarg_info.used_arg_tab = {}
+
+=begin
+      # Save already stored restorer
       uat = @funcarg_info.used_arg_tab
       while !fainfo.empty? do
         nreg = fainfo.pop
@@ -98,6 +125,7 @@ module YTLJit
           break
         end
       end
+=end
 
       @asm.current_address = orgaddress
       code

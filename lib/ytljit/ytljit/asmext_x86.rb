@@ -1,26 +1,33 @@
 module YTLJit
   module FunctionArgumentX86Mixin
     include AbsArch
-    ArgumentAddress = []
+
+    def size
+      case @kind
+      when :c 
+        Type::MACHINE_WORD.size
+
+      when :ytl
+        8
+      end
+    end
 
     def gen_access_dst(gen, inst, dst, src, src2)
-      unless ArgumentAddress[@no] then
-        ArgumentAddress[@no] = OpIndirect.new(SPR, OpImmidiate8.new(@no * @size))
-      end
+      argdst = OpIndirect.new(SPR, OpImmidiate8.new(@no * size))
       code = ""
       asm = gen.asm
       fainfo = gen.funcarg_info
       if @no == 0 then
         offset = asm.offset
-        code += asm.update_state(gen.sub(SPR, fainfo.maxargs * @size))
+        code += asm.update_state(gen.sub(SPR, fainfo.maxargs * size))
         fainfo.area_allocate_pos.push offset
       end
 
-      fainfo.used_arg_tab[@no] = @size
+      fainfo.used_arg_tab[@no] = size
       unless inst == :mov and src == TMPR then
         code += asm.update_state(gen.send(inst, TMPR, src))
       end
-      code += asm.update_state(gen.mov(ArgumentAddress[@no], TMPR))
+      code += asm.update_state(gen.mov(argdst, TMPR))
       code
     end
 
@@ -32,7 +39,7 @@ module YTLJit
       asm = gen.asm
       fainfo = gen.funcarg_info
       code = ""
-      offset = 4 + @no * @size
+      offset = 4 + @no * size
       code += asm.update_state(gen.mov(TMPR, OpIndirect.new(ESP, offset)))
       code += asm.update_state(gen.send(inst, src, TMPR))
       code

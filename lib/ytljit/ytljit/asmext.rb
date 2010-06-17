@@ -65,9 +65,9 @@ module YTLJit
   end
 
   class FunctionArgument
-    def initialize(no, size)
+    def initialize(no, kind)
       @no = no
-      @size = size
+      @kind = kind
     end
 
     case $ruby_platform
@@ -90,18 +90,7 @@ module YTLJit
     attr_accessor :used_arg_tab
     attr          :maxargs
     attr          :area_allocate_pos
-
-    def push(cont)
-      @stack_content.push cont
-    end
-
-    def pop
-      @stack_content.pop
-    end
-
-    def empty?
-      @stack_content.size == 0
-    end
+    attr          :stack_content
 
     def update_maxargs(args)
       if @maxargs < args then

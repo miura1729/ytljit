@@ -107,6 +107,7 @@ module YTLJit
     def with_retry(&body)
       org_base_address = @output_stream.base_address
       yield
+
       @retry_mode = true
       while org_base_address != @output_stream.base_address do
         org_base_address = @output_stream.base_address
@@ -117,11 +118,11 @@ module YTLJit
         end
         @output_stream.update_refer
       end
-      @retry_mode = false
 
       @after_patch_tab.each do |patproc|
         patproc.call
       end
+      @retry_mode = false
     end
 
     def add_value_entry(val)

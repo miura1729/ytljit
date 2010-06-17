@@ -190,7 +190,7 @@ module YTLJit
       case rm.disp
       when 0
         fstb = 0b00000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) then
+        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP)  then
           [[fstb, 0x24], "C2"]
         else
           [[fstb], "C"]
@@ -198,7 +198,7 @@ module YTLJit
         
       when OpImmidiate8
         fstb = 0b01000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) then
+        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
           [[fstb, 0b00100100, rm.disp.value], "C3"]
         else
           [[fstb, rm.disp.value], "CC"]
@@ -206,7 +206,7 @@ module YTLJit
         
       when OpImmidiate32
         fstb = 0b10000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) then
+        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
           [[fstb, 0b00100100, rm.disp.value], "C2L"]
         else
           [[fstb, rm.disp.value], "CL"]
@@ -214,7 +214,7 @@ module YTLJit
 
       when Integer
         fstb = 0b10000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) then
+        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
           [[fstb, 0b00100100, rm.disp], "C2L"]
         else
           [[fstb, rm.disp], "CL"]

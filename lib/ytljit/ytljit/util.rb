@@ -16,3 +16,12 @@ class Object
     end
   end
 end
+
+module YTLJit
+  def variable_argument?(para)
+    para.any? {|item|
+      item[0] != :req
+    }
+  end
+  module_function :variable_argument?
+end
