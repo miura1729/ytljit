@@ -91,6 +91,7 @@ module YTLJit
       code = ""
       code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
       code += @asm.update_state(call(addr))
+      callpos = @asm.current_address - @asm.output_stream.base_address
 
       offset = @funcarg_info.area_allocate_pos.pop
       if offset then
@@ -128,7 +129,8 @@ module YTLJit
 =end
 
       @asm.current_address = orgaddress
-      code
+
+      [code, callpos]
     end
   end  
 end

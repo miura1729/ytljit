@@ -208,11 +208,13 @@ LO        |                       |   |  |
 
       def gen_call(context, fnc)
         casm = context.assembler
+
+        callpos = nil
         casm.with_retry do 
-          casm.call_with_arg(fnc, @arguments.size)
+          dmy, callpos = casm.call_with_arg(fnc, @arguments.size)
         end
-        off = casm.offset
-        @var_return_address = casm.output_stream.var_base_address(off)
+
+        @var_return_address = casm.output_stream.var_base_address(callpos)
         
         context
       end

@@ -142,7 +142,12 @@ module YTLJit
         offset = @offset
         stfunc = lambda {
           with_current_address(@output_stream.base_address + offset) {
-            @output_stream[offset] = @generator.send(mn, *args)
+            out = @generator.send(mn, *args)
+            if out.is_a?(Array)
+              @output_stream[offset] = out[0]
+            else
+              @output_stream[offset] = out
+            end
           }
         }
         args.each do |e|

@@ -52,6 +52,8 @@ module YTLJit
     def call_with_arg(addr, argnum)
       orgaddress = @asm.current_address
       code = @asm.update_state(call(addr))
+      callpos = @asm.current_address - @asm.output_stream.base_address
+
       argsize = 0
       argnum.times do |i| 
         if @funcarg_info.used_arg_tab[i]
@@ -74,7 +76,8 @@ module YTLJit
       @funcarg_info.update_maxargs(argnum)
       @funcarg_info.used_arg_tab = {}
       @asm.current_address = orgaddress
-      code
+      
+      [code, callpos]
     end
   end
 end  
