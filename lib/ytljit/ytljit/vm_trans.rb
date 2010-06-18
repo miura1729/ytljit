@@ -87,14 +87,32 @@ module YTLJit
     module YARVTranslatorSimpleMixin
       include Node
 
+      def get_vmnode_from_label(context, label)
+        curnode = context.current_node
+        nllab = context.local_label_tab[label]
+        if nllab == nil then
+          nllab = LocalLabel.new(curnode, label)
+          context.local_label_tab[label] = nllab
+        end
+        
+        nllab
+      end
+
       def visit_symbol(code, ins, context)
         context.current_local_label = ins
+
         curnode = context.current_node
-        if (nllab = context.local_label_tab[ins]) == nil then
-          nllab = LocalLabel.new(curnode, ins)
-          context.local_label_tab[ins] = nllab
+        nllab = get_vmnode_from_label(context, ins)
+        
+        unless curnode.is_a?(JumpNode)
+          jmpnode = JumpNode.new(curnode, nllab)
+          nllab.parent = jmpnode
+          nllab.come_from.push jmpnode
+        
+          curnode.body = jmpnode
+          jmpnode.body = nllab
         end
-        curnode.body = nllab
+        
         context.current_node = nllab
       end
 
@@ -339,12 +357,40 @@ module YTLJit
       end
 
       def visit_jump(code, ins, context)
+        curnode = context.current_node
+        nllab = get_vmnode_from_label(context, ins[1])
+
+        node = JumpNode.new(curnode, nllab)
+        nllab.come_from.push node
+
+        curnode.body = node
+        context.current_node = node
       end
 
       def visit_branchif(code, ins, context)
+        curnode = context.current_node
+        nllab = get_vmnode_from_label(context, ins[1])
+
+        cond = context.expstack.pop
+        
+        node = BranchIfNode.new(curnode, cond, nllab)
+        nllab.come_from.push node
+
+        curnode.body = node
+        context.current_node = node
       end
 
       def visit_branchunless(code, ins, context)
+        curnode = context.current_node
+        nllab = get_vmnode_from_label(context, ins[1])
+
+        cond = context.expstack.pop
+        
+        node = BranchUnlessNode.new(curnode, cond, nllab)
+        nllab.come_from.push node
+
+        curnode.body = node
+        context.current_node = node
       end
 
       # getinlinecache

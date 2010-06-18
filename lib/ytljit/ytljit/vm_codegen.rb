@@ -136,15 +136,6 @@ LO        |                       |   |  |
 
       module IfNodeCodeGen
         include AbsArch
-
-        def unify_retreg_tpart(tretr, eretr, asm)
-        end
-
-        def unify_retreg_epart(tretr, eretr, asm)
-        end
-
-        def unify_retreg_cont(tretr, eretr, asm)
-        end
       end
       
       module LocalVarNodeCodeGen

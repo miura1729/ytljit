@@ -25,7 +25,7 @@ GuardInfo
   body
        # Compile each element of type_list.
    |
-IfNode
+BranchIfNode
   epart------------------+
   tpart----------------+ |
   cond                 | |
@@ -203,7 +203,7 @@ LocalVarNode
         def compile(context)
           context.code_space = @code_space
           context.assembler = Assembler.new(@code_space)
-          super
+          context = super(context)
           context = gen_method_prologue(context)
           context = @body.compile(context)
           context
@@ -320,7 +320,7 @@ LocalVarNode
         end
 
         def compile(context)
-          super
+          context = super(context)
           siz = local_area_size
           if  siz != 0 then
             asm = context.assembler
@@ -349,7 +349,7 @@ LocalVarNode
         end
 
         def compile(context)
-          super
+          context = super(context)
           context
         end
       end
@@ -367,7 +367,7 @@ LocalVarNode
         end
 
         def compile(context)
-          super
+          context = super(context)
           context
         end
       end
@@ -387,7 +387,7 @@ LocalVarNode
         end
 
         def compile(context)
-          super
+          context = super(context)
           context = gen_method_epilogue(context)
           curas = context.assembler
           curas.with_retry do
@@ -410,34 +410,42 @@ LocalVarNode
         def initialize(parent, name)
           super(parent)
           @name = name
+          @come_from = []
+          @come_from_val = []
+          @code_space = CodeSpace.new
         end
+
+        attr :name
+        attr :come_from
 
         def traverse_childlen
           yield @body
         end
 
         def compile(context)
-          @body.compile(context)
-        end
+          @come_from_val.push context.ret_reg
+          if @come_from_val.size == @come_from.size then
+            @body.compile(context)
+          end
 
-        attr :name
+          context
+        end
       end
 
       class BranchCommonNode<BaseNode
         include HaveChildlenMixin
         include IfNodeCodeGen
 
-        def initialize(parent, cond, tpart, epart)
+        def initialize(parent, cond, jmpto)
           super(parent)
           @cond = cond
-          @tpart = tpart
-
-          @cont_cs = CodeSpace.new
+          @jmp_to_node = jmpto
         end
 
         def traverse_childlen
           yield @cond
-          yield @tpart
+          yield @jmp_to_node
+          yield @body
         end
 
         def branch(as, address)
@@ -448,37 +456,70 @@ LocalVarNode
           
 
         def compile(context)
-          super
+          context = super(context)
           context = @cond.compile(context)
-          contcs = @cont_cs
+          jmptocs = @jmp_to_node.code_space
 
           curas = context.assembler
           curas.with_retry do
-            curas.and(context.ret_reg, OpImmdiate(~4))
-            curas.jn(elsecs.var_base_address)
+            curas.mov(TMPR, context.ret_reg)
+            
+            # In 64bit mode. It will be sign extended to 64 bit
+            curas.and(TMPR, OpImmidiate32.new(~4))
+            branch(curas, jmptocs.var_base_address)
           end
 
-          context = tpart.compile(context)
-          tretr = context.ret_reg
+          context = @body.compile(context)
+          context.add_code_space(jmptocs)
+          context = @jmp_to_node.compile(context)
 
-          context.add_code_space(contcs)
-          cas = context.assembler
-          cas.with_retry do
-            unify_retreg_cont(tretr, eretr, cas)
-          end
           context
         end
       end
 
       class BranchIfNode<BranchCommonNode
         def branch(as, address)
-          as.jn(address)
+          as.jnz(address)
         end
       end
 
       class BranchUnlessNode<BranchCommonNode
         def branch(as, address)
-          as.je(address)
+          as.jz(address)
+        end
+      end
+
+      class JumpNode<BaseNode
+        include HaveChildlenMixin
+
+        def initialize(parent, jmpto)
+          super(parent)
+          @jmp_to_node = jmpto
+        end
+
+        def traverse_childlen
+          yield @jmp_to_node
+        end
+
+        def branch(as, address)
+          # as.jn(address)
+          # as.je(address)
+          raise "Don't use this node direct"
+        end
+          
+
+        def compile(context)
+          context = super(context)
+
+          jmptocs = @jmp_to_node.code_space
+          curas = context.assembler
+          curas.with_retry do
+            curas.jmp(jmptocs.var_base_address)
+          end
+
+          context.add_code_space(jmptocs)
+          context = @jmp_to_node.compile(context)
+          context
         end
       end
 
@@ -497,7 +538,7 @@ LocalVarNode
         attr :value
 
         def compile(context)
-          super
+          context = super(context)
           case @value
           when Fixnum
             context.ret_reg = OpImmidiateMachineWord.new(@value)
@@ -519,7 +560,7 @@ LocalVarNode
 
         def compile(context)
 #          raise "Can't compile"
-          super
+          context = super(context)
           context
         end
       end
@@ -538,7 +579,7 @@ LocalVarNode
         attr :reciever
 
         def compile(context)
-          super
+          context = super(context)
           reciever = nil
           if @parent.is_fcall then
             mtop = @parent.class_top.method_tab[@name]
@@ -602,7 +643,7 @@ LocalVarNode
 
       class LocalVarRefNode<LocalVarRefCommonNode
         def compile(context)
-          super
+          context = super(context)
           context = gen_pursue_parent_function(context, @depth)
           asm = context.assembler
           base = context.ret_reg
@@ -627,7 +668,7 @@ LocalVarNode
         end
 
         def compile(context)
-          super
+          context = super(context)
           context = @val.compile(context)
           valr = context.ret_reg
           context = gen_pursue_parent_function(context, @depth)

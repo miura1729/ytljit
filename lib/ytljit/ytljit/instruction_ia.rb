@@ -297,7 +297,7 @@ module YTLJit
           else
             srcv = src.value
           end
-          if dst.class == OpEAX then
+          if dst.class == OpEAX or dst.class == OpRAX then
             [*rexseq, bopc + 0x5, srcv].pack("#{rexfmt}CL")
           else
             modseq, modfmt = modrm(inst, optc, dst, dst, src)
@@ -316,11 +316,11 @@ module YTLJit
         case src
         when OpImmidiate8
           modseq, modfmt = modrm(inst, optc, src, dst, src)
-          (rexseq + [0x83] + modseq + [dst.value]).pack("#{rexfmt}C#{modfmt}")
+          (rexseq + [0x83] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}")
 
         when OpImmidiate32, Integer
           modseq, modfmt = modrm(inst, optc, src, dst, src)
-          (rexseq + [0x81] + modseq + [dst.value]).pack("#{rexfmt}C#{modfmt}L")
+          (rexseq + [0x81] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
 
         when OpReg32, OpReg64
           modseq, modfmt = modrm(inst, src, dst, dst, src)
