@@ -41,6 +41,7 @@ module YTLJit
       class SendNode<BaseNode
         include HaveChildlenMixin
         include OptFlagOp
+        include SendNodeCodeGen
 
         @@current_node = nil
         @@special_node_tab = {}
@@ -102,39 +103,15 @@ module YTLJit
         def compile(context)
           context = @func.compile(context)
           fnc = context.ret_reg
-          if @func.written_in == :c then
-            rec = @func.reciever
-            mname = @func.name
-            if variable_argument?(rec.method(mname).parameters) then
-              casm = context.assembler
-              
-              # make argv
-              rarg = @arguments[2..-1]
-              casm.with_retry do
-                casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
-              end
-
-              rarg.each_with_index do |arg, i|
-                context = arg.compile(context)
-                casm = context.assembler
-                dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
-                casm.with_retry do
-                  casm.mov(TMPR, context.ret_reg)
-                  casm.mov(dst, TMPR)
-                end
-              end
-              
-              # adjust stack pointer
-              casm.with_retry do
-                casm.mov(TMPR2, SPR)
-              end
-
+          case @func.written_in
+          when :c_vararg
+            context = gen_make_argv(context) do |context, rarg|
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
                 casm.mov(FUNC_ARG[1], TMPR2)     # argv
               end
-
+              
               # eval self
               context = @arguments[0].compile(context)
               casm = context.assembler
@@ -142,31 +119,21 @@ module YTLJit
                 casm.mov(FUNC_ARG[2], context.ret_reg)
               end
               
+              context = gen_call(context, fnc)
+            end
+
+          when :c_fixarg
+            @arguments.each_with_index do |arg, i|
+              context = arg.compile(context)
               casm = context.assembler
               casm.with_retry do 
-                casm.call_with_arg(fnc, @arguments.size)
-              end
-              off = casm.offset
-              @var_return_address = casm.output_stream.var_base_address(off)
-
-              casm.with_retry do
-                casm.add(SPR, rarg.size * Type::MACHINE_WORD.size)
-              end
-              context.ret_reg = RETR
-              
-              @body.compile(context)
-              
-              return context
-            else
-              @arguments.each_with_index do |arg, i|
-                context = arg.compile(context)
-                casm = context.assembler
-                casm.with_retry do 
-                  casm.mov(FUNC_ARG[i], context.ret_reg)
-                end
+                casm.mov(FUNC_ARG[i], context.ret_reg)
               end
             end
-          else
+
+            context = gen_call(context, fnc)
+
+          when :ytl
             @arguments.each_with_index do |arg, i|
               context = arg.compile(context)
               casm = context.assembler
@@ -174,13 +141,10 @@ module YTLJit
                 casm.mov(FUNC_ARG_YTL[i], context.ret_reg)
               end
             end
+
+            context = gen_call(context, fnc)
           end
-          casm = context.assembler
-          casm.with_retry do 
-            casm.call_with_arg(fnc, @arguments.size)
-          end
-          off = casm.offset
-          @var_return_address = casm.output_stream.var_base_address(off)
+          
           context.ret_reg = RETR
 
           @body.compile(context)
@@ -189,7 +153,7 @@ module YTLJit
         end
       end
 
-      class SendCoreDefineMethod<SendNode
+      class SendCoreDefineMethodNode<SendNode
         add_special_send_node :"core#define_method"
         def initialize(parent, func, arguments, op_flag)
           super
@@ -208,10 +172,15 @@ module YTLJit
         end
       end
 
-      class SendPlus<SendNode
+      class SendPlusNode<SendNode
         add_special_send_node :+
         def initialize(parent, func, argument, op_flag)
           super
+        end
+
+        def compile(context)
+          p "foo hellow plus"
+          context
         end
       end
     end

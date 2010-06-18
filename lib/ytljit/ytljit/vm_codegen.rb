@@ -166,5 +166,56 @@ LO        |                       |   |  |
         end
       end
     end
+
+    module SendNodeCodeGen
+      include AbsArch
+      
+      def gen_make_argv(context)
+        casm = context.assembler
+        rarg = @arguments[2..-1]
+
+        # adjust stack pointer
+        casm.with_retry do
+          casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
+        end
+        
+        # make argv
+        rarg.each_with_index do |arg, i|
+          context = arg.compile(context)
+          casm = context.assembler
+          dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
+          casm.with_retry do
+            casm.mov(TMPR, context.ret_reg)
+            casm.mov(dst, TMPR)
+          end
+        end
+
+        # Save Stack Pointer
+        casm.with_retry do
+          casm.mov(TMPR2, SPR)
+        end
+
+        # stack, generate call ...
+        context = yield(context, rarg)
+
+        # adjust stack
+        casm.with_retry do
+          casm.add(SPR, rarg.size * Type::MACHINE_WORD.size)
+        end
+
+        context
+      end
+
+      def gen_call(context, fnc)
+        casm = context.assembler
+        casm.with_retry do 
+          casm.call_with_arg(fnc, @arguments.size)
+        end
+        off = casm.offset
+        @var_return_address = casm.output_stream.var_base_address(off)
+        
+        context
+      end
+    end
   end
 end

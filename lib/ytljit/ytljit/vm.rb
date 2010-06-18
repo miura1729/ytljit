@@ -550,7 +550,11 @@ LocalVarNode
               addr = method_address_of(reciever, @name)
               if addr then
                 context.ret_reg = OpImmidiateAddress.new(addr)
-                @written_in = :c
+                if variable_argument?(reciever.method(@name).parameters) then
+                  @written_in = :c_vararg
+                else
+                  @written_in = :c_fixarg
+                end
               else
 #                raise "Unkown method - #{@name}"
                 context.ret_reg = OpImmidiateAddress.new(0)

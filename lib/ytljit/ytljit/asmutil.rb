@@ -64,6 +64,8 @@ module YTLJit
       BPR = OpEBP.instance
     when /x86_64/
       TMPR = OpRAX.instance
+#      TMPR2 = OpRDX.instance
+#      TMPR3 = OpRCX.instance
       TMPR2 = OpR10.instance
       TMPR3 = OpR11.instance
       RETR = OpRAX.instance
