@@ -12,6 +12,7 @@ module YTLJit
     end
 
     attr :disasm_cache
+    attr :refer_operands
 
     def reset
       @org_base_address = base_address

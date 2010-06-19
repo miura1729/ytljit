@@ -49,6 +49,72 @@ ytl_method_address_of(VALUE self, VALUE klass, VALUE mname)
   }
 }
 
+VALUE
+ytl_binding_to_a(VALUE self)
+{
+  rb_binding_t *bptr;
+  rb_env_t *env;
+  VALUE resary;
+  VALUE eleary;
+  VALUE tmpenv;
+  int i;
+
+  GetBindingPtr(self, bptr);
+
+  resary = rb_ary_new();
+  
+  tmpenv = bptr->env;
+  while (tmpenv) {
+    GetEnvPtr(tmpenv, env);
+    eleary = rb_ary_new();
+    for (i = 0; i <= env->local_size; i++) {
+      rb_ary_push(eleary, env->env[i]);
+    }
+
+    rb_ary_push(resary, eleary);
+    tmpenv = env->prev_envval;
+  }
+
+  return resary;
+}
+
+VALUE
+ytl_binding_variables(VALUE self)
+{
+  rb_binding_t *bptr;
+  rb_env_t *env;
+  rb_iseq_t *iseq;
+  VALUE resary;
+  VALUE eleary;
+  VALUE tmpenv;
+  int i;
+
+  GetBindingPtr(self, bptr);
+
+  resary = rb_ary_new();
+  
+  tmpenv = bptr->env;
+  while (tmpenv) {
+    GetEnvPtr(tmpenv, env);
+    eleary = rb_ary_new();
+    iseq = env->block.iseq;
+    if (iseq) {
+      for (i = 0; i < iseq->local_table_size; i++) {
+	ID lid = iseq->local_table[i];
+	if (rb_is_local_id(lid)) {
+	  rb_ary_push(eleary, ID2SYM(lid));
+	}
+      }
+    }
+
+    rb_ary_push(resary, eleary);
+    tmpenv = env->prev_envval;
+  }
+
+  return resary;
+}
+  
+
 VALUE 
 ytl_memref(VALUE self, VALUE addr)
 {
@@ -338,6 +404,9 @@ Init_ytljit()
 			    ytl_method_address_of, 2);
   rb_define_module_function(ytl_mYTLJit, "memref", ytl_memref, 1);
 
+  rb_define_method(rb_cBinding, "to_a", ytl_binding_to_a, 0);
+  rb_define_method(rb_cBinding, "variables", ytl_binding_variables, 0);
+
   ytl_v_step_handler_id = rb_intern("step_handler");
 
   ytl_cStepHandler = rb_define_class_under(ytl_mYTLJit, "StepHandler", rb_cObject);
@@ -360,6 +429,8 @@ Init_ytljit()
     rb_define_class_under(ytl_mYTLJit, "ValueSpace", ytl_cCodeSpace);
   rb_define_alloc_func(ytl_cValueSpace, ytl_value_space_allocate);
   rb_define_method(ytl_cValueSpace, "to_s", ytl_value_space_to_s, 0);
+
+  
   
   /* Open Handles */
 #ifdef __CYGWIN__
