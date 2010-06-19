@@ -124,15 +124,11 @@ LocalVarNode
           @code_space = context.code_space
           context
         end
-
-        # dummy methods
-        def add_modified_var(var, assnode); end
       end
       
       module HaveChildlenMixin
         def initialize(*args)
           super
-          @modified_var = {}
           @body = nil
         end
 
@@ -140,13 +136,6 @@ LocalVarNode
 
         def traverse_childlen
           raise "You must define traverse_childlen for #{self.inspect}"
-        end
-
-        def add_modified_var(lvar, assnode)
-          @modified_var[lvar] = [assnode]
-          traverse_childlen {|child|
-            child.add_modified_var(lvar, assnode)
-          }
         end
       end
 
@@ -201,8 +190,7 @@ LocalVarNode
         end
 
         def compile(context)
-          context.code_space = @code_space
-          context.assembler = Assembler.new(@code_space)
+          context.add_code_space(@code_space)
           context = super(context)
           context = gen_method_prologue(context)
           context = @body.compile(context)
@@ -501,13 +489,6 @@ LocalVarNode
           yield @jmp_to_node
         end
 
-        def branch(as, address)
-          # as.jn(address)
-          # as.je(address)
-          raise "Don't use this node direct"
-        end
-          
-
         def compile(context)
           context = super(context)
 
@@ -659,7 +640,6 @@ LocalVarNode
           super(parent, offset, depth)
           val.parent = self
           @val = val
-          # @parent.add_modified_var(@frame_info.frame_layout[offset], self)
         end
 
         def traverse_childlen
@@ -680,6 +660,7 @@ LocalVarNode
             asm.mov(offarg, TMPR)
           end
 
+          
           context.ret_reg = valr
           context = @body.compile(context)
           context

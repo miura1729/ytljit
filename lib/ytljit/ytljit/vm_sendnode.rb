@@ -101,6 +101,7 @@ module YTLJit
         end
 
         def compile(context)
+          context = super(context)
           context = @func.compile(context)
           fnc = context.ret_reg
           case @func.written_in

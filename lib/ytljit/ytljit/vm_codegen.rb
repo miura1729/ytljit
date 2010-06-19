@@ -84,12 +84,19 @@ LO        |                       |   |  |
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
         @used_reg = {}
+
+        @modified_local_var = []
+        @modified_instance_var = []
       end
 
-      attr_accessor :code_space
-      attr_accessor :assembler
+      attr          :code_space
+      attr          :assembler
+
       attr_accessor :ret_reg
       attr          :used_reg
+      
+      attr          :modified_local_var
+      attr          :modified_instance_var
 
       def add_code_space(cs)
         @code_space = cs
