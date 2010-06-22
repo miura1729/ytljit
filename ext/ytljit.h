@@ -249,6 +249,19 @@ typedef struct rb_block_struct {
     VALUE proc;
 } rb_block_t;
 
+#define GetProcPtr(obj, ptr) \
+  GetCoreDataFromValue(obj, rb_proc_t, ptr)
+
+typedef struct {
+    rb_block_t block;
+
+    VALUE envval;		/* for GC mark */
+    VALUE blockprocval;
+    int safe_level;
+    int is_from_method;
+    int is_lambda;
+} rb_proc_t;
+
 #define GetEnvPtr(obj, ptr)			\
   GetCoreDataFromValue(obj, rb_env_t, ptr)
 

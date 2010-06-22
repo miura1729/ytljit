@@ -50,8 +50,18 @@ ytl_method_address_of(VALUE self, VALUE klass, VALUE mname)
 }
 
 VALUE
+ytl_proc_to_iseq(VALUE self)
+{
+  rb_proc_t *proc;
+
+  GetProcPtr(self, proc);
+  return proc->block.iseq->self;
+}
+
+VALUE
 ytl_binding_to_a(VALUE self)
 {
+  rb_proc_t *proc;
   rb_binding_t *bptr;
   rb_env_t *env;
   VALUE resary;
@@ -62,7 +72,7 @@ ytl_binding_to_a(VALUE self)
   GetBindingPtr(self, bptr);
 
   resary = rb_ary_new();
-  
+
   tmpenv = bptr->env;
   while (tmpenv) {
     GetEnvPtr(tmpenv, env);
@@ -70,6 +80,7 @@ ytl_binding_to_a(VALUE self)
     for (i = 0; i <= env->local_size; i++) {
       rb_ary_push(eleary, env->env[i]);
     }
+    rb_ary_push(eleary, env->block.self);
 
     rb_ary_push(resary, eleary);
     tmpenv = env->prev_envval;
@@ -406,6 +417,8 @@ Init_ytljit()
 
   rb_define_method(rb_cBinding, "to_a", ytl_binding_to_a, 0);
   rb_define_method(rb_cBinding, "variables", ytl_binding_variables, 0);
+
+  rb_define_method(rb_cProc, "to_iseq", ytl_proc_to_iseq, 0);
 
   ytl_v_step_handler_id = rb_intern("step_handler");
 
