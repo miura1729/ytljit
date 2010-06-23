@@ -77,12 +77,13 @@ ytl_binding_to_a(VALUE self)
   while (tmpenv) {
     GetEnvPtr(tmpenv, env);
     eleary = rb_ary_new();
+    rb_ary_push(eleary, env->block.self);
+
     for (i = 0; i <= env->local_size; i++) {
       rb_ary_push(eleary, env->env[i]);
     }
-    rb_ary_push(eleary, env->block.self);
-
     rb_ary_push(resary, eleary);
+
     tmpenv = env->prev_envval;
   }
 

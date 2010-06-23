@@ -1,7 +1,11 @@
+require "rubygems"
+
 require 'tempfile'
 require 'rbconfig'
 $ruby_platform = RUBY_PLATFORM
 # $ruby_platform = "x86_64" #  You can select CPU type for debug.
+
+require 'iseq'
 
 require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
 
