@@ -50,15 +50,6 @@ ytl_method_address_of(VALUE self, VALUE klass, VALUE mname)
 }
 
 VALUE
-ytl_proc_to_iseq(VALUE self)
-{
-  rb_proc_t *proc;
-
-  GetProcPtr(self, proc);
-  return proc->block.iseq->self;
-}
-
-VALUE
 ytl_binding_to_a(VALUE self)
 {
   rb_proc_t *proc;
@@ -126,6 +117,32 @@ ytl_binding_variables(VALUE self)
   return resary;
 }
   
+
+VALUE
+ytl_proc_to_iseq(VALUE self)
+{
+  rb_proc_t *proc;
+
+  GetProcPtr(self, proc);
+  return proc->block.iseq->self;
+}
+
+VALUE
+ytl_proc_copy(VALUE self, VALUE procval)
+{
+    rb_proc_t *src, *dst;
+    GetProcPtr(procval, src);
+    GetProcPtr(self, dst);
+
+    dst->block = src->block;
+    dst->block.proc = procval;
+    dst->blockprocval = src->blockprocval;
+    dst->envval = src->envval;
+    dst->safe_level = src->safe_level;
+    dst->is_lambda = src->is_lambda;
+
+    return self;
+}
 
 VALUE 
 ytl_memref(VALUE self, VALUE addr)
@@ -420,6 +437,7 @@ Init_ytljit()
   rb_define_method(rb_cBinding, "variables", ytl_binding_variables, 0);
 
   rb_define_method(rb_cProc, "to_iseq", ytl_proc_to_iseq, 0);
+  rb_define_method(rb_cProc, "copy", ytl_proc_copy, 1);
 
   ytl_v_step_handler_id = rb_intern("step_handler");
 

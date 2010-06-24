@@ -36,9 +36,9 @@ module VMLib
       end
     end
 
-    attr :header
-    attr :body
-    attr :parent
+    attr          :header
+    attr_accessor :body
+    attr          :parent
     
     def init_from_ary(ary)
       i = 0
