@@ -21,9 +21,13 @@ context = VM::Context.new
 tnode = tr.translate
 tnode.inspect_by_graph
 context = tnode.compile(context)
-tnode.code_space.disassemble
 # context.code_space.disassemble
-tnode.code_space.call(tnode.code_space.base_address)
-
-
+p tnode.code_space
+tnode.code_space.disassemble
+tnode = Marshal.load(Marshal.dump(tnode))
+asm = Assembler.new(tnode.code_space)
+asm.with_retry do
+end
+tnode.code_space.disassemble
+p tnode.code_space.call(tnode.code_space.base_address)
 

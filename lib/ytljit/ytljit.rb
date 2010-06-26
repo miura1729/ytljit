@@ -11,8 +11,10 @@ require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
 
 require 'ytljit/codespace'
 
+require 'ytljit/marshal'
 require 'ytljit/util'
 require 'ytljit/error'
+
 require 'ytljit/asm'
 require 'ytljit/instruction'
 require 'ytljit/instruction_x86'
