@@ -105,6 +105,43 @@ LO        |                       |   |  |
     end
 
     module Node
+
+      module UtilCodeGen
+        include RubyType
+        def gen_boxing(context, valnode)
+          asm = context.assembler
+          case valnode.type
+          when :FixnumType
+          else
+            val = context.ret_reg
+            asm.with_retry do
+              asm.mov(TMPR, val)
+              asm.add(TMPR, TMPR)
+              asm.add(TMPR, OpImmidiate8.new(1))
+              context.ret_reg = TMPR
+            end
+#          else
+          end
+          context
+        end
+
+        def gen_unboxing(context, valnode)
+          asm = context.assembler
+          case valnode.type
+          when :FixnumType
+          else
+            val = context.ret_reg
+            asm.with_retry do
+              asm.mov(TMPR, val)
+              asm.shr(TMPR)
+              context.ret_reg = TMPR
+            end
+#          else
+          end
+          context
+        end
+      end
+
       module MethodTopCodeGen
         include AbsArch
         

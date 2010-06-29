@@ -101,7 +101,7 @@ LocalVarNode
             asm.mov(TMPR, 4)
             asm.ret
           end
-          @type = nil
+          @type = RubyType::DefaultType.new
           @type_inference_proc = cs
           @type_cache = nil
 
@@ -111,6 +111,7 @@ LocalVarNode
 
         attr_accessor :parent
         attr          :code_space
+        attr_accessor :type
 
         def inference_type
           cs = @type_inference_proc
@@ -514,15 +515,22 @@ LocalVarNode
         def initialize(parent, val)
           super(parent)
           @value = val
+          @type = RubyType::BaseType.from_object(@value)
         end
         
         attr :value
 
         def compile(context)
           context = super(context)
+
           case @value
           when Fixnum
-            context.ret_reg = OpImmidiateMachineWord.new(@value)
+            val = @value
+            if @type.boxed then
+              val = val.boxing
+            end
+            context.ret_reg = OpImmidiateMachineWord.new(val)
+
           else
             context.ret_reg = OpImmidiateAddress.new(@value.address)
           end

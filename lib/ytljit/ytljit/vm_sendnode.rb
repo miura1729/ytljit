@@ -42,6 +42,7 @@ module YTLJit
         include HaveChildlenMixin
         include OptFlagOp
         include SendNodeCodeGen
+        include UtilCodeGen
 
         @@current_node = nil
         @@special_node_tab = {}
@@ -175,12 +176,44 @@ module YTLJit
 
       class SendPlusNode<SendNode
         add_special_send_node :+
-        def initialize(parent, func, argument, op_flag)
+        def initialize(parent, func, arguments, op_flag)
           super
         end
 
         def compile(context)
-          p "foo hellow plus"
+
+          # eval 1st arg(self)
+          slfnode = @arguments[0]
+          context = slfnode.compile(context)
+          if slfnode.type.boxed then
+            context = gen_unboxing(context, slfnode)
+          end
+
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(TMPR2, context.ret_reg)
+          end
+
+          # 2nd argument is block
+
+          # eval rest arguments and added
+          @arguments[2 .. -1].each do |aele|
+            context = aele.compile(context)
+            if aele.type.boxed then
+              context = gen_unboxing(context, aele)
+            end
+
+            asm = context.assembler
+            asm.with_retry do
+              asm.add(TMPR2, context.ret_reg)
+            end
+          end
+
+          context.ret_reg = TMPR2
+          if type.boxed then
+            context = gen_boxing(context, self)
+          end
+            
           context
         end
       end

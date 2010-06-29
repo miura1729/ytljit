@@ -24,4 +24,30 @@ module YTLJit
     }
   end
   module_function :variable_argument?
+
+  def unboxing(value)
+    if value & 1 then
+      # fixnum
+      value >> 1
+    elsif value == 4
+      nil
+    elsif value == 2
+      true
+    elsif value == 0
+      false
+    else
+      value
+    end
+  end
+
+  def boxing
+    self
+  end
 end
+
+class Fixnum
+  def boxing
+    (self << 1) + 1
+  end
+end
+

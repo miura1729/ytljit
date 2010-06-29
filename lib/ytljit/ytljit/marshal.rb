@@ -10,13 +10,13 @@ class Proc
   def _load_data(obj)
     iseq, env = obj
     slf = env[0][0]
-    $foo = [env, slf]
+    $_proc_para = [env, slf]
     prc = lambda {
-      $foo[1].instance_eval {
+      $_proc_para[1].instance_eval {
         lambda {|env|
           _lambda_replace
         }
-      }.call($foo[0].map {|ele| ele.reverse})
+      }.call($_proc_para[0].map {|ele| ele.reverse})
     }
     
     prc2 =  VMLib::InstSeqTree.new(nil, prc.to_iseq.to_a)
