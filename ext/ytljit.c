@@ -34,7 +34,7 @@ ytl_address_of(VALUE self, VALUE symstr)
 }
 
 VALUE 
-ytl_method_address_of(VALUE self, VALUE klass, VALUE mname)
+ytl_method_address_of(VALUE klass, VALUE mname)
 {
   rb_method_entry_t *me;
   ID mid = SYM2ID(mname);
@@ -429,8 +429,8 @@ Init_ytljit()
   ytl_mYTLJit = rb_define_module("YTLJit");
 
   rb_define_module_function(ytl_mYTLJit, "address_of", ytl_address_of, 1);
-  rb_define_module_function(ytl_mYTLJit, "method_address_of", 
-			    ytl_method_address_of, 2);
+  rb_define_module_function(rb_cObject, "method_address_of", 
+			    ytl_method_address_of, 1);
   rb_define_module_function(ytl_mYTLJit, "memref", ytl_memref, 1);
 
   rb_define_method(rb_cBinding, "to_a", ytl_binding_to_a, 0);

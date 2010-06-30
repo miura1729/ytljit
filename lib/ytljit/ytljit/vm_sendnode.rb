@@ -43,6 +43,7 @@ module YTLJit
         include OptFlagOp
         include SendNodeCodeGen
         include UtilCodeGen
+        include NodeUtil
 
         @@current_node = nil
         @@special_node_tab = {}
@@ -80,11 +81,7 @@ module YTLJit
           @next_node = @@current_node
           @@current_node = self
 
-          clstop = parent
-          while !clstop.is_a?(ClassTopNode)
-            clstop = clstop.parent
-          end
-          @class_top = clstop
+          @class_top = search_class_top
         end
 
         attr_accessor :func
@@ -122,6 +119,9 @@ module YTLJit
               end
               
               context = gen_call(context, fnc)
+              context.end_using_reg(context.ret_reg)
+              
+              context
             end
 
           when :c_fixarg
@@ -131,6 +131,7 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG[i], context.ret_reg)
               end
+              context.end_using_reg(context.ret_reg)
             end
 
             context = gen_call(context, fnc)
@@ -142,9 +143,11 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG_YTL[i], context.ret_reg)
               end
+              context.end_using_reg(context.ret_reg)
             end
 
             context = gen_call(context, fnc)
+            context.end_using_reg(fnc)
           end
           
           context.ret_reg = RETR
@@ -186,32 +189,40 @@ module YTLJit
           slfnode = @arguments[0]
           context = slfnode.compile(context)
           if slfnode.type.boxed then
+            slfreg = context.ret_reg
             context = gen_unboxing(context, slfnode)
+            context.end_using_reg(slfreg)
           end
 
+          context.start_using_reg(TMPR2)
           asm = context.assembler
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
           end
+          context.end_using_reg(context.ret_reg)
 
-          # 2nd argument is block
-
-          # eval rest arguments and added
-          @arguments[2 .. -1].each do |aele|
-            context = aele.compile(context)
-            if aele.type.boxed then
-              context = gen_unboxing(context, aele)
-            end
-
-            asm = context.assembler
-            asm.with_retry do
-              asm.add(TMPR2, context.ret_reg)
-            end
+          # @argunemnts[1] is block
+          # eval 2nd arguments and added
+          aele = @arguments[2]
+          context = aele.compile(context)
+          if aele.type.boxed then
+            slfreg = context.ret_reg
+            context = gen_unboxing(context, aele)
+            context.end_using_reg(slfreg)
           end
+
+          asm = context.assembler
+          asm.with_retry do
+            asm.add(TMPR2, context.ret_reg)
+          end
+          context.end_using_reg(context.ret_reg)
 
           context.ret_reg = TMPR2
           if type.boxed then
             context = gen_boxing(context, self)
+            if context.ret_reg != TMPR2 then
+              context.end_using_reg(TMPR2)
+            end
           end
             
           context

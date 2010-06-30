@@ -140,6 +140,19 @@ LocalVarNode
         end
       end
 
+      module NodeUtil
+        def search_class_top
+          cnode = @parent
+
+          # ClassTopNode include TopTopNode
+          while !cnode.is_a?(ClassTopNode)
+            cnode = cnode.parent
+          end
+
+          cnode
+        end
+      end
+
       # The top of top node
       class TopNode<BaseNode
         include HaveChildlenMixin
@@ -193,6 +206,7 @@ LocalVarNode
         def compile(context)
           context.add_code_space(@code_space)
           context = super(context)
+          context.reset_using_reg
           context = gen_method_prologue(context)
           context = @body.compile(context)
           context
@@ -216,14 +230,16 @@ LocalVarNode
 
       class ClassTopNode<TopNode
         include MethodTopCodeGen
-        def initialize(parent, name = nil)
+        def initialize(parent, klassobj, name = nil)
           super(parent, name)
           @nested_class_tab = {}
           @method_tab = {}
+          @klass_object = klassobj
         end
 
         attr :nested_class_tab
         attr :method_tab
+        attr :klass_object
 
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
@@ -449,12 +465,19 @@ LocalVarNode
           context = @cond.compile(context)
           jmptocs = @jmp_to_node.code_space
 
+          context.start_using_reg(TMPR)
           curas = context.assembler
           curas.with_retry do
             curas.mov(TMPR, context.ret_reg)
             
             # In 64bit mode. It will be sign extended to 64 bit
             curas.and(TMPR, OpImmidiate32.new(~4))
+          end
+
+          # pop don't move condition flags
+          context.end_using_reg(TMPR)
+
+          curas.with_retry do
             branch(curas, jmptocs.var_base_address)
           end
 
@@ -565,11 +588,11 @@ LocalVarNode
         
         attr :name
         attr :written_in
-        attr :reciever
+        attr_accessor :reciever
 
         def compile(context)
           context = super(context)
-          reciever = nil
+          reciever = @reciever
           if @parent.is_fcall then
             mtop = @parent.class_top.method_tab[@name]
             if mtop then
@@ -577,18 +600,33 @@ LocalVarNode
               @written_in = :ytl
             else
               reciever = Object
-              addr = method_address_of(reciever, @name)
-              if addr then
-                context.ret_reg = OpImmidiateAddress.new(addr)
-                if variable_argument?(reciever.method(@name).parameters) then
-                  @written_in = :c_vararg
+              if reciever then
+                addr = reciever.method_address_of(@name)
+                if addr then
+                  context.ret_reg = OpImmidiateAddress.new(addr)
+                  if variable_argument?(reciever.method(@name).parameters) then
+                    @written_in = :c_vararg
+                  else
+                    @written_in = :c_fixarg
+                  end
                 else
-                  @written_in = :c_fixarg
+                  #                raise "Unkown method - #{@name}"
+                  context.ret_reg = OpImmidiateAddress.new(0)
+                  @written_in = :c
                 end
               else
-#                raise "Unkown method - #{@name}"
-                context.ret_reg = OpImmidiateAddress.new(0)
-                @written_in = :c
+                slf = @parent.class_top.klass_object
+                slfval = slf.address
+                mnval = @name.address
+                
+                funaddr = Object.method_address_of(:method_address_of)
+                asm = context.assembler
+                asm.with_retry do
+                  asm.mov(FUNC_ARG[0], slfval)
+                  asm.mov(FUNC_ARG[1], mnval)
+                  asm.call_with_arg(funaddr, 2)
+                end
+                context.ret_reg = TMPR
               end
             end
           else
@@ -642,6 +680,25 @@ LocalVarNode
         end
       end
 
+      class SelfRefNode<LocalVarRefNode
+        include NodeUtil
+
+        def initialize(parent, offset, depth)
+          super
+          @classtop = search_class_top
+        end
+
+        def compile(context)
+          context = super(context)
+          context = gen_pursue_parent_function(context, @depth)
+          asm = context.assembler
+          base = context.ret_reg
+          offarg = @current_frame_info.offset_arg(@offset, base)
+          context.ret_reg = offarg
+          context
+        end
+      end
+
       class LocalAssignNode<LocalVarRefCommonNode
         include HaveChildlenMixin
         def initialize(parent, offset, depth, val)
@@ -660,14 +717,25 @@ LocalVarNode
           context = @val.compile(context)
           valr = context.ret_reg
           context = gen_pursue_parent_function(context, @depth)
-          asm = context.assembler
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
-          asm.with_retry do
-            asm.mov(TMPR, valr)
-            asm.mov(offarg, TMPR)
-          end
 
+          asm = context.assembler
+          if valr != TMPR then
+            context.start_using_reg(TMPR)
+            asm.with_retry do
+              asm.mov(TMPR, valr)
+              asm.mov(offarg, TMPR)
+            end
+            context.end_using_reg(TMPR)
+            context.end_using_reg(valr)
+
+          else
+            asm.with_retry do
+              asm.mov(offarg, valr)
+            end
+            context.end_using_reg(valr)
+          end
           
           context.ret_reg = valr
           context = @body.compile(context)

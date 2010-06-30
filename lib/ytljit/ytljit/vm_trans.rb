@@ -4,7 +4,7 @@ module YTLJit
       include Node
 
       def initialize
-        @the_top = TopTopNode.new(nil)
+        @the_top = TopTopNode.new(nil, Object)
         @current_file_name = nil
         @current_class_node = the_top
         @current_method_name = nil
@@ -203,7 +203,7 @@ module YTLJit
 
       def visit_putself(code, ins, context)
         curnode = context.current_node
-        nnode = LocalVarRefNode.new(curnode, 0, 0)
+        nnode = SelfRefNode.new(curnode, 0, 0)
         context.expstack.push nnode
       end
       
@@ -292,7 +292,29 @@ module YTLJit
 
       def visit_defineclass(code, ins, context)
         name = ins[1]
-        cnode = ClassTopNode.new(context.current_class_node, name)
+        supklsnode = context.expstack.pop
+        klassobj = Object.const_get(name, true)
+
+        if klassobj == nil then
+          klassnode = context.nested_class_tab[name]
+          if klassnode then
+            klassobj = klassnodne.klasss_object
+            
+          else
+            case ins[3]
+            when 0
+              supklass = nil
+              if supklsnode then
+                supklass = supklasnode.klasss_object
+              end
+              klassobj = Class.new(supklass)
+              
+            when 2
+              klassobj = Module.new(supklass)
+            end
+          end
+        end
+        cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new

@@ -46,6 +46,14 @@ module YTLJit
     end
   end
 
+  class DummyOutputStream<OutputStream
+    def initialize(st)
+    end
+
+    def emit(code)
+    end
+  end
+
   class Assembler
     @@value_table_cache = {}
     @@value_table_entity = ValueSpace.new

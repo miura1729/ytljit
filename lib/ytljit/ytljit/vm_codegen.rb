@@ -102,6 +102,48 @@ LO        |                       |   |  |
         @code_space = cs
         @assembler = Assembler.new(cs)
       end
+
+      def reset_using_reg
+        @used_reg = {}
+      end
+
+      def start_using_reg(reg)
+        p caller[0]
+        if reg.is_a?(OpRegistor) then
+          if @used_reg[reg] then
+            @assembler.with_retry do
+#              raise
+              @assembler.push(reg)
+            end
+          else
+            @used_reg[reg] = 0
+          end
+          @used_reg[reg] += 1
+        end
+      end
+
+      def end_using_reg(reg)
+        if reg.is_a?(OpRegistor) then
+          @used_reg[reg] -= 1
+          if @used_reg[reg] != 0 then
+            @assembler.with_retry do
+              @assembler.pop(reg)
+            end
+          else
+            @used_reg[reg] = nil
+          end
+        end
+      end
+
+      def end_using_reg_only_pop(reg)
+        if reg.is_a?(OpRegistor) then
+          if @used_reg[reg] != 1 then
+            @assembler.with_retry do
+              @assembler.pop(reg)
+            end
+          end
+        end
+      end
     end
 
     module Node
@@ -114,6 +156,7 @@ LO        |                       |   |  |
           when :FixnumType
           else
             val = context.ret_reg
+            context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, val)
               asm.add(TMPR, TMPR)
@@ -131,6 +174,7 @@ LO        |                       |   |  |
           when :FixnumType
           else
             val = context.ret_reg
+            context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, val)
               asm.shr(TMPR)
@@ -188,7 +232,7 @@ LO        |                       |   |  |
         def gen_pursue_parent_function(context, depth)
           asm = context.assembler
           if depth != 0 then
-            context.used_reg[TMPR2] = true
+            context.start_using_reg(TMPR2)
             asm.mov(TMPR2, BPR)
             depth.times do 
               asm.mov(TMPR2, frame_info.offset_arg(0, TMPR2))
@@ -219,19 +263,31 @@ LO        |                       |   |  |
           context = arg.compile(context)
           casm = context.assembler
           dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
-          casm.with_retry do
-            casm.mov(TMPR, context.ret_reg)
-            casm.mov(dst, TMPR)
+          if TMPR != context.ret_reg then
+            context.start_using_reg(TMPR)
+            casm.with_retry do
+              casm.mov(TMPR, context.ret_reg)
+              casm.mov(dst, TMPR)
+            end
+            context.end_using_reg(TMPR)
+            context.end_using_reg(context.ret_reg)
+          else
+            casm.with_retry do
+              casm.mov(dst, context.ret_reg)
+            end
+            context.end_using_reg(context.ret_reg)
           end
         end
 
         # Save Stack Pointer
+        context.start_using_reg(TMPR2)
         casm.with_retry do
           casm.mov(TMPR2, SPR)
         end
 
         # stack, generate call ...
         context = yield(context, rarg)
+        context.end_using_reg(TMPR2)
 
         # adjust stack
         casm.with_retry do
