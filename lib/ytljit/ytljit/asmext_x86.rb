@@ -12,8 +12,18 @@ module YTLJit
       end
     end
 
+    def dst_opecode
+      OpIndirect.new(SPR, OpImmidiate8.new(@no * size))
+    end
+
+
+    def src_opecode
+      offset = 4 + @no * size
+      OpIndirect.new(ESP, offset)
+    end
+
     def gen_access_dst(gen, inst, dst, src, src2)
-      argdst = OpIndirect.new(SPR, OpImmidiate8.new(@no * size))
+      argdst =  dst_opecode
       code = ""
       asm = gen.asm
       fainfo = gen.funcarg_info
@@ -39,8 +49,7 @@ module YTLJit
       asm = gen.asm
       fainfo = gen.funcarg_info
       code = ""
-      offset = 4 + @no * size
-      code += asm.update_state(gen.mov(TMPR, OpIndirect.new(ESP, offset)))
+      code += asm.update_state(gen.mov(TMPR, src_opecode))
       code += asm.update_state(gen.send(inst, src, TMPR))
       code
     end

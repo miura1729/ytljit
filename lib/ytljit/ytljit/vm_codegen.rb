@@ -107,30 +107,50 @@ LO        |                       |   |  |
         @used_reg = {}
       end
 
-      def start_using_reg(reg)
-#        p caller[0]
-        if reg.is_a?(OpRegistor) then
-          if @used_reg[reg] then
-            @assembler.with_retry do
-#              raise
-              @assembler.push(reg)
-            end
-          else
-            @used_reg[reg] = 0
+      def start_using_reg_aux(reg)
+        if @used_reg[reg] then
+          @assembler.with_retry do
+            @assembler.push(reg)
           end
-          @used_reg[reg] += 1
+        else
+          @used_reg[reg] = 0
+        end
+        @used_reg[reg] += 1
+      end
+
+      def start_using_reg(reg)
+        case reg
+        when OpRegistor
+          start_using_reg_aux(reg)
+
+        when FunctionArgument
+          regdst = reg.dst_opecode
+          if regdst.is_a?(OpRegistor)
+            start_using_reg_aux(regdst)
+          end
+        end
+      end
+
+      def end_using_reg_aux(reg)
+        @used_reg[reg] -= 1
+        if @used_reg[reg] != 0 then
+          @assembler.with_retry do
+            @assembler.pop(reg)
+          end
+        else
+          @used_reg[reg] = nil
         end
       end
 
       def end_using_reg(reg)
-        if reg.is_a?(OpRegistor) then
-          @used_reg[reg] -= 1
-          if @used_reg[reg] != 0 then
-            @assembler.with_retry do
-              @assembler.pop(reg)
-            end
-          else
-            @used_reg[reg] = nil
+        case reg
+        when OpRegistor
+          end_using_reg_aux(reg)
+
+        when FunctionArgument
+          regdst = reg.dst_opecode
+          if regdst.is_a?(OpRegistor)
+            end_using_reg_aux(regdst)
           end
         end
       end

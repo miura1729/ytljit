@@ -83,14 +83,12 @@ module YTLJit
     def initialize
       @maxargs = 0
       @used_arg_tab = {}
-      @stack_content = []
       @area_allocate_pos = []
     end
 
     attr_accessor :used_arg_tab
     attr          :maxargs
     attr          :area_allocate_pos
-    attr          :stack_content
 
     def update_maxargs(args)
       if @maxargs < args then

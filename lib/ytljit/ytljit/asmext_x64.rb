@@ -21,11 +21,25 @@ module YTLJit
       end
     end
 
-    def gen_access_dst(gen, inst, dst, src, src2)
-      if @no >= argpos2reg.size then
+    def dst_opecode
+      if @no < argpos2reg.size then
+        argpos2reg[@no]
+      else
         spos = @no - argpos2reg.size
+        OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
       end
+    end
 
+    def src_opecode
+      if @no < argpos2reg.size then
+        argpos2reg[@no]
+      else
+        spos = @no - argpos2reg.size
+        OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
+      end
+    end
+
+    def gen_access_dst(gen, inst, dst, src, src2)
       code = ""
       asm = gen.asm
       fainfo = gen.funcarg_info
@@ -52,7 +66,8 @@ module YTLJit
         code += asm.update_state(gen.mov(argreg, src))
       else
         # spilled reg 
-        argdst = OpIndirect.new(SPR, OpImmidiate8.new(@no * 8))
+        spos = @no - argpos2reg.size
+        argdst = OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
 
         unless inst == :mov and src == TMPR then
           code += asm.update_state(gen.send(inst, TMPR, src))
@@ -73,7 +88,8 @@ module YTLJit
       if @no < argpos2reg.size then
         code += asm.update_state(gen.mov(TMPR, argpos2reg[@no]))
       else
-        offset = 8 + @no * 8
+        spos = @no - argpos2reg.size
+        offset = 8 + spos * 8
         code += asm.update_state(gen.mov(TMPR, OpIndirect.new(SPR, offset)))
       end
       code += asm.update_state(gen.send(inst, src, TMPR))
