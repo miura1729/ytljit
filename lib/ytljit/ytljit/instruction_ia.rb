@@ -263,7 +263,6 @@ module YTLJit
     end
 
     def common_operand_80(dst, src, bopc, optc, inst)
-      rexseq, rexfmt = rex(dst, src)
       case dst 
       when OpReg8
         case src
@@ -286,6 +285,7 @@ module YTLJit
       when OpReg32, OpReg64
         case src
         when OpImmidiate8
+          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, optc, dst, dst, src)
           fmt = "#{rexfmt}C#{modfmt}C"
           (rexseq + [0x83] + modseq + [src.value]).pack(fmt)
@@ -300,11 +300,18 @@ module YTLJit
           if dst.class == OpEAX or dst.class == OpRAX then
             [*rexseq, bopc + 0x5, srcv].pack("#{rexfmt}CL")
           else
+            rexseq, rexfmt = rex(dst, src)
             modseq, modfmt = modrm(inst, optc, dst, dst, src)
             (rexseq + [0x81] + modseq + [srcv]).pack("#{rexfmt}C#{modfmt}L")
           end
 
-        when OpReg32, OpReg64, OpMem32, OpIndirect
+        when OpReg32, OpReg64, OpMem32
+          rexseq, rexfmt = rex(src, dst)
+          modseq, modfmt = modrm(inst, dst, src, dst, src)
+          (rexseq + [bopc + 0x03] + modseq).pack("#{rexfmt}C#{modfmt}")
+
+        when OpIndirect
+          rexseq, rexfmt = rex(src, dst)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
           (rexseq + [bopc + 0x03] + modseq).pack("#{rexfmt}C#{modfmt}")
 
@@ -315,14 +322,17 @@ module YTLJit
       when OpIndirect
         case src
         when OpImmidiate8
+          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, optc, src, dst, src)
           (rexseq + [0x83] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}")
 
         when OpImmidiate32, Integer
+          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, optc, src, dst, src)
           (rexseq + [0x81] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
 
         when OpReg32, OpReg64
+          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, src, dst, dst, src)
           (rexseq + [bopc + 0x1] + modseq).pack("#{rexfmt}C#{modfmt}")
 

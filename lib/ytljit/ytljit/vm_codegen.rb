@@ -108,7 +108,7 @@ LO        |                       |   |  |
       end
 
       def start_using_reg(reg)
-        p caller[0]
+#        p caller[0]
         if reg.is_a?(OpRegistor) then
           if @used_reg[reg] then
             @assembler.with_retry do
