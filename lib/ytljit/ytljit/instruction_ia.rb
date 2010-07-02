@@ -344,7 +344,7 @@ module YTLJit
 
     def common_jcc(addr, opc, lopc, inst)
       addr2 = addr
-      if addr.is_a?(OpImmidiate) then
+      if addr.is_a?(OpMemory) then
         addr2 = addr.value
       end
       offset = addr2 - @asm.current_address - 2
@@ -642,7 +642,7 @@ module YTLJit
 
     def jmp(addr)
       addr2 = addr
-      if addr.is_a?(OpImmidiate) then
+      if addr.is_a?(OpMemory) then
         addr2 = addr.value
       end
       case addr2
@@ -667,7 +667,7 @@ module YTLJit
         offset = addr - @asm.current_address - 5
         immidiate_call(addr, offset)      
 
-      when OpImmidiate
+      when OpMemory
         offset = addr.value - @asm.current_address - 5
         immidiate_call(addr, offset)      
 

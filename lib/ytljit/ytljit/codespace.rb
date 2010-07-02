@@ -27,7 +27,7 @@ module YTLJit
       func = lambda {
         base_address + offset
       }
-      ovi32 = OpVarImmidiateAddress.new(func)
+      ovi32 = OpVarMemAddress.new(func)
       @refer_operands.push ovi32
       ovi32
     end
@@ -66,7 +66,7 @@ module YTLJit
       system(objcopy_cmd)
       File.popen(objdump_cmd, "r") {|fp|
         fp.readlines.each do |lin|
-          if /([0-9a-f]*):\t[0-9a-f ]+? *\t(.*)/ =~ lin then
+          if /([0-9a-f]*):(\t[0-9a-f ]+? *\t.*)/ =~ lin then
             @@disasm_cache[$1] = $2
           end
         end
@@ -76,7 +76,7 @@ module YTLJit
     def disassemble
       fill_disasm_cache
       @@disasm_cache.each do |add, asm|
-        print "#{add}:\t#{asm}\n"
+        print "#{add}:  #{asm}\n"
       end
     end
   end

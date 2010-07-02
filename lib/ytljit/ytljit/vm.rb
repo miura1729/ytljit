@@ -603,7 +603,7 @@ LocalVarNode
               if reciever then
                 addr = reciever.method_address_of(@name)
                 if addr then
-                  context.ret_reg = OpImmidiateAddress.new(addr)
+                  context.ret_reg = OpMemAddress.new(addr)
                   if variable_argument?(reciever.method(@name).parameters) then
                     @written_in = :c_vararg
                   else
@@ -619,7 +619,8 @@ LocalVarNode
                 slfval = slf.address
                 mnval = @name.address
                 
-                funaddr = Object.method_address_of(:method_address_of)
+                addr = Object.method_address_of(:method_address_of)
+                funaddr = OpMemAddress.new(addr)
                 asm = context.assembler
                 asm.with_retry do
                   asm.mov(FUNC_ARG[0], slfval)

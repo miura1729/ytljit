@@ -32,7 +32,7 @@ module YTLJit
     end
 
     def var_base_address(offset = 0)
-      OpVarImmidiateAddress.new(lambda {offset})
+      OpVarMemAddress.new(lambda {offset})
     end
   end
 
@@ -95,7 +95,7 @@ module YTLJit
       func = lambda {
         @current_address
       }
-      OpVarImmidiateAddress.new(func)
+      OpVarMemAddress.new(func)
     end
 
     attr_accessor :generated_code
@@ -144,8 +144,8 @@ module YTLJit
       @@value_table_entity.var_base_address(off)
     end
 
-    def add_var_immdiate_retry_func(mn, args)
-      if args.any? {|e| e.is_a?(OpVarImmidiateAddress) } and 
+    def add_var_value_retry_func(mn, args)
+      if args.any? {|e| e.is_a?(OpVarValueMixin) } and 
          !@retry_mode then
         offset = @offset
         stfunc = lambda {
@@ -159,7 +159,7 @@ module YTLJit
           }
         }
         args.each do |e|
-          if e.is_a?(OpVarImmidiateAddress) then
+          if e.is_a?(OpVarValueMixin) then
             e.add_refer(stfunc)
           end
         end
@@ -174,7 +174,7 @@ module YTLJit
         @asmsend_history.push [mn, args]
       end
         
-      add_var_immdiate_retry_func(mn, args)
+      add_var_value_retry_func(mn, args)
       out = @generator.send(mn, *args)
       if out.is_a?(Array) then
         store_outcode(out[0])

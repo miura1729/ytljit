@@ -105,6 +105,10 @@ module YTLJit
           case @func.written_in
           when :c_vararg
             context = gen_make_argv(context) do |context, rarg|
+              context.start_using_reg(FUNC_ARG[0])
+              context.start_using_reg(FUNC_ARG[1])
+              context.start_using_reg(FUNC_ARG[2])
+
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
@@ -119,12 +123,21 @@ module YTLJit
               end
               
               context = gen_call(context, fnc)
+
+              context.start_using_reg(FUNC_ARG[2])
+              context.start_using_reg(FUNC_ARG[1])
+              context.start_using_reg(FUNC_ARG[0])
               context.end_using_reg(context.ret_reg)
               
               context
             end
 
           when :c_fixarg
+            numarg = @arguments.size
+            numarg.times do |i|
+              context.start_using_reg(FUNC_ARG[i])
+            end
+
             @arguments.each_with_index do |arg, i|
               context = arg.compile(context)
               casm = context.assembler
@@ -136,7 +149,17 @@ module YTLJit
 
             context = gen_call(context, fnc)
 
+            numarg.size.times do |i|
+              context.start_using_reg(FUNC_ARG[numarg - i])
+            end
+            context.end_using_reg(fnc)
+
           when :ytl
+            numarg = @arguments.size
+            numarg.times do |i|
+              context.start_using_reg(FUNC_ARG_YTL[i])
+            end
+              
             @arguments.each_with_index do |arg, i|
               context = arg.compile(context)
               casm = context.assembler
@@ -147,12 +170,16 @@ module YTLJit
             end
 
             context = gen_call(context, fnc)
+
+            numarg.size.times do |i|
+              context.start_using_reg(FUNC_ARG_YTL[numarg - i])
+            end
             context.end_using_reg(fnc)
           end
           
           context.ret_reg = RETR
 
-          @body.compile(context)
+          context = @body.compile(context)
 
           context
         end
