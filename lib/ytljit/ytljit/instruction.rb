@@ -13,7 +13,7 @@ module YTLJit
       @value = value
     end
 
-    def to_gas
+    def to_as
       "$0x#{value.to_s(16)}"
     end
 
@@ -73,6 +73,10 @@ module YTLJit
     end
 
     attr :value
+
+    def to_as
+      "#{value.to_s(16)}"
+    end
   end
 
   class OpMem8<OpMemory
@@ -110,6 +114,11 @@ module YTLJit
 
     attr :reg
     attr :disp
+
+
+    def to_as
+      "#{@disp}(#{@reg.to_as})"
+    end
   end
 
   case $ruby_platform

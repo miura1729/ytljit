@@ -77,7 +77,8 @@ LO        |                       |   |  |
   module VM
     class Context
       include AbsArch
-      def initialize
+      def initialize(tnode)
+        @top_node = tnode
         @code_space = nil
         @assembler = nil
         
@@ -89,6 +90,7 @@ LO        |                       |   |  |
         @modified_instance_var = []
       end
 
+      attr          :top_node
       attr          :code_space
       attr          :assembler
 
@@ -101,6 +103,7 @@ LO        |                       |   |  |
       def add_code_space(cs)
         @code_space = cs
         @assembler = Assembler.new(cs)
+        @top_node.add_code_space(@code_space, cs)
       end
 
       def reset_using_reg

@@ -251,6 +251,20 @@ LocalVarNode
 
       class TopTopNode<ClassTopNode
         include MethodTopCodeGen
+
+        def initialize(parent, klassobj, name = :top)
+          super
+          
+          @code_space_tab = []
+        end
+
+        def add_code_space(oldcs, newcs)
+          if !@code_space_tab.include?(newcs) then
+            @code_space_tab.push newcs
+          end
+        end
+
+        attr :code_space_tab
       end
 
       class LocalFrameInfoNode<BaseNode

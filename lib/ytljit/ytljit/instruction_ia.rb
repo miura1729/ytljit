@@ -6,11 +6,19 @@ module YTLJit
     def reg_no
       0
     end
+
+    def to_as
+      "%al"
+    end
   end
 
   class OpCL<OpReg8
     def reg_no
       1
+    end
+
+    def to_as
+      "%cl"
     end
   end
 
@@ -18,11 +26,19 @@ module YTLJit
     def reg_no
       2
     end
+
+    def to_as
+      "%dl"
+    end
   end
 
   class OpBL<OpReg8
     def reg_no
       3
+    end
+
+    def to_as
+      "%bl"
     end
   end
 
@@ -33,11 +49,19 @@ module YTLJit
     def reg_no
       0
     end
+
+    def to_as
+      "%eax"
+    end
   end
   
   class OpECX<OpReg32
     def reg_no
       1
+    end
+
+    def to_as
+      "%ecx"
     end
   end
   
@@ -45,11 +69,19 @@ module YTLJit
     def reg_no
       2
     end
+
+    def to_as
+      "%edx"
+    end
   end
   
   class OpEBX<OpReg32
     def reg_no
       3
+    end
+
+    def to_as
+      "%ebx"
     end
   end
 
@@ -57,11 +89,19 @@ module YTLJit
     def reg_no
       4
     end
+
+    def to_as
+      "%esp"
+    end
   end
 
   class OpEBP<OpReg32
     def reg_no
       5
+    end
+
+    def to_as
+      "%ebp"
     end
   end
 
@@ -69,11 +109,19 @@ module YTLJit
     def reg_no
       6
     end
+
+    def to_as
+      "%esi"
+    end
   end
   
   class OpEDI<OpReg32
     def reg_no
       7
+    end
+
+    def to_as
+      "%edi"
     end
   end
 
@@ -84,11 +132,19 @@ module YTLJit
     def reg_no
       0
     end
+
+    def to_as
+      "%rax"
+    end
   end
 
   class OpRCX<OpReg64
     def reg_no
       1
+    end
+
+    def to_as
+      "%rcx"
     end
   end
 
@@ -96,11 +152,19 @@ module YTLJit
     def reg_no
       2
     end
+
+    def to_as
+      "%rdx"
+    end
   end
 
   class OpRBX<OpReg64
     def reg_no
       3
+    end
+
+    def to_as
+      "%rbx"
     end
   end
 
@@ -108,11 +172,19 @@ module YTLJit
     def reg_no
       4
     end
+
+    def to_as
+      "%rsp"
+    end
   end
 
   class OpRBP<OpReg64
     def reg_no
       5
+    end
+
+    def to_as
+      "%rbp"
     end
   end
 
@@ -120,11 +192,19 @@ module YTLJit
     def reg_no
       6
     end
+
+    def to_as
+      "%rsi"
+    end
   end
 
   class OpRDI<OpReg64
     def reg_no
       7
+    end
+
+    def to_as
+      "%rdi"
     end
   end
 
@@ -132,11 +212,19 @@ module YTLJit
     def reg_no
       8
     end
+
+    def to_as
+      "%r8"
+    end
   end
 
   class OpR9<OpReg64
     def reg_no
       9
+    end
+
+    def to_as
+      "%r9"
     end
   end
 
@@ -144,11 +232,19 @@ module YTLJit
     def reg_no
       10
     end
+
+    def to_as
+      "%r10"
+    end
   end
 
   class OpR11<OpReg64
     def reg_no
       11
+    end
+
+    def to_as
+      "%r11"
     end
   end
 
@@ -156,11 +252,19 @@ module YTLJit
     def reg_no
       12
     end
+
+    def to_as
+      "%r12"
+    end
   end
 
   class OpR13<OpReg64
     def reg_no
       13
+    end
+
+    def to_as
+      "%r13"
     end
   end
 
@@ -168,15 +272,41 @@ module YTLJit
     def reg_no
       14
     end
+
+    def to_as
+      "%r14"
+    end
   end
 
   class OpR15<OpReg64
     def reg_no
       15
     end
+
+    def to_as
+      "%r15"
+    end
   end
   
   module AssemblerUtilIAModrm
+    def modrm_indirect_off32(regv, rm_reg, rm_disp)
+      fstb = 0b10000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
+      if rm_reg.is_a?(OpESP) or rm_reg.is_a?(OpRSP) then
+        [[fstb, 0b00100100, rm_disp], "C2L"]
+      else
+        [[fstb, rm_disp], "CL"]
+      end
+    end
+
+    def modrm_indirect_off8(regv, rm_reg, rm_disp)
+      fstb = 0b01000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
+      if rm_reg.is_a?(OpESP) or rm_reg.is_a?(OpRSP) then
+        [[fstb, 0b00100100, rm_disp], "C3"]
+      else
+        [[fstb, rm_disp], "CC"]
+      end
+    end
+
     def modrm_indirect(reg, rm)
       regv = nil
       case reg
@@ -189,35 +319,28 @@ module YTLJit
 
       case rm.disp
       when 0
-        fstb = 0b00000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP)  then
-          [[fstb, 0x24], "C2"]
+        if rm.reg.is_a?(OpEBP) or rm.reg.is_a?(OpRBP) then
+          modrm_indirect_off8(regv, rm.reg, 0)
         else
-          [[fstb], "C"]
+          fstb = 0b00000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
+          if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP)  then
+            [[fstb, 0x24], "C2"]
+          else
+            [[fstb], "C"]
+          end
         end
         
       when OpImmidiate8
-        fstb = 0b01000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
-          [[fstb, 0b00100100, rm.disp.value], "C3"]
-        else
-          [[fstb, rm.disp.value], "CC"]
-        end
+        modrm_indirect_off8(regv, rm.reg, rm.disp.value)
         
       when OpImmidiate32
-        fstb = 0b10000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
-          [[fstb, 0b00100100, rm.disp.value], "C2L"]
-        else
-          [[fstb, rm.disp.value], "CL"]
-        end
+        modrm_indirect_off32(regv, rm.reg, rm.disp.value)
 
       when Integer
-        fstb = 0b10000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-        if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP) then
-          [[fstb, 0b00100100, rm.disp], "C2L"]
+        if rm.disp > 127 then
+          modrm_indirect_off32(regv, rm.reg, rm.disp)
         else
-          [[fstb, rm.disp], "CL"]
+          modrm_indirect_off8(regv, rm.reg, rm.disp)
         end
       end
     end
