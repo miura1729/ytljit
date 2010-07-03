@@ -289,6 +289,16 @@ module YTLJit
   end
   
   module AssemblerUtilIAModrm
+    def small_integer_8bit?(num)
+      num = (num & 0x7fff_ffff) - (num & 0x8000_0000)
+      num.abs < 0x7f
+    end
+
+    def small_integer_32bit?(num)
+      num = (num & 0x7fff_ffff_ffff_ffff) - (num & 0x8000_0000_0000_0000)
+      num.abs < 0x7fff_ffff
+    end
+
     def modrm_indirect_off32(regv, rm_reg, rm_disp)
       fstb = 0b10000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
       if rm_reg.is_a?(OpESP) or rm_reg.is_a?(OpRSP) then
@@ -337,10 +347,10 @@ module YTLJit
         modrm_indirect_off32(regv, rm.reg, rm.disp.value)
 
       when Integer
-        if rm.disp > 127 then
-          modrm_indirect_off32(regv, rm.reg, rm.disp)
-        else
+        if small_integer_8bit?(rm.disp.abs) then
           modrm_indirect_off8(regv, rm.reg, rm.disp)
+        else
+          modrm_indirect_off32(regv, rm.reg, rm.disp)
         end
       end
     end
@@ -385,6 +395,13 @@ module YTLJit
       raise IlligalOperand, mess
     end
 
+    def common_operand_80_imm8(dst, src, optc, inst)
+      rexseq, rexfmt = rex(dst, src)
+      modseq, modfmt = modrm(inst, optc, dst, dst, src)
+      fmt = "#{rexfmt}C#{modfmt}C"
+      (rexseq + [0x83] + modseq + [src]).pack(fmt)
+    end
+
     def common_operand_80(dst, src, bopc, optc, inst)
       case dst 
       when OpReg8
@@ -408,10 +425,7 @@ module YTLJit
       when OpReg32, OpReg64
         case src
         when OpImmidiate8
-          rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(inst, optc, dst, dst, src)
-          fmt = "#{rexfmt}C#{modfmt}C"
-          (rexseq + [0x83] + modseq + [src.value]).pack(fmt)
+          common_operand_80_imm8(dst, src.value, optc, inst)
 
         when OpImmidiate32, Integer
           srcv = nil
@@ -420,10 +434,16 @@ module YTLJit
           else
             srcv = src.value
           end
+
+          if small_integer_8bit?(srcv) then
+            return common_operand_80_imm8(dst, src, optc, inst)
+          end
+
+          rexseq, rexfmt = rex(dst, src)
+
           if dst.class == OpEAX or dst.class == OpRAX then
             [*rexseq, bopc + 0x5, srcv].pack("#{rexfmt}CL")
           else
-            rexseq, rexfmt = rex(dst, src)
             modseq, modfmt = modrm(inst, optc, dst, dst, src)
             (rexseq + [0x81] + modseq + [srcv]).pack("#{rexfmt}C#{modfmt}L")
           end
@@ -525,7 +545,7 @@ module YTLJit
     end
     
     def adc(dst, src)
-      common_operand_80(dst, src, 0x00, 0x2, :adc)
+      common_operand_80(dst, src, 0x10, 0x2, :adc)
     end
 
     def sbb(dst, src)
@@ -598,11 +618,11 @@ module YTLJit
           (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
           
         when Integer
-          if src > 0xffff_ffff then 
-            [*rexseq, 0xB8 + (dst.reg_no & 7), src].pack("#{rexfmt}CQ")
-          else
+          if small_integer_32bit?(src) then 
             modseq, modfmt = modrm(:mov, 0, dst, dst, src)
             (rexseq + [0xC7] + modseq + [src]).pack("#{rexfmt}C#{modfmt}L")
+          else
+            [*rexseq, 0xB8 + (dst.reg_no & 7), src].pack("#{rexfmt}CQ")
           end
 
         when OpImmidiate64
@@ -640,7 +660,7 @@ module YTLJit
 
         when OpImmidiate64
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
-          (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
+          (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}Q")
 
         when Integer
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)

@@ -2,6 +2,13 @@ require 'test/unit'
 require 'lib/ytljit/ytljit.rb'
 
 include YTLJit
+
+class Integer
+  def to_as
+    "$0X#{self.to_s(16)}"
+  end
+end
+
 class InstructionTests < Test::Unit::TestCase
   include X86
 
@@ -10,8 +17,9 @@ class InstructionTests < Test::Unit::TestCase
     @asm = Assembler.new(@cs, GeneratorExtend)
     @asout = ""
     @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
-    @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
-             OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678)]
+#    @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
+#             OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678)]
+    @lits = [0, 0x92, 0x8212, 0x12345678, 0xffffffff]
     @indirects = []
     [EBP, EDI, ESI, ESP].each do |reg|
       [0, 12, 255, 8192, 65535].each do |offset|
@@ -103,26 +111,30 @@ class InstructionTests < Test::Unit::TestCase
     res
   end
 
-  def test_mov
-    @regs.each do |reg|
-      @lits.each do |src|
-        asm_ytljit(:mov, reg, src)
-        asm_gas(:mov, reg, src)
+  def test_asm
+    [:mov, :add, :or, :adc, :sbb, :and, :sub, :xor, :cmp].each do |mnm|
+      @regs.each do |reg|
+        @lits.each do |src|
+          asm_ytljit(mnm, reg, src)
+          asm_gas(mnm, reg, src)
+        end
       end
-    end
-    @indirects.each do |dst|
-#      asm_ytljit(:mov, dst, @lits[0])
-#      asm_gas(:mov, dst, @lits[0])
-      @regs.each do |src|
-        asm_ytljit(:mov, dst, src)
-        asm_gas(:mov, dst, src)
+      @indirects.each do |dst|
+        #      asm_ytljit(mnm, dst, @lits[0])
+        #      asm_gas(mnm, dst, @lits[0])
+        @regs.each do |src|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
       end
-    end
-
-    ytlres = disasm_ytljit(@cs)
-    gasres = disasm_gas(@cs)
-    ytlres.each_with_index do |lin, i|
-      assert_equal(gasres[i], lin)
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
     end
   end
 end
