@@ -11,17 +11,21 @@ end
 
 class InstructionTests < Test::Unit::TestCase
   include X86
+  include X64
 
   def setup
     @cs = CodeSpace.new
     @asm = Assembler.new(@cs, GeneratorExtend)
     @asout = ""
-    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
-#    @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
-#             OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678)]
-    @lits = [0, 0x92, 0x8212, 0x12345678, 0xffffffff]
+#    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
+    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
+             R11, R12, R13, R14, R15]
+    @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
+             OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678),
+             0, 0x92, 0x8212, 0x12345678]# , 0xffffffff]
     @indirects = []
-    [EBP, EDI, ESI, ESP].each do |reg|
+#    [EBP, EDI, ESI, ESP].each do |reg|
+    [RBP, RDI, RSI, RSP].each do |reg|
       [0, 12, 255, 8192, 65535].each do |offset|
         @indirects.push OpIndirect.new(reg, offset)
       end
@@ -123,6 +127,35 @@ class InstructionTests < Test::Unit::TestCase
         #      asm_ytljit(mnm, dst, @lits[0])
         #      asm_gas(mnm, dst, @lits[0])
         @regs.each do |src|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
+      end
+
+      @indirects.each do |src|
+        @regs.each do |dst|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+#      print @asout
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
+  end
+
+  def test_lea
+    [:lea].each do |mnm|
+      @indirects.each do |src|
+        #      asm_ytljit(mnm, dst, @lits[0])
+        #      asm_gas(mnm, dst, @lits[0])
+        @regs.each do |dst|
           asm_ytljit(mnm, dst, src)
           asm_gas(mnm, dst, src)
         end

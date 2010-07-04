@@ -2,7 +2,9 @@ require "rubygems"
 
 require 'tempfile'
 require 'rbconfig'
-$ruby_platform = RUBY_PLATFORM
+if $ruby_platform == nil then
+  $ruby_platform = RUBY_PLATFORM
+end
 # $ruby_platform = "x86_64" #  You can select CPU type for debug.
 
 require 'iseq'
