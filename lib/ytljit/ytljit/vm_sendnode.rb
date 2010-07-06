@@ -198,7 +198,7 @@ module YTLJit
         def compile(context)
           context = @body.compile(context)
           context = @new_method.compile(context)
-          context.code_space.disassemble
+          #          context.code_space.disassemble
 
           context
         end

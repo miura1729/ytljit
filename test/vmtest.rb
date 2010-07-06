@@ -31,6 +31,10 @@ asm.with_retry do
 end
 tnode.code_space.disassemble
 =end
+tnode.code_space_tab.each do |cs|
+  cs.fill_disasm_cache
+end
+tnode.code_space.disassemble
+
 tnode.code_space.call(tnode.code_space.base_address)
-p tnode.code_space_tab
 

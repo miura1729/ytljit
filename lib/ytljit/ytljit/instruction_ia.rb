@@ -448,9 +448,14 @@ module YTLJit
             (rexseq + [0x81] + modseq + [srcv]).pack("#{rexfmt}C#{modfmt}L")
           end
 
-        when OpReg32, OpReg64, OpMem32
-          rexseq, rexfmt = rex(src, dst)
-          modseq, modfmt = modrm(inst, dst, src, dst, src)
+        when OpReg32, OpReg64
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(inst, src, dst, dst, src)
+          (rexseq + [bopc + 0x01] + modseq).pack("#{rexfmt}C#{modfmt}")
+
+        when OpMem32, OpMem64
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(inst, src, dst, dst, src)
           (rexseq + [bopc + 0x03] + modseq).pack("#{rexfmt}C#{modfmt}")
 
         when OpIndirect
@@ -633,7 +638,7 @@ module YTLJit
           [*rexseq,  0xB8 + (dst.reg_no & 7), src.value].pack("#{rexfmt}CQ")
 
         when OpReg32, OpReg64
-          rexseq, rexfmt = rex(src, dst)
+          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(:mov, src, dst, dst, src)
           (rexseq + [0x89] + modseq).pack("#{rexfmt}C#{modfmt}")
 

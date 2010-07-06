@@ -117,12 +117,23 @@ class InstructionTests < Test::Unit::TestCase
 
   def test_asm
     [:mov, :add, :or, :adc, :sbb, :and, :sub, :xor, :cmp].each do |mnm|
+      # Pattern reg, immidiate
       @regs.each do |reg|
         @lits.each do |src|
           asm_ytljit(mnm, reg, src)
           asm_gas(mnm, reg, src)
         end
       end
+
+      # Pattern reg, reg
+      @regs.each do |reg|
+        @regs.each do |src|
+          asm_ytljit(mnm, reg, src)
+          asm_gas(mnm, reg, src)
+        end
+      end
+
+      # Pattern indirect, reg
       @indirects.each do |dst|
         #      asm_ytljit(mnm, dst, @lits[0])
         #      asm_gas(mnm, dst, @lits[0])
@@ -132,6 +143,7 @@ class InstructionTests < Test::Unit::TestCase
         end
       end
 
+      # Pattern reg, indirect
       @indirects.each do |src|
         @regs.each do |dst|
           asm_ytljit(mnm, dst, src)
