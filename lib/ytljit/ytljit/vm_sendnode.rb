@@ -76,7 +76,7 @@ module YTLJit
           super(parent)
           @func = func
           @arguments = arguments
-          @op_flag = op_flag
+          @opt_flag = op_flag
           @var_return_address = nil
           @next_node = @@current_node
           @@current_node = self
@@ -86,7 +86,7 @@ module YTLJit
 
         attr_accessor :func
         attr_accessor :arguments
-        attr          :op_flag
+        attr          :opt_flag
         attr          :var_return_address
         attr          :next_node
         attr          :class_top
@@ -122,32 +122,42 @@ module YTLJit
                 casm.mov(FUNC_ARG[2], context.ret_reg)
               end
               
-              context = gen_call(context, fnc)
+              context = gen_call(context, fnc, 3)
 
-              context.start_using_reg(FUNC_ARG[2])
-              context.start_using_reg(FUNC_ARG[1])
-              context.start_using_reg(FUNC_ARG[0])
+              context.end_using_reg(FUNC_ARG[2])
+              context.end_using_reg(FUNC_ARG[1])
+              context.end_using_reg(FUNC_ARG[0])
               context.end_using_reg(context.ret_reg)
               
               context
             end
 
           when :c_fixarg
-            numarg = @arguments.size
+            numarg = @arguments.size - 1
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG[i])
             end
 
-            @arguments.each_with_index do |arg, i|
+            argpos = 0
+            cursrc = 0
+            @arguments.each do |arg|
+              # skip block argument
+              if cursrc == 1 then
+                cursrc = cursrc + 1
+                next
+              end
+
               context = arg.compile(context)
               casm = context.assembler
               casm.with_retry do 
-                casm.mov(FUNC_ARG[i], context.ret_reg)
+                casm.mov(FUNC_ARG[argpos], context.ret_reg)
               end
               context.end_using_reg(context.ret_reg)
+              argpos = argpos + 1
+              cursrc = cursrc + 1
             end
 
-            context = gen_call(context, fnc)
+            context = gen_call(context, fnc, numarg)
 
             numarg.size.times do |i|
               context.start_using_reg(FUNC_ARG[numarg - i])
@@ -169,7 +179,7 @@ module YTLJit
               context.end_using_reg(context.ret_reg)
             end
 
-            context = gen_call(context, fnc)
+            context = gen_call(context, fnc, numarg)
 
             numarg.size.times do |i|
               context.start_using_reg(FUNC_ARG_YTL[numarg - i])
@@ -226,7 +236,7 @@ module YTLJit
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
           end
-          context.end_using_reg(context.ret_reg)
+          # context.end_using_reg(context.ret_reg)
 
           # @argunemnts[1] is block
           # eval 2nd arguments and added
@@ -242,7 +252,7 @@ module YTLJit
           asm.with_retry do
             asm.add(TMPR2, context.ret_reg)
           end
-          context.end_using_reg(context.ret_reg)
+          # context.end_using_reg(context.ret_reg)
 
           context.ret_reg = TMPR2
           if type.boxed then

@@ -130,7 +130,7 @@ LocalVarNode
       module HaveChildlenMixin
         def initialize(*args)
           super
-          @body = nil
+          @body = DummyNode.new
         end
 
         attr_accessor :body
@@ -150,6 +150,13 @@ LocalVarNode
           end
 
           cnode
+        end
+      end
+
+      class DummyNode
+        def compile(context)
+          # Not need super because this is dummy
+          context
         end
       end
 
@@ -402,7 +409,6 @@ LocalVarNode
 
         def initialize(parent)
           super(parent)
-          @parent_method = nil
         end
 
         def compile(context)
@@ -424,6 +430,30 @@ LocalVarNode
         include MethodEndCodeGen
       end
 
+      # Set result of method/block
+      class SetResultNode<BaseNode
+        include HaveChildlenMixin
+
+        def initialize(parent, valnode)
+          super(parent)
+          @value_node = valnode
+        end
+
+        def compile(context)
+          context = super(context)
+          context = @value_node.compile(context)
+          curas = context.assembler
+          curas.with_retry do
+            curas.mov(RETR, context.ret_reg)
+          end
+
+          context.ret_reg = RETR
+          context = @body.compile(context)
+
+          context
+        end
+      end
+
       class LocalLabel<BaseNode
         include HaveChildlenMixin
         def initialize(parent, name)
@@ -442,7 +472,10 @@ LocalVarNode
         end
 
         def compile(context)
+          context = super(context)
           @come_from_val.push context.ret_reg
+
+          # When all node finish to compile, next node compile
           if @come_from_val.size == @come_from.size then
             @body.compile(context)
           end
@@ -598,6 +631,16 @@ LocalVarNode
           @name = val
           @written_in = :unkown
           @reciever = nil
+          @send_node = nil
+        end
+
+        def set_reciever(sendnode)
+          @send_node = sendnode
+          if sendnode.is_fcall then
+            @reciever = @parent.class_top
+          else
+            @reciever = sendnode.arguments[0]
+          end
         end
         
         attr :name
@@ -606,50 +649,53 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          reciever = @reciever
-          if @parent.is_fcall then
+          if @send_node.is_fcall then
             mtop = @parent.class_top.method_tab[@name]
             if mtop then
               context.ret_reg = mtop.code_space.var_base_address
               @written_in = :ytl
             else
-              reciever = Object
-              if reciever then
-                addr = reciever.method_address_of(@name)
+              # reciever = Object
+              if @reciever.klass_object then
+                addr = @reciever.klass_object.method_address_of(@name)
                 if addr then
                   context.ret_reg = OpMemAddress.new(addr)
-                  if variable_argument?(reciever.method(@name).parameters) then
+                  if variable_argument?(@eciever.method(@name).parameters) then
                     @written_in = :c_vararg
                   else
                     @written_in = :c_fixarg
                   end
                 else
-                  #                raise "Unkown method - #{@name}"
+                  raise "Unkown method - #{@name}"
                   context.ret_reg = OpImmidiateAddress.new(0)
                   @written_in = :c
                 end
               else
-                slf = @parent.class_top.klass_object
-                slfval = slf.address
-                mnval = @name.address
-                
-                addr = Object.method_address_of(:method_address_of)
-                funaddr = OpMemAddress.new(addr)
-                asm = context.assembler
-                asm.with_retry do
-                  asm.mov(FUNC_ARG[0], slfval)
-                  asm.mov(FUNC_ARG[1], mnval)
-                  asm.call_with_arg(funaddr, 2)
-                end
-                context.ret_reg = TMPR
+                raise "foo"
               end
             end
           else
-            context.ret_reg = OpImmidiateAddress.new(3)
+            context = @reciever.compile(context)
+            recval = context.ret_reg
+            mnval = @name.address
+                
+            objclass = OpMemAddress.new(address_of("rb_obj_class"))
+
+            addr = Object.method_address_of(:method_address_of)
+            funaddr = OpMemAddress.new(addr)
+            context.start_using_reg(TMPR)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(FUNC_ARG[0], recval)
+              asm.call_with_arg(objclass, 1)
+              asm.mov(FUNC_ARG[0], RETR)
+              asm.mov(FUNC_ARG[1], mnval)
+              asm.call_with_arg(funaddr, 2)
+            end
+            context.ret_reg = TMPR
             @written_in = :c
           end
 
-          @reciever = reciever
           context
         end
       end

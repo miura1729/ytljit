@@ -200,7 +200,7 @@ LO        |                       |   |  |
             context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, val)
-              asm.shr(TMPR)
+              asm.sar(TMPR)
               context.ret_reg = TMPR
             end
 #          else
@@ -298,7 +298,7 @@ LO        |                       |   |  |
             casm.with_retry do
               casm.mov(dst, context.ret_reg)
             end
-            context.end_using_reg(context.ret_reg)
+#            context.end_using_reg(context.ret_reg)
           end
         end
 
@@ -320,12 +320,12 @@ LO        |                       |   |  |
         context
       end
 
-      def gen_call(context, fnc)
+      def gen_call(context, fnc, numarg)
         casm = context.assembler
 
         callpos = nil
         casm.with_retry do 
-          dmy, callpos = casm.call_with_arg(fnc, @arguments.size)
+          dmy, callpos = casm.call_with_arg(fnc, numarg)
         end
 
         @var_return_address = casm.output_stream.var_base_address(callpos)

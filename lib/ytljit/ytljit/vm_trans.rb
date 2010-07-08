@@ -126,20 +126,6 @@ module YTLJit
       end
 
       def visit_block_end(code, ins, context)
-        curnode = context.current_node 
-        case code.header['type']
-        when :method
-          nnode = MethodEndNode.new(curnode)
-        when :block
-          nnode = BlockEndNode.new(curnode)
-        when :class
-          nnode = ClassEndNode.new(curnode)
-        when :top
-          nnode = ClassEndNode.new(curnode)
-        end
-        curnode.body = nnode
-        context.current_node = nnode
-        curnode
       end
 
       def depth_of_block(code)
@@ -264,6 +250,8 @@ module YTLJit
         node.parent = curnode
         curnode.body = node
         context.current_node = node
+
+        context
       end
 
       def visit_dup(code, ins, context)
@@ -361,7 +349,9 @@ module YTLJit
         cnode = context.current_node
         op_flag = ins[4]
         sn = SendNode.make_send_node(cnode, func, arg, op_flag)
+        func.set_reciever(sn)
         context.expstack.push sn
+
         context
       end
 
@@ -372,7 +362,26 @@ module YTLJit
       end
 
       def visit_leave(code, ins, context)
-        visit_pop(code, ins, context)
+        curnode = context.current_node 
+
+        vnode = context.expstack.pop
+        srnode = SetResultNode.new(curnode, vnode)
+        curnode.body = srnode
+
+        context.current_node = srnode
+
+        case code.header['type']
+        when :method
+          nnode = MethodEndNode.new(curnode)
+        when :block
+          nnode = BlockEndNode.new(curnode)
+        when :class
+          nnode = ClassEndNode.new(curnode)
+        when :top
+          nnode = ClassEndNode.new(curnode)
+        end
+
+        srnode.body = nnode
       end
       
       def visit_throw(code, ins, context)
