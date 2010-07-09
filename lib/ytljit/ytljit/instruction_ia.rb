@@ -832,8 +832,9 @@ module YTLJit
         immidiate_call(addr, offset)      
 
       else
+        rexseq, rexfmt = rex(addr, nil)
         modseq, modfmt = modrm(:call, 2, addr, nil, addr)
-        ([0xff] + modseq).pack("C#{modfmt}")
+        (rexseq + [0xff] + modseq).pack("#{rexfmt}C#{modfmt}")
       end
     end
 

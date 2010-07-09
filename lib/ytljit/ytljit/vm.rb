@@ -454,21 +454,48 @@ LocalVarNode
         end
       end
 
+      class PhiNode<BaseNode
+        def initialize(parent)
+          super(parent)
+        end
+
+        def compile(context)
+          context.ret_reg = RETR
+          context
+        end
+      end
+
       class LocalLabel<BaseNode
         include HaveChildlenMixin
         def initialize(parent, name)
           super(parent)
           @name = name
-          @come_from = []
+          @come_from = {}
           @come_from_val = []
           @code_space = CodeSpace.new
+          @value_node = PhiNode.new(self)
         end
 
         attr :name
         attr :come_from
+        attr :value_node
 
         def traverse_childlen
           yield @body
+          yield @value_node
+        end
+
+        def compile_block_value(context, comefrom)
+          valnode = @come_from[comefrom]
+          if valnode then
+            context = valnode.compile(context)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(RETR, context.ret_reg)
+            end
+          end
+
+          context
         end
 
         def compile(context)
@@ -477,7 +504,7 @@ LocalVarNode
 
           # When all node finish to compile, next node compile
           if @come_from_val.size == @come_from.size then
-            @body.compile(context)
+            context = @body.compile(context)
           end
 
           context
@@ -509,10 +536,11 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          context = @cond.compile(context)
           jmptocs = @jmp_to_node.code_space
+          context = @jmp_to_node.compile_block_value(context, self)
 
           context.start_using_reg(TMPR)
+          context = @cond.compile(context)
           curas = context.assembler
           curas.with_retry do
             curas.mov(TMPR, context.ret_reg)
@@ -562,6 +590,8 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
+
+          context = @jmp_to_node.compile_block_value(context, self)
 
           jmptocs = @jmp_to_node.code_space
           curas = context.assembler
@@ -682,18 +712,21 @@ LocalVarNode
             objclass = OpMemAddress.new(address_of("rb_obj_class"))
 
             addr = Object.method_address_of(:method_address_of)
-            funaddr = OpMemAddress.new(addr)
-            context.start_using_reg(TMPR)
+            meaddrof = OpMemAddress.new(addr)
+            context.start_using_reg(TMPR2)
             asm = context.assembler
             asm.with_retry do
               asm.mov(FUNC_ARG[0], recval)
               asm.call_with_arg(objclass, 1)
               asm.mov(FUNC_ARG[0], RETR)
               asm.mov(FUNC_ARG[1], mnval)
-              asm.call_with_arg(funaddr, 2)
+              asm.call_with_arg(meaddrof, 2)
+              asm.shr(RETR)
+              asm.mov(TMPR2, RETR)
             end
-            context.ret_reg = TMPR
-            @written_in = :c
+
+            context.ret_reg = TMPR2
+            @written_in = :c_fixarg
           end
 
           context

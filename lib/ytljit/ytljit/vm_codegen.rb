@@ -135,7 +135,11 @@ LO        |                       |   |  |
       end
 
       def end_using_reg_aux(reg)
-        @used_reg[reg] -= 1
+        if @used_reg[reg] then
+          @used_reg[reg] -= 1
+        else
+          raise "Not saved reg #{reg}"
+        end
         if @used_reg[reg] != 0 then
           @assembler.with_retry do
             @assembler.pop(reg)

@@ -2,7 +2,12 @@ class Object
   def address
     case self
     when Symbol
-      (__id__ >> 1) << 2
+      case $ruby_platform
+      when /x86_64/
+        ((((__id__ >> 1) - 4) / 10) << 8) | 0xe
+      when /i.86/
+        ((((__id__ >> 1) - 4) / 5) << 8) | 0xe
+      end
       
     when TrueClass, FalseClass
       __id__

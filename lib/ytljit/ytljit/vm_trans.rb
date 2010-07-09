@@ -107,10 +107,13 @@ module YTLJit
         unless curnode.is_a?(JumpNode)
           jmpnode = JumpNode.new(curnode, nllab)
           nllab.parent = jmpnode
-          nllab.come_from.push jmpnode
+
+          val = context.expstack.pop
+          nllab.come_from[jmpnode] = val
         
           curnode.body = jmpnode
           jmpnode.body = nllab
+          context.expstack.push nllab.value_node
         end
         
         context.current_node = nllab
@@ -391,21 +394,23 @@ module YTLJit
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins[1])
 
-        node = JumpNode.new(curnode, nllab)
-        nllab.come_from.push node
+        jpnode = JumpNode.new(curnode, nllab) 
 
-        curnode.body = node
-        context.current_node = node
+        val = context.expstack.pop
+        nllab.come_from[jpnode] = val
+
+        curnode.body = jpnode
+        context.current_node = jpnode
       end
 
       def visit_branchif(code, ins, context)
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins[1])
-
+ 
         cond = context.expstack.pop
-        
+       
         node = BranchIfNode.new(curnode, cond, nllab)
-        nllab.come_from.push node
+        nllab.come_from[node] = nil
 
         curnode.body = node
         context.current_node = node
@@ -418,7 +423,7 @@ module YTLJit
         cond = context.expstack.pop
         
         node = BranchUnlessNode.new(curnode, cond, nllab)
-        nllab.come_from.push node
+        nllab.come_from[node] = nil
 
         curnode.body = node
         context.current_node = node

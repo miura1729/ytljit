@@ -159,8 +159,8 @@ module YTLJit
 
             context = gen_call(context, fnc, numarg)
 
-            numarg.size.times do |i|
-              context.start_using_reg(FUNC_ARG[numarg - i])
+            numarg.times do |i|
+              context.end_using_reg(FUNC_ARG[numarg - i - 1])
             end
             context.end_using_reg(fnc)
 
