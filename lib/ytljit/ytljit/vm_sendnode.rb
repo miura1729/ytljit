@@ -100,10 +100,13 @@ module YTLJit
 
         def compile(context)
           context = super(context)
+          context.start_using_reg(TMPR2)
           context = @func.compile(context)
           fnc = context.ret_reg
           case @func.written_in
           when :c_vararg
+            context.start_using_reg(RETR)
+
             context = gen_make_argv(context) do |context, rarg|
               context.start_using_reg(FUNC_ARG[0])
               context.start_using_reg(FUNC_ARG[1])
@@ -127,13 +130,14 @@ module YTLJit
               context.end_using_reg(FUNC_ARG[2])
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
-              context.end_using_reg(context.ret_reg)
               
               context
             end
 
           when :c_fixarg
             numarg = @arguments.size - 1
+
+            context.start_using_reg(RETR)
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG[i])
             end
@@ -166,6 +170,8 @@ module YTLJit
 
           when :ytl
             numarg = @arguments.size
+
+            context.start_using_reg(RETR)
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG_YTL[i])
             end
@@ -189,6 +195,7 @@ module YTLJit
           
           context.ret_reg = RETR
 
+          context.end_using_reg(TMPR2)
           context = @body.compile(context)
 
           context
@@ -224,6 +231,7 @@ module YTLJit
 
           # eval 1st arg(self)
           slfnode = @arguments[0]
+          context.start_using_reg(TMPR2)
           context = slfnode.compile(context)
           if slfnode.type.boxed then
             slfreg = context.ret_reg
@@ -231,12 +239,11 @@ module YTLJit
             context.end_using_reg(slfreg)
           end
 
-          context.start_using_reg(TMPR2)
           asm = context.assembler
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
           end
-          # context.end_using_reg(context.ret_reg)
+          context.end_using_reg(context.ret_reg)
 
           # @argunemnts[1] is block
           # eval 2nd arguments and added
@@ -252,16 +259,18 @@ module YTLJit
           asm.with_retry do
             asm.add(TMPR2, context.ret_reg)
           end
-          # context.end_using_reg(context.ret_reg)
 
-          context.ret_reg = TMPR2
+          context.end_using_reg(context.ret_reg)
+          asm.with_retry do
+            asm.mov(TMPR, TMPR2)
+          end
+          context.end_using_reg(TMPR2)
+
+          context.ret_reg = TMPR
           if type.boxed then
             context = gen_boxing(context, self)
-            if context.ret_reg != TMPR2 then
-              context.end_using_reg(TMPR2)
-            end
           end
-            
+
           context
         end
       end

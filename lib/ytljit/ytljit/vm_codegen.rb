@@ -124,7 +124,9 @@ LO        |                       |   |  |
       def start_using_reg(reg)
         case reg
         when OpRegistor
-          start_using_reg_aux(reg)
+          if reg != TMPR then
+            start_using_reg_aux(reg)
+          end
 
         when FunctionArgument
           regdst = reg.dst_opecode
@@ -152,11 +154,18 @@ LO        |                       |   |  |
       def end_using_reg(reg)
         case reg
         when OpRegistor
-          end_using_reg_aux(reg)
+          if reg != TMPR then
+            end_using_reg_aux(reg)
+          end
+
+        when OpIndirect
+          if reg.reg != BPR then
+            end_using_reg_aux(reg.reg)
+          end
 
         when FunctionArgument
           regdst = reg.dst_opecode
-          if regdst.is_a?(OpRegistor)
+          if regdst.is_a?(OpRegistor) then
             end_using_reg_aux(regdst)
           end
         end
@@ -286,6 +295,11 @@ LO        |                       |   |  |
         end
         
         # make argv
+        casm = context.assembler
+        casm.with_retry do
+          casm.sub(SPR, rarg.size)
+        end
+
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
           casm = context.assembler
@@ -302,19 +316,24 @@ LO        |                       |   |  |
             casm.with_retry do
               casm.mov(dst, context.ret_reg)
             end
-#            context.end_using_reg(context.ret_reg)
+            context.end_using_reg(context.ret_reg)
           end
         end
 
-        # Save Stack Pointer
-        context.start_using_reg(TMPR2)
+        # Copy Stack Pointer
+        # TMPR2 doesnt need save. Because already saved in outside
+        # of send node
         casm.with_retry do
           casm.mov(TMPR2, SPR)
         end
 
         # stack, generate call ...
         context = yield(context, rarg)
-        context.end_using_reg(TMPR2)
+
+        casm = context.assembler
+        casm.with_retry do
+          casm.add(SPR, rarg.size)
+        end
 
         # adjust stack
         casm.with_retry do
