@@ -289,15 +289,17 @@ LO        |                       |   |  |
         casm = context.assembler
         rarg = @arguments[2..-1]
 
+=begin
         # adjust stack pointer
         casm.with_retry do
           casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
         end
+=end
         
         # make argv
         casm = context.assembler
         casm.with_retry do
-          casm.sub(SPR, rarg.size)
+          casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
         end
 
         rarg.each_with_index do |arg, i|
@@ -330,10 +332,12 @@ LO        |                       |   |  |
         # stack, generate call ...
         context = yield(context, rarg)
 
+=begin
         casm = context.assembler
         casm.with_retry do
-          casm.add(SPR, rarg.size)
+          casm.add(SPR, rarg.size * Type::MACHINE_WORD.size)
         end
+=end
 
         # adjust stack
         casm.with_retry do

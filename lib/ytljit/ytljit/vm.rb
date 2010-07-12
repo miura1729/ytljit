@@ -711,7 +711,7 @@ LocalVarNode
                 
             objclass = OpMemAddress.new(address_of("rb_obj_class"))
 
-            addr = Object.method_address_of(:method_address_of)
+            addr = address_of("ytl_method_address_of_raw")
             meaddrof = OpMemAddress.new(addr)
             context.start_using_reg(TMPR2)
             asm = context.assembler
@@ -721,7 +721,6 @@ LocalVarNode
               asm.mov(FUNC_ARG[0], RETR)
               asm.mov(FUNC_ARG[1], mnval)
               asm.call_with_arg(meaddrof, 2)
-              asm.shr(RETR)
               asm.mov(TMPR2, RETR)
             end
 

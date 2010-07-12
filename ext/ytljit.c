@@ -49,6 +49,22 @@ ytl_method_address_of(VALUE klass, VALUE mname)
   }
 }
 
+void *
+ytl_method_address_of_raw(VALUE klass, VALUE mname)
+{
+  rb_method_entry_t *me;
+  ID mid = SYM2ID(mname);
+
+  me = rb_method_entry(klass, mid);
+
+  if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC) {
+      return (void *)me->def->body.cfunc.func;
+  }
+  else {
+    return NULL;
+  }
+}
+
 VALUE
 ytl_binding_to_a(VALUE self)
 {
