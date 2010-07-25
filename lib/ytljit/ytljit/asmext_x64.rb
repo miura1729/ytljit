@@ -100,7 +100,11 @@ module YTLJit
   module GeneratorExtendX64Mixin
     include FuncArgX64CommonMixin
 
-    def call_with_arg(addr, argnum)
+    def call_with_arg_get_argsize(addr, argnum)
+      argnum * 8
+    end
+
+    def call_with_arg(addr, argnum, argsize)
       fainfo = funcarg_info
 
       orgaddress = @asm.current_address
@@ -111,11 +115,11 @@ module YTLJit
 
       offset = @funcarg_info.area_allocate_pos.pop
       if offset then
-        imm = OpImmidiate8.new(argnum * 8)
+        imm = OpImmidiate8.new(argsize)
         code += @asm.update_state(add(SPR, imm))
         alloc_argument_area = lambda {
           @asm.with_current_address(@asm.output_stream.base_address + offset) {
-            @asm.output_stream[offset] = sub(SPR, argnum * 8)
+            @asm.output_stream[offset] = sub(SPR, argsize)
           }
         }
         @asm.after_patch_tab.push alloc_argument_area

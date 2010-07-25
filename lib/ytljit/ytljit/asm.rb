@@ -171,6 +171,10 @@ module YTLJit
       store_outcode(out)
 
       if @retry_mode == false then
+        case mn
+        when :call_with_arg
+          args.push(@generator.call_with_arg_get_argsize(*args))
+        end
         @asmsend_history.push [mn, args]
       end
         
