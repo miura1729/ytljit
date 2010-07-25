@@ -84,7 +84,10 @@ LO        |                       |   |  |
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
-        @used_reg = {}
+        @ret_node = nil
+        @depth_reg = {}
+        @stack_content = []
+        @reg_content = {}
 
         @modified_local_var = []
         @modified_instance_var = []
@@ -94,11 +97,55 @@ LO        |                       |   |  |
       attr          :code_space
       attr          :assembler
 
+      attr          :depth_reg
       attr_accessor :ret_reg
-      attr          :used_reg
-      
+      attr_accessor :ret_node
+
+      attr          :reg_content
+      attr          :stack_content
+
       attr          :modified_local_var
       attr          :modified_instance_var
+
+      def set_reg_content(dst, val)
+        if dst.is_a?(OpRegistor) then
+          if val.is_a?(OpRegistor)
+            @reg_content[dst] = @reg_content[val]
+          else
+            @reg_content[dst] = val
+          end
+        elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
+          if val.is_a?(OpRegistor)
+            cpustack_setn(-dst.disp, @reg_content[val])
+          else
+            cpustack_setn(-dst.disp, val)
+          end
+        end
+      end
+
+      def cpustack_push(reg)
+        @stack_content.push @reg_content[reg]
+      end
+
+      def cpustack_pop(reg)
+        @reg_content[reg] = @stack_content.pop
+      end
+
+      def cpustack_setn(offset, reg)
+        @reg_content[-offset] = @reg_content[reg]
+      end
+
+      def cpustack_pushn(num)
+        num.times do |i|
+          @stack_content.push nil
+        end
+      end
+
+      def cpustack_popn(num)
+        num.times do |i|
+          @stack_content.pop
+        end
+      end
 
       def add_code_space(cs)
         @code_space = cs
@@ -107,18 +154,19 @@ LO        |                       |   |  |
       end
 
       def reset_using_reg
-        @used_reg = {}
+        @depth_reg = {}
       end
 
       def start_using_reg_aux(reg)
-        if @used_reg[reg] then
+        if @depth_reg[reg] then
           @assembler.with_retry do
             @assembler.push(reg)
+            cpustack_push(reg)
           end
         else
-          @used_reg[reg] = 0
+          @depth_reg[reg] = 0
         end
-        @used_reg[reg] += 1
+        @depth_reg[reg] += 1
       end
 
       def start_using_reg(reg)
@@ -126,6 +174,14 @@ LO        |                       |   |  |
         when OpRegistor
           if reg != TMPR then
             start_using_reg_aux(reg)
+          end
+
+        when OpIndirect
+          case reg.reg 
+          when BPR
+
+          else
+            start_using_reg_aux(reg.reg)
           end
 
         when FunctionArgument
@@ -137,17 +193,19 @@ LO        |                       |   |  |
       end
 
       def end_using_reg_aux(reg)
-        if @used_reg[reg] then
-          @used_reg[reg] -= 1
+        if @depth_reg[reg] then
+          @depth_reg[reg] -= 1
         else
           raise "Not saved reg #{reg}"
         end
-        if @used_reg[reg] != 0 then
+        if @depth_reg[reg] != 0 then
           @assembler.with_retry do
             @assembler.pop(reg)
+            cpustack_pop(reg)
           end
         else
-          @used_reg[reg] = nil
+          @depth_reg[reg] = nil
+          @reg_content.delete(reg)
         end
       end
 
@@ -159,7 +217,10 @@ LO        |                       |   |  |
           end
 
         when OpIndirect
-          if reg.reg != BPR then
+          case reg.reg 
+          when BPR
+
+          else
             end_using_reg_aux(reg.reg)
           end
 
@@ -167,16 +228,6 @@ LO        |                       |   |  |
           regdst = reg.dst_opecode
           if regdst.is_a?(OpRegistor) then
             end_using_reg_aux(regdst)
-          end
-        end
-      end
-
-      def end_using_reg_only_pop(reg)
-        if reg.is_a?(OpRegistor) then
-          if @used_reg[reg] != 1 then
-            @assembler.with_retry do
-              @assembler.pop(reg)
-            end
           end
         end
       end
@@ -192,13 +243,16 @@ LO        |                       |   |  |
           when :FixnumType
           else
             val = context.ret_reg
+            vnode = context.ret_node
             context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, val)
               asm.add(TMPR, TMPR)
               asm.add(TMPR, OpImmidiate8.new(1))
-              context.ret_reg = TMPR
             end
+            context.set_reg_content(TMPR, vnode)
+            context.ret_reg = TMPR
+            context.ret_node = self
 #          else
           end
           context
@@ -210,12 +264,15 @@ LO        |                       |   |  |
           when :FixnumType
           else
             val = context.ret_reg
+            vnode = context.ret_node
             context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, val)
               asm.sar(TMPR)
-              context.ret_reg = TMPR
             end
+            context.set_reg_content(TMPR, vnode)
+            context.ret_node = self
+            context.ret_reg = TMPR
 #          else
           end
           context
@@ -271,8 +328,9 @@ LO        |                       |   |  |
             context.start_using_reg(TMPR2)
             asm.mov(TMPR2, BPR)
             depth.times do 
-              asm.mov(TMPR2, frame_info.offset_arg(0, TMPR2))
+              asm.mov(TMPR2, current_frame_info.offset_arg(0, TMPR2))
             end
+            context.set_reg_content(TMPR2, current_frame_info)
             context.ret_reg = TMPR2
           else
             context.ret_reg = BPR
@@ -298,9 +356,11 @@ LO        |                       |   |  |
         
         # make argv
         casm = context.assembler
+        argbyte = rarg.size * Type::MACHINE_WORD.size
         casm.with_retry do
-          casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
+          casm.sub(SPR, argbyte)
         end
+        context.cpustack_pushn(argbyte)
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
@@ -316,15 +376,17 @@ LO        |                       |   |  |
             context.end_using_reg(context.ret_reg)
           else
             casm.with_retry do
-              casm.mov(dst, context.ret_reg)
+              casm.mov(dst, TMPR)
             end
             context.end_using_reg(context.ret_reg)
           end
+          context.cpustack_setn(i, context.ret_node)
         end
 
         # Copy Stack Pointer
         # TMPR2 doesnt need save. Because already saved in outside
         # of send node
+        context.set_reg_content(TMPR2, nil)
         casm.with_retry do
           casm.mov(TMPR2, SPR)
         end
@@ -340,8 +402,9 @@ LO        |                       |   |  |
 =end
 
         # adjust stack
+        context.cpustack_popn(argbyte)
         casm.with_retry do
-          casm.add(SPR, rarg.size * Type::MACHINE_WORD.size)
+          casm.add(SPR, argbyte)
         end
 
         context

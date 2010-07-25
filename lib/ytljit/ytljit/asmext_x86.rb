@@ -65,7 +65,7 @@ module YTLJit
 
       argsize = 0
       argnum.times do |i| 
-        if @funcarg_info.used_arg_tab[i]
+        if @funcarg_info.used_arg_tab[i] then
           argsize += @funcarg_info.used_arg_tab[i]
         else
           STDERR.print "Wanrnning arg not initialized -- #{i}\n"
