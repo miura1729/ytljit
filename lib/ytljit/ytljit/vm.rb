@@ -121,6 +121,16 @@ LocalVarNode
         def gen_type_inference_proc(code)
         end
 
+        def collect_info(context)
+          if is_a?(HaveChildlenMixin) then
+            traverse_childlen {|rec|
+              context = rec.collect_info(context)
+            }
+          end
+
+          context
+        end
+
         def compile(context)
           @code_space = context.code_space
           context
@@ -136,7 +146,7 @@ LocalVarNode
         attr_accessor :body
 
         def traverse_childlen
-          raise "You must define traverse_childlen for #{self.inspect}"
+          raise "You must define traverse_childlen #{self.class}"
         end
       end
 
@@ -173,6 +183,11 @@ LocalVarNode
 
         def traverse_childlen
           yield @body
+        end
+
+        def collect_info(context)
+          context.modified_local_var.push Hash.new
+          @body.collect_info(context)
         end
 
         def construct_frame_info(locals, argnum)
@@ -411,6 +426,11 @@ LocalVarNode
           super(parent)
         end
 
+        def collect_info(context)
+          context.modified_local_var.pop
+          context
+        end
+
         def compile(context)
           context = super(context)
           context = gen_method_epilogue(context)
@@ -437,6 +457,11 @@ LocalVarNode
         def initialize(parent, valnode)
           super(parent)
           @value_node = valnode
+        end
+
+        def traverse_childlen
+          yield @value_node
+          yield @body
         end
 
         def compile(context)
@@ -474,6 +499,8 @@ LocalVarNode
           @come_from_val = []
           @code_space = CodeSpace.new
           @value_node = PhiNode.new(self)
+          @modified_local_var_list = []
+          @modified_instance_var_list = []
         end
 
         attr :name
@@ -483,6 +510,16 @@ LocalVarNode
         def traverse_childlen
           yield @body
           yield @value_node
+        end
+
+        def collect_info(context)
+          modlocvar = context.modified_local_var.map {|ele| ele.dup}
+          @modified_instance_var_list.push modlocvar
+          if @modified_instance_var_list.size == @come_from.size
+            context.merge_local_var(@modified_instance_var_list)
+            @body.collect_info(context)
+          end
+          context
         end
 
         def compile_block_value(context, comefrom)
@@ -762,6 +799,21 @@ LocalVarNode
       end
 
       class LocalVarRefNode<LocalVarRefCommonNode
+        def initialize(parent, offset, depth)
+          super
+          @var_type_info = nil
+        end
+
+        def collect_info(context)
+          vti = context.modified_local_var[@depth][@offset]
+          if vti then
+            @var_type_info = vti.dup
+          else
+            @var_type_info = @current_frame_info.frame_layout[@offset]
+          end
+          context
+        end
+
         def compile(context)
           context = super(context)
           context = gen_pursue_parent_function(context, @depth)
@@ -804,6 +856,12 @@ LocalVarNode
           yield @body
         end
 
+        def collect_info(context)
+          context = @val.collect_info(@val)
+          context.modified_local_var[@depth][@offset] = [@val]
+          @body.collect_info(@body)
+        end
+          
         def compile(context)
           context = super(context)
           context = @val.compile(context)

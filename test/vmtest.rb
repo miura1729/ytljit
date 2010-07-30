@@ -21,7 +21,10 @@ tr = VM::YARVTranslatorSimple.new([iseq])
 #tr.translate.compile(context)
 tnode = tr.translate
 tnode.inspect_by_graph
-context = VM::Context.new(tnode)
+context = VM::CollectInfoContext.new(tnode)
+context = tnode.collect_info(context)
+
+context = VM::CompileContext.new(tnode)
 context = tnode.compile(context)
 # context.code_space.disassemble
 p tnode.code_space

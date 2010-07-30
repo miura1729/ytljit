@@ -75,7 +75,37 @@ LO        |                       |   |  |
 =end
 
   module VM
-    class Context
+    class CollectInfoContext
+      def initialize(tnode)
+        @top_node = tnode
+        @modified_local_var = []
+        @modified_instance_var = {}
+      end
+
+      attr          :top_node
+      attr          :modified_local_var
+      attr          :modified_instance_var
+
+      def merge_local_var(lvlist)
+        res = nil
+        lvlist.each do |lvs|
+          if res then
+            lvs.each_with_index do |lvt, i|
+              dst = res[i]
+              lvt.each do |idx, val|
+                unless dst[idx].include?(val)
+                  dst[idx].push val
+                end
+              end
+            end
+          else
+            res = lvs.map {|lvt| lvt.dup}
+          end
+        end
+      end
+    end
+
+    class CompileContext
       include AbsArch
       def initialize(tnode)
         @top_node = tnode
@@ -88,9 +118,6 @@ LO        |                       |   |  |
         @depth_reg = {}
         @stack_content = []
         @reg_content = {}
-
-        @modified_local_var = []
-        @modified_instance_var = []
       end
 
       attr          :top_node
@@ -103,9 +130,6 @@ LO        |                       |   |  |
 
       attr          :reg_content
       attr          :stack_content
-
-      attr          :modified_local_var
-      attr          :modified_instance_var
 
       def set_reg_content(dst, val)
         if dst.is_a?(OpRegistor) then
