@@ -680,7 +680,7 @@ LocalVarNode
         def compile(context)
           context = super(context)
           if @send_node.is_fcall then
-            mtop = @parent.class_top.method_tab[@name]
+            mtop = @reciever.method_tab[@name]
             if mtop then
               context.ret_reg = mtop.code_space.var_base_address
               @written_in = :ytl
@@ -776,15 +776,14 @@ LocalVarNode
       class SelfRefNode<LocalVarRefNode
         include NodeUtil
 
-        def initialize(parent, offset, depth)
-          super
+        def initialize(parent)
+          super(parent, 0, 0)
           @classtop = search_class_top
         end
 
         def compile(context)
           context = super(context)
           context = gen_pursue_parent_function(context, @depth)
-          asm = context.assembler
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
           context.ret_reg = offarg
@@ -838,6 +837,10 @@ LocalVarNode
 
       # Instance Variable
       class InstanceVarNode<VariableRefCommonNode
+        def compile(context)
+          context = super(context)
+          context
+        end
       end
 
       # Reference Register

@@ -192,7 +192,7 @@ module YTLJit
 
       def visit_putself(code, ins, context)
         curnode = context.current_node
-        nnode = SelfRefNode.new(curnode, 0, 0)
+        nnode = SelfRefNode.new(curnode)
         context.expstack.push nnode
       end
       
