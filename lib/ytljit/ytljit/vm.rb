@@ -241,7 +241,8 @@ LocalVarNode
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
           locals.unshift :_block
-          argnum += 2
+          locals.unshift :_prev_env
+          argnum += 3
           super(locals, argnum)
         end
       end
@@ -266,7 +267,8 @@ LocalVarNode
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
           locals.unshift :_block
-          argnum += 2
+          locals.unshift :_prev_env
+          argnum += 3
           super(locals, argnum)
         end
       end
@@ -335,12 +337,18 @@ LocalVarNode
           @frame_layout[0, localnum].inject(0) {|sum, slot| sum += slot.size}
         end
 
-        def offset_by_byte(off)
+        def real_offset(off)
           if off >=  @argument_num then
             off = off - @argument_num
           else
             off = off + (@frame_layout.size - @argument_num)
           end
+
+          off
+        end
+
+        def offset_by_byte(off)
+          off = real_offset(off)
 
           obyte = 0
           off.times do |i|
@@ -809,8 +817,10 @@ LocalVarNode
           if vti then
             @var_type_info = vti.dup
           else
-            @var_type_info = @current_frame_info.frame_layout[@offset]
+            roff = @current_frame_info.real_offset(@offset)
+            @var_type_info = [@current_frame_info.frame_layout[roff]]
           end
+          @var_type_info.map {|n| p n.class}
           context
         end
 

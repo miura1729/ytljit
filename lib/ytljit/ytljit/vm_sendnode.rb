@@ -169,7 +169,9 @@ module YTLJit
             context.end_using_reg(fnc)
 
           when :ytl
-            numarg = @arguments.size
+            # + 1 means prev env
+            # other extra arg define in visit_send
+            numarg = @arguments.size + 1
 
             context.start_using_reg(RETR)
             numarg.times do |i|
@@ -183,6 +185,12 @@ module YTLJit
                 casm.mov(FUNC_ARG_YTL[i], context.ret_reg)
               end
               context.end_using_reg(context.ret_reg)
+            end
+
+            # push prev env
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[numarg - 1], BPR)
             end
 
             context = gen_call(context, fnc, numarg)

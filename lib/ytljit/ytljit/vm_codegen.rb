@@ -350,11 +350,15 @@ LO        |                       |   |  |
           asm = context.assembler
           if depth != 0 then
             context.start_using_reg(TMPR2)
-            asm.mov(TMPR2, BPR)
-            depth.times do 
-              asm.mov(TMPR2, current_frame_info.offset_arg(0, TMPR2))
+            cframe = frame_info
+            asm.with_retry do
+              asm.mov(TMPR2, BPR)
+              depth.times do 
+                asm.mov(TMPR2, cframe.offset_arg(0, TMPR2))
+                cframe = cframe.previous_frame
+              end
             end
-            context.set_reg_content(TMPR2, current_frame_info)
+            context.set_reg_content(TMPR2, cframe)
             context.ret_reg = TMPR2
           else
             context.ret_reg = BPR
