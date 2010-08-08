@@ -526,8 +526,9 @@ LocalVarNode
           if @modified_instance_var_list.size == @come_from.size
             context.merge_local_var(@modified_instance_var_list)
             @body.collect_info(context)
+          else
+            context
           end
-          context
         end
 
         def compile_block_value(context, comefrom)
@@ -820,7 +821,7 @@ LocalVarNode
             roff = @current_frame_info.real_offset(@offset)
             @var_type_info = [@current_frame_info.frame_layout[roff]]
           end
-          @var_type_info.map {|n| p n.class}
+
           context
         end
 
@@ -867,9 +868,11 @@ LocalVarNode
         end
 
         def collect_info(context)
-          context = @val.collect_info(@val)
-          context.modified_local_var[@depth][@offset] = [@val]
-          @body.collect_info(@body)
+          context = @val.collect_info(context)
+          context.modified_local_var[@depth][@offset] = [self]
+          @body.collect_info(context)
+
+          context
         end
           
         def compile(context)

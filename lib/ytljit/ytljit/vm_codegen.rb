@@ -93,15 +93,15 @@ LO        |                       |   |  |
             lvs.each_with_index do |lvt, i|
               dst = res[i]
               lvt.each do |idx, val|
-                unless dst[idx].include?(val)
-                  dst[idx].push val
-                end
+                dst[idx] = dst[idx] | val
               end
             end
           else
             res = lvs.map {|lvt| lvt.dup}
           end
         end
+      
+        @modified_local_var = res
       end
     end
 
