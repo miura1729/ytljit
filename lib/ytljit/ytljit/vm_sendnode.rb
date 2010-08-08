@@ -177,12 +177,30 @@ module YTLJit
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG_YTL[i])
             end
-              
-            @arguments.each_with_index do |arg, i|
+
+            # self
+            context = @arguments[0].compile(context)
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[0], context.ret_reg)
+            end
+            context.end_using_reg(context.ret_reg)
+
+            # block
+            context = @arguments[1].compile(context)
+            casm = context.assembler
+            casm.with_retry do 
+              entry = @arguments[1].code_space.var_base_address.to_immidiate
+              casm.mov(FUNC_ARG_YTL[1], entry)
+            end
+            context.end_using_reg(context.ret_reg)
+
+            # other arguments
+            @arguments[2..-1].each_with_index do |arg, i|
               context = arg.compile(context)
               casm = context.assembler
               casm.with_retry do 
-                casm.mov(FUNC_ARG_YTL[i], context.ret_reg)
+                casm.mov(FUNC_ARG_YTL[i + 2], context.ret_reg)
               end
               context.end_using_reg(context.ret_reg)
             end
