@@ -171,8 +171,12 @@ module YTLJit
         context.current_node = node
       end
 
-      # getinstancevariable
-      # setinstancevariable
+      def visit_getinstancevariable(code, ins, context)
+      end
+
+      def visit_setinstancevariable(code, ins, context)
+      end
+
       # getclassvariable
       # setclassvariable
       

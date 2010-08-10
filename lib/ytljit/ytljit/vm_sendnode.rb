@@ -98,6 +98,18 @@ module YTLJit
           yield @func
         end
 
+        def collect_info(context)
+          if is_fcall or is_vcall then
+            # Call method of same class
+            miv = @class_top.method_tab[@func.name].modified_instance_var
+            miv.each do |vname, vall|
+              context.modified_instance_var[vname] = vall
+            end
+          end
+          
+          context
+        end
+
         def compile(context)
           context = super(context)
           context.start_using_reg(TMPR2)

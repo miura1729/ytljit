@@ -84,7 +84,7 @@ LO        |                       |   |  |
 
       attr          :top_node
       attr          :modified_local_var
-      attr          :modified_instance_var
+      attr_accessor :modified_instance_var
 
       def merge_local_var(lvlist)
         res = nil
@@ -92,8 +92,8 @@ LO        |                       |   |  |
           if res then
             lvs.each_with_index do |lvt, i|
               dst = res[i]
-              lvt.each do |idx, val|
-                dst[idx] = dst[idx] | val
+              lvt.each do |idx, vall|
+                dst[idx] = dst[idx] | vall
               end
             end
           else
@@ -102,6 +102,21 @@ LO        |                       |   |  |
         end
       
         @modified_local_var = res
+      end
+
+      def merge_instance_var(lvlist)
+        res = nil
+        lvlist.each do |lvs|
+          if res then
+            lvs.each do |name, vall|
+              dst[name] = res[name] | vall
+            end
+          else
+            res = lvs.dup
+          end
+        end
+      
+        @modified_instance_var = res
       end
     end
 
@@ -270,7 +285,9 @@ LO        |                       |   |  |
             vnode = context.ret_node
             context.start_using_reg(TMPR)
             asm.with_retry do
-              asm.mov(TMPR, val)
+              if val != TMPR then
+                asm.mov(TMPR, val)
+              end
               asm.add(TMPR, TMPR)
               asm.add(TMPR, OpImmidiate8.new(1))
             end
@@ -291,7 +308,9 @@ LO        |                       |   |  |
             vnode = context.ret_node
             context.start_using_reg(TMPR)
             asm.with_retry do
-              asm.mov(TMPR, val)
+              if val != TMPR then
+                asm.mov(TMPR, val)
+              end
               asm.sar(TMPR)
             end
             context.set_reg_content(TMPR, vnode)
@@ -394,18 +413,21 @@ LO        |                       |   |  |
           context = arg.compile(context)
           casm = context.assembler
           dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
-          if TMPR != context.ret_reg then
+          if context.ret_reg.is_a?(OpRegistor) or 
+             context.ret_reg.is_a?(OpImmidiate) then
+
+            casm.with_retry do
+              casm.mov(dst, context.ret_reg)
+            end
+            context.end_using_reg(context.ret_reg)
+
+          else
             context.start_using_reg(TMPR)
             casm.with_retry do
               casm.mov(TMPR, context.ret_reg)
               casm.mov(dst, TMPR)
             end
             context.end_using_reg(TMPR)
-            context.end_using_reg(context.ret_reg)
-          else
-            casm.with_retry do
-              casm.mov(dst, TMPR)
-            end
             context.end_using_reg(context.ret_reg)
           end
           context.cpustack_setn(i, context.ret_node)

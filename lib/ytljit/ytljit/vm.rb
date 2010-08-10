@@ -187,6 +187,7 @@ LocalVarNode
 
         def collect_info(context)
           context.modified_local_var.push Hash.new
+          context.modified_instance_var = {}
           @body.collect_info(context)
         end
 
@@ -386,11 +387,6 @@ LocalVarNode
         def initialize(parent, name)
           super(parent)
           @name = name
-          @assigns = []
-        end
-
-        def add_assigns(node)
-          @assigns.push node
         end
 
         def size
@@ -432,10 +428,14 @@ LocalVarNode
 
         def initialize(parent)
           super(parent)
+          @modified_instance_var = nil
         end
+
+        attr :modified_instance_var
 
         def collect_info(context)
           context.modified_local_var.pop
+          @modified_instance_var = context.modified_instance_var
           context
         end
 
@@ -476,8 +476,10 @@ LocalVarNode
           context = super(context)
           context = @value_node.compile(context)
           curas = context.assembler
-          curas.with_retry do
-            curas.mov(RETR, context.ret_reg)
+          if context.ret_reg != RETR then
+            curas.with_retry do
+              curas.mov(RETR, context.ret_reg)
+            end
           end
 
           context.ret_reg = RETR
@@ -522,9 +524,12 @@ LocalVarNode
 
         def collect_info(context)
           modlocvar = context.modified_local_var.map {|ele| ele.dup}
+          @modified_local_var_list.push modlocvar
+          modinsvar = context.modified_instance_var.dup
           @modified_instance_var_list.push modlocvar
           if @modified_instance_var_list.size == @come_from.size
-            context.merge_local_var(@modified_instance_var_list)
+            context.merge_local_var(@modified_loca_var_list)
+            context.merge_instance_var(@modified_loca_var_list)
             @body.collect_info(context)
           else
             context
@@ -589,7 +594,9 @@ LocalVarNode
           context = @cond.compile(context)
           curas = context.assembler
           curas.with_retry do
-            curas.mov(TMPR, context.ret_reg)
+            if context.ret_reg != TMPR then
+              curas.mov(TMPR, context.ret_reg)
+            end
             
             # In 64bit mode. It will be sign extended to 64 bit
             curas.and(TMPR, OpImmidiate32.new(~4))
@@ -725,7 +732,7 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          if @send_node.is_fcall then
+          if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
               context.ret_reg = mtop.code_space.var_base_address
@@ -871,8 +878,6 @@ LocalVarNode
           context = @val.collect_info(context)
           context.modified_local_var[@depth][@offset] = [self]
           @body.collect_info(context)
-
-          context
         end
           
         def compile(context)
@@ -884,19 +889,19 @@ LocalVarNode
           offarg = @current_frame_info.offset_arg(@offset, base)
 
           asm = context.assembler
-          if valr != TMPR then
+          if valr.is_a?(OpRegistor) or valr.is_a?(OpImmidiate) then
+            asm.with_retry do
+              asm.mov(offarg, valr)
+            end
+            context.end_using_reg(valr)
+
+          else
             context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, valr)
               asm.mov(offarg, TMPR)
             end
             context.end_using_reg(TMPR)
-            context.end_using_reg(valr)
-
-          else
-            asm.with_retry do
-              asm.mov(offarg, valr)
-            end
             context.end_using_reg(valr)
           end
           
@@ -907,10 +912,54 @@ LocalVarNode
       end
 
       # Instance Variable
-      class InstanceVarNode<VariableRefCommonNode
+      class InstanceVarRefCommonNode<VariableRefCommonNode
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @class_top = search_class_top
+        end
+      end
+
+      class InstanceVarRefNode<InstanceVarRefCommonNode
+        def initialize(parent, name)
+          super
+          @var_type_info = nil
+        end
+
+        def collect_info(context)
+          vti = context.modified_instance_var[@name]
+          if vti then
+            @var_type_info = vti.dup
+          else
+            @var_type_info = nil
+          end
+
+          context
+        end
+
         def compile(context)
           context = super(context)
           context
+        end
+      end
+
+      class InstanceAssignNode<InstanceVarRefCommonNode
+        include HaveChildlenMixin
+        def initialize(parent, name, val)
+          super(parent, name)
+          val.parent = self
+          @val = val
+        end
+
+        def traverse_childlen
+          yield @val
+          yield @body
+        end
+
+        def collect_info(context)
+          context = @val.collect_info(context)
+          context.modified_local_var[@name] = [self]
+          @body.collect_info(context)
         end
       end
 
