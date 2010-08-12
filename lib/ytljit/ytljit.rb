@@ -37,3 +37,5 @@ require 'ytljit/vm'
 require 'ytljit/vm_sendnode'
 require 'ytljit/vm_trans'
 require 'ytljit/vm_type'
+
+require 'ytljit/vm_typeinf'

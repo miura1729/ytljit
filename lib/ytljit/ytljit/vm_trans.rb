@@ -40,7 +40,6 @@ module YTLJit
 
       attr          :expstack
       attr          :local_label_tab
-
       attr_accessor :slf
     end
 
@@ -176,11 +175,13 @@ module YTLJit
         context.current_node = node
       end
 
+=begin
       def visit_getinstancevariable(code, ins, context)
       end
 
       def visit_setinstancevariable(code, ins, context)
       end
+=end
 
       # getclassvariable
       # setclassvariable
@@ -218,6 +219,7 @@ module YTLJit
         body = VMLib::InstSeqTree.new(code, ins[1])
         curnode = context.current_node
         ncontext = YARVContext.new
+        ncontext.slf = context.slf
 
         case body.header['type']
         when :block
@@ -236,7 +238,7 @@ module YTLJit
         mname = context.expstack.last
         ncontext.current_method_name = mname
 
-        tr = VM::YARVTranslatorSimple.new([body])
+        tr = self.class.new([body])
         tr.translate(ncontext)
         context.expstack.push mtopnode
       end
@@ -318,11 +320,12 @@ module YTLJit
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new
+        ncontext.slf = context.slf
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
 
-        tr = VM::YARVTranslatorSimple.new([body])
+        tr = self.class.new([body])
         tr.translate(ncontext)
 
         context.current_class_node.nested_class_tab[name] = cnode
@@ -342,11 +345,12 @@ module YTLJit
         if blk_iseq then
           body = VMLib::InstSeqTree.new(code, blk_iseq)
           ncontext = YARVContext.new
+          ncontext.slf = context.slf
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = curnode
           btn = ncontext.current_node = BlockTopNode.new(curnode)
 
-          tr = VM::YARVTranslatorSimple.new([body])
+          tr = self.class.new([body])
           tr.translate(ncontext)
           arg.push btn # block
         else

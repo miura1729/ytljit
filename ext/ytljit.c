@@ -49,6 +49,25 @@ ytl_method_address_of(VALUE klass, VALUE mname)
   }
 }
 
+VALUE 
+ytl_instance_var_address_of(VALUE slf, VALUE ivname)
+{
+  ID ivid = SYM2ID(ivname);
+  struct st_table *iv_index_tbl;
+  VALUE *valadd, *ptr;
+  long len;
+  st_data_t index;
+
+  len = ROBJECT_NUMIV(slf);
+  ptr = ROBJECT_IVPTR(slf);
+  iv_index_tbl = ROBJECT_IV_INDEX_TBL(slf);
+  if (!iv_index_tbl) return Qnil;
+  if (!st_lookup(iv_index_tbl, (st_data_t)ivid, &index)) return Qnil;
+  if (len <= (long)index) return Qnil;
+  valadd = &ptr[index];
+  return ULONG2NUM((uintptr_t)valadd);
+}
+
 void *
 ytl_method_address_of_raw(VALUE klass, VALUE mname)
 {
@@ -447,6 +466,8 @@ Init_ytljit()
   rb_define_module_function(ytl_mYTLJit, "address_of", ytl_address_of, 1);
   rb_define_module_function(rb_cObject, "method_address_of", 
 			    ytl_method_address_of, 1);
+  rb_define_method(rb_cObject, "instance_var_address_of", 
+			    ytl_instance_var_address_of, 1);
   rb_define_module_function(ytl_mYTLJit, "memref", ytl_memref, 1);
 
   rb_define_method(rb_cBinding, "to_a", ytl_binding_to_a, 0);

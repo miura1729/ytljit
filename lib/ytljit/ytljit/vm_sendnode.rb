@@ -236,7 +236,7 @@ module YTLJit
           context.end_using_reg(TMPR2)
           context = @body.compile(context)
 
-          context
+
         end
       end
 
@@ -252,8 +252,10 @@ module YTLJit
 
         def compile(context)
           context = @body.compile(context)
+          ocs = context.code_space
+          # Allocate new code space in compiling @new_method
           context = @new_method.compile(context)
-          #          context.code_space.disassemble
+          context.add_code_space(ocs)
 
           context
         end

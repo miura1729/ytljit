@@ -925,6 +925,8 @@ LocalVarNode
 
       # Instance Variable
       class InstanceVarRefCommonNode<VariableRefCommonNode
+        include NodeUtil
+
         def initialize(parent, name)
           super(parent)
           @name = name
@@ -959,7 +961,7 @@ LocalVarNode
         end
       end
 
-      class InstanceAssignNode<InstanceVarRefCommonNode
+      class InstanceVarAssignNode<InstanceVarRefCommonNode
         include HaveChildlenMixin
         def initialize(parent, name, val)
           super(parent, name)
