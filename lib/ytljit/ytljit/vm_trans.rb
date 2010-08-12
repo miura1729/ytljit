@@ -19,6 +19,9 @@ module YTLJit
 
         @expstack = []
         @local_label_tab = {}
+
+        # Use only type inference compile mode
+        @slf = nil
       end
 
       attr :the_top
@@ -37,6 +40,8 @@ module YTLJit
 
       attr          :expstack
       attr          :local_label_tab
+
+      attr_accessor :slf
     end
 
     class YARVTranslatorBase

@@ -107,11 +107,19 @@ LocalVarNode
 
           @parent = parent
           @code_space = nil
+          @id = nil
+          if @parent then
+            @id = @parent.id.dup
+            @id[-1] = @id[-1] + 1
+          else
+            @id = [0]
+          end
         end
 
         attr_accessor :parent
         attr          :code_space
         attr_accessor :type
+        attr          :id
 
         def inference_type
           cs = @type_inference_proc
@@ -281,6 +289,7 @@ LocalVarNode
           super
           
           @code_space_tab = []
+          @id.push 0
         end
 
         def add_code_space(oldcs, newcs)
@@ -851,13 +860,16 @@ LocalVarNode
           @classtop = search_class_top
         end
 
-        def compile(context)
-          context = super(context)
+        def compile_main(context)
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
           context.ret_reg = offarg
-          context
+        end
+
+        def compile(context)
+          context = super(context)
+          comile_main(context)
         end
       end
 
@@ -937,9 +949,13 @@ LocalVarNode
           context
         end
 
+        def compile_main(context)
+          context
+        end
+
         def compile(context)
           context = super(context)
-          context
+          compile_main(context)
         end
       end
 
@@ -960,6 +976,15 @@ LocalVarNode
           context = @val.collect_info(context)
           context.modified_local_var[@name] = [self]
           @body.collect_info(context)
+        end
+
+        def compile_main(context)
+          context
+        end
+
+        def compile(context)
+          context = super(context)
+          compile_main(context)
         end
       end
 
