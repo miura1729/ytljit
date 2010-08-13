@@ -157,9 +157,21 @@ VALUE
 ytl_proc_to_iseq(VALUE self)
 {
   rb_proc_t *proc;
+  rb_iseq_t *iseq;
 
   GetProcPtr(self, proc);
-  return proc->block.iseq->self;
+  iseq = proc->block.iseq;
+  if (proc->is_from_method) {
+    NODE *node = (NODE *)iseq;
+    /* method(:foo).to_proc */
+    iseq = rb_method_get_iseq(node->u2.value);
+  }
+  if (iseq) {
+    return iseq->self;
+  }
+  else {
+    return Qnil;
+  }
 }
 
 VALUE
@@ -498,8 +510,6 @@ Init_ytljit()
     rb_define_class_under(ytl_mYTLJit, "ValueSpace", ytl_cCodeSpace);
   rb_define_alloc_func(ytl_cValueSpace, ytl_value_space_allocate);
   rb_define_method(ytl_cValueSpace, "to_s", ytl_value_space_to_s, 0);
-
-  
   
   /* Open Handles */
 #ifdef __CYGWIN__

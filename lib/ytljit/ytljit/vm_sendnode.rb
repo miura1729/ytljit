@@ -101,9 +101,11 @@ module YTLJit
         def collect_info(context)
           if is_fcall or is_vcall then
             # Call method of same class
-            miv = @class_top.method_tab[@func.name].modified_instance_var
-            miv.each do |vname, vall|
-              context.modified_instance_var[vname] = vall
+            if @class_top.method_tab[@func.name] then
+              miv = @class_top.method_tab[@func.name].modified_instance_var
+              miv.each do |vname, vall|
+                context.modified_instance_var[vname] = vall
+              end
             end
           end
           
@@ -248,6 +250,11 @@ module YTLJit
           if arguments[3].is_a?(LiteralNode) then
             @class_top.method_tab[arguments[3].value] = arguments[4]
           end
+        end
+
+        def traverse_childlen
+          yield @body
+          yield @new_method
         end
 
         def compile(context)

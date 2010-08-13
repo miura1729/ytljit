@@ -4,7 +4,8 @@ require 'pp'
 
 include YTLJit
 is = RubyVM::InstructionSequence.compile(
-        "def typeinf; p @name; end ; typeinf","", "", 0,
+#        "def typeinf; p @name; end ; typeinf","", "", 0,
+        "p @name","", "", 0,
 #        "def typeinf; p @name; end ; ","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,
