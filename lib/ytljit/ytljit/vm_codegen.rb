@@ -133,6 +133,9 @@ LO        |                       |   |  |
         @depth_reg = {}
         @stack_content = []
         @reg_content = {}
+
+        # Use only type inference compile mode
+        @slf = nil
       end
 
       attr          :top_node
@@ -145,6 +148,8 @@ LO        |                       |   |  |
 
       attr          :reg_content
       attr          :stack_content
+
+      attr_accessor :slf
 
       def set_reg_content(dst, val)
         if dst.is_a?(OpRegistor) then

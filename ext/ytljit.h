@@ -281,3 +281,5 @@ typedef struct {
     VALUE filename;
     unsigned short line_no;
 } rb_binding_t;
+
+rb_iseq_t *rb_method_get_iseq(VALUE method);

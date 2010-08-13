@@ -18,15 +18,24 @@ tr = VM::YARVTranslatorTypeInference.new([iseq])
 #tr = VM::YARVTranslatorSimple.new([iseq])
 context = VM::YARVContext.new
 class Foo;def initialize;@name = :foo;end;end
+class Bar;def initialize;@name = :bar;end;end
 foo = Foo.new
-context.slf = foo
+bar = Bar.new
 tnode = tr.translate(context)
 tnode.inspect_by_graph
 context = VM::CollectInfoContext.new(tnode)
 context = tnode.collect_info(context)
 
 context = VM::CompileContext.new(tnode)
+context.slf = foo
 context = tnode.compile(context)
+tnode.code_space.call(tnode.code_space.base_address)
+
+context = VM::CompileContext.new(tnode)
+context.slf = bar
+context = tnode.compile(context)
+tnode.code_space.call(tnode.code_space.base_address)
+
 # context.code_space.disassemble
 p tnode.code_space
 # tnode.code_space.disassemble
@@ -42,5 +51,4 @@ tnode.code_space_tab.each do |cs|
 end
 tnode.code_space.disassemble
 
-tnode.code_space.call(tnode.code_space.base_address)
 
