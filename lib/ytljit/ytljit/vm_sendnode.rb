@@ -82,6 +82,7 @@ module YTLJit
           @@current_node = self
 
           @class_top = search_class_top
+          @frame_info = search_frame_info
         end
 
         attr_accessor :func
@@ -114,7 +115,9 @@ module YTLJit
 
         def compile(context)
           context = super(context)
+          # it is legal. TMPR2 uses in method select
           context.start_using_reg(TMPR2)
+          context.set_reg_content(TMPR2, :nil)
           context = @func.compile(context)
           fnc = context.ret_reg
           case @func.written_in
@@ -170,6 +173,7 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
               end
+              context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
               context.end_using_reg(context.ret_reg)
               argpos = argpos + 1
               cursrc = cursrc + 1
@@ -198,6 +202,7 @@ module YTLJit
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], context.ret_reg)
             end
+            context.set_reg_content(FUNC_ARG_YTL[0], context.ret_node)
             context.end_using_reg(context.ret_reg)
 
             # block
@@ -207,6 +212,7 @@ module YTLJit
               entry = @arguments[1].code_space.var_base_address.to_immidiate
               casm.mov(FUNC_ARG_YTL[1], entry)
             end
+            context.set_reg_content(FUNC_ARG_YTL[1], nil)
             context.end_using_reg(context.ret_reg)
 
             # other arguments
@@ -216,6 +222,7 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG_YTL[i + 2], context.ret_reg)
               end
+              context.set_reg_content(FUNC_ARG_YTL[i + 1], context.ret_node)
               context.end_using_reg(context.ret_reg)
             end
 
@@ -224,21 +231,21 @@ module YTLJit
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[numarg - 1], BPR)
             end
+            context.set_reg_content(FUNC_ARG_YTL[numarg - 1], nil)
 
             context = gen_call(context, fnc, numarg)
 
             numarg.size.times do |i|
-              context.start_using_reg(FUNC_ARG_YTL[numarg - i])
+              context.end_using_reg(FUNC_ARG_YTL[numarg - i])
             end
             context.end_using_reg(fnc)
           end
           
+          context.ret_node = self
           context.ret_reg = RETR
 
           context.end_using_reg(TMPR2)
           context = @body.compile(context)
-
-
         end
       end
 
@@ -290,6 +297,7 @@ module YTLJit
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
           end
+          context.set_reg_content(TMPR2, context.ret_node)
           context.end_using_reg(context.ret_reg)
 
           # @argunemnts[1] is block
@@ -306,6 +314,7 @@ module YTLJit
           asm.with_retry do
             asm.add(TMPR2, context.ret_reg)
           end
+          context.set_reg_content(TMPR2, self)
 
           context.end_using_reg(context.ret_reg)
           asm.with_retry do
@@ -313,6 +322,8 @@ module YTLJit
           end
           context.end_using_reg(TMPR2)
 
+          context.set_reg_content(TMPR, self)
+          context.ret_node = self
           context.ret_reg = TMPR
           if type.boxed then
             context = gen_boxing(context, self)

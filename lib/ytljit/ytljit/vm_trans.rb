@@ -216,7 +216,6 @@ module YTLJit
         body = VMLib::InstSeqTree.new(code, ins[1])
         curnode = context.current_node
         ncontext = YARVContext.new
-        ncontext.slf = context.slf
 
         case body.header['type']
         when :block
@@ -317,7 +316,6 @@ module YTLJit
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new
-        ncontext.slf = context.slf
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
@@ -342,7 +340,6 @@ module YTLJit
         if blk_iseq then
           body = VMLib::InstSeqTree.new(code, blk_iseq)
           ncontext = YARVContext.new
-          ncontext.slf = context.slf
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = curnode
           btn = ncontext.current_node = BlockTopNode.new(curnode)

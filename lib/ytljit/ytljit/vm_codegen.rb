@@ -176,7 +176,7 @@ LO        |                       |   |  |
       end
 
       def cpustack_setn(offset, reg)
-        @reg_content[-offset] = @reg_content[reg]
+        @stack_content[-offset] = @reg_content[reg]
       end
 
       def cpustack_pushn(num)
@@ -412,7 +412,7 @@ LO        |                       |   |  |
         casm.with_retry do
           casm.sub(SPR, argbyte)
         end
-        context.cpustack_pushn(argbyte)
+        context.cpustack_pushn(rarg.size)
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
@@ -441,23 +441,17 @@ LO        |                       |   |  |
         # Copy Stack Pointer
         # TMPR2 doesnt need save. Because already saved in outside
         # of send node
-        context.set_reg_content(TMPR2, nil)
         casm.with_retry do
           casm.mov(TMPR2, SPR)
         end
+        context.set_reg_content(TMPR2, :nil)
 
         # stack, generate call ...
         context = yield(context, rarg)
 
-=begin
-        casm = context.assembler
-        casm.with_retry do
-          casm.add(SPR, rarg.size * Type::MACHINE_WORD.size)
-        end
-=end
-
         # adjust stack
-        context.cpustack_popn(argbyte)
+        casm = context.assembler
+        context.cpustack_popn(rarg.size)
         casm.with_retry do
           casm.add(SPR, argbyte)
         end
@@ -474,7 +468,16 @@ LO        |                       |   |  |
         end
 
         @var_return_address = casm.output_stream.var_base_address(callpos)
-        
+        print "---- Reg map ----\n"
+        context.reg_content.each do |key, value|
+          print "#{key}   #{value.class} \n"
+        end
+
+        print "---- Stack map ----\n"
+        context.stack_content.each do |value|
+          print "    #{value.class} \n"
+        end
+
         context
       end
     end

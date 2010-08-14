@@ -169,6 +169,17 @@ LocalVarNode
 
           cnode
         end
+
+        def search_frame_info
+          cnode = @parent
+
+          # ClassTopNode include TopTopNode
+          while !cnode.is_a?(LocalFrameInfoNode)
+            cnode = cnode.parent
+          end
+
+          cnode
+        end
       end
 
       class DummyNode
@@ -489,6 +500,7 @@ LocalVarNode
             curas.with_retry do
               curas.mov(RETR, context.ret_reg)
             end
+            context.set_reg_content(TMPR, context.ret_node)
           end
 
           context.ret_reg = RETR
@@ -504,6 +516,8 @@ LocalVarNode
         end
 
         def compile(context)
+          context.set_reg_content(TMPR, self)
+          context.ret_node = self
           context.ret_reg = RETR
           context
         end
@@ -550,8 +564,11 @@ LocalVarNode
           if valnode then
             context = valnode.compile(context)
             asm = context.assembler
-            asm.with_retry do
-              asm.mov(RETR, context.ret_reg)
+            if RETR != context.ret_reg then
+              asm.with_retry do
+                asm.mov(RETR, context.ret_reg)
+              end
+              context.set_reg_content(RETR, context.ret_node)
             end
           end
 
@@ -677,6 +694,7 @@ LocalVarNode
         def initialize(parent, val)
           super(parent)
           @value = val
+          @var_value = nil
           @type = RubyType::BaseType.from_object(@value)
         end
         
@@ -691,10 +709,17 @@ LocalVarNode
             if @type.boxed then
               val = val.boxing
             end
+            context.ret_node = self
             context.ret_reg = OpImmidiateMachineWord.new(val)
 
           else
-            context.ret_reg = OpImmidiateAddress.new(@value.address)
+            if @var_value == nil then
+              add = lambda { @value.address }
+              @var_value = OpVarImmidiateAddress.new(add)
+            end
+
+            context.ret_node = self
+            context.ret_reg = @var_value
           end
 
           context
@@ -752,6 +777,7 @@ LocalVarNode
                 addr = @reciever.klass_object.method_address_of(@name)
                 if addr then
                   context.ret_reg = OpMemAddress.new(addr)
+                  context.ret_node = self
                   if variable_argument?(@eciever.method(@name).parameters) then
                     @written_in = :c_vararg
                   else
@@ -760,6 +786,7 @@ LocalVarNode
                 else
                   raise "Unkown method - #{@name}"
                   context.ret_reg = OpImmidiateAddress.new(0)
+                  context.ret_node = self
                   @written_in = :c
                 end
               else
@@ -786,6 +813,9 @@ LocalVarNode
               asm.mov(TMPR2, RETR)
             end
 
+            context.ret_node = self
+            context.set_reg_content(RETR, self)
+            context.set_reg_content(TMPR2, self)
             context.ret_reg = TMPR2
             @written_in = :c_fixarg
           end
@@ -801,18 +831,15 @@ LocalVarNode
       # Local Variable
       class LocalVarRefCommonNode<VariableRefCommonNode
         include LocalVarNodeCodeGen
+        include NodeUtil
 
         def initialize(parent, offset, depth)
           super(parent)
           @offset = offset
           @depth = depth
 
-          tnode = parent
-          while tnode and !tnode.is_a?(LocalFrameInfoNode)
-            tnode = tnode.parent
-          end
+          tnode = search_frame_info
           @frame_info = tnode
-          
           depth.times do |i|
             tnode = tnode.previous_frame
           end
@@ -847,14 +874,13 @@ LocalVarNode
           asm = context.assembler
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
+          context.ret_node = self
           context.ret_reg = offarg
           context
         end
       end
 
       class SelfRefNode<LocalVarRefNode
-        include NodeUtil
-
         def initialize(parent)
           super(parent, 0, 0)
           @classtop = search_class_top
@@ -864,6 +890,7 @@ LocalVarNode
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
+          context.ret_node = self
           context.ret_reg = offarg
         end
 
@@ -917,7 +944,7 @@ LocalVarNode
             context.end_using_reg(valr)
           end
           
-          context.ret_reg = valr
+          context.ret_reg = nil
           context = @body.compile(context)
           context
         end
@@ -996,4 +1023,3 @@ LocalVarNode
     end
   end
 end
-
