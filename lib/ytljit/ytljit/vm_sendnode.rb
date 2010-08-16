@@ -83,6 +83,9 @@ module YTLJit
 
           @class_top = search_class_top
           @frame_info = search_frame_info
+
+          @modified_instance_var = nil
+          @modified_local_var = nil
         end
 
         attr_accessor :func
@@ -91,6 +94,8 @@ module YTLJit
         attr          :var_return_address
         attr          :next_node
         attr          :class_top
+        attr          :modified_local_var
+        attr          :modified_instance_var
 
         def traverse_childlen
           @arguments.each do |arg|
@@ -100,16 +105,24 @@ module YTLJit
         end
 
         def collect_info(context)
+          traverse_childlen {|rec|
+            context = rec.collect_info(context)
+          }
           if is_fcall or is_vcall then
             # Call method of same class
             if @class_top.method_tab[@func.name] then
               miv = @class_top.method_tab[@func.name].modified_instance_var
-              miv.each do |vname, vall|
-                context.modified_instance_var[vname] = vall
+              if miv then
+                miv.each do |vname, vall|
+                  context.modified_instance_var[vname] = vall
+                end
               end
             end
           end
-          
+
+          @modified_local_var    = context.modified_local_var.dup
+          @modified_instance_var = context.modified_instance_var.dup
+
           context
         end
 

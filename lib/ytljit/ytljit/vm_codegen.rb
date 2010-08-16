@@ -109,7 +109,7 @@ LO        |                       |   |  |
         lvlist.each do |lvs|
           if res then
             lvs.each do |name, vall|
-              dst[name] = res[name] | vall
+              res[name] = res[name] | vall
             end
           else
             res = lvs.dup
@@ -394,6 +394,25 @@ LO        |                       |   |  |
 
     module SendNodeCodeGen
       include AbsArch
+
+      def dump_context(context)
+        print "---- Reg map ----\n"
+        context.reg_content.each do |key, value|
+          print "#{key}   #{value.class} \n"
+        end
+
+        print "---- Stack map ----\n"
+        @frame_info.frame_layout.each_with_index do |vinf, i|
+          if mlv = @modified_local_var[0][i] then
+            print "    #{mlv.class} \n"
+          else
+            print "    #{vinf.class} \n"
+          end
+        end
+        context.stack_content.each do |value|
+          print "    #{value.class} \n"
+        end
+      end
       
       def gen_make_argv(context)
         casm = context.assembler
@@ -466,18 +485,8 @@ LO        |                       |   |  |
         casm.with_retry do 
           dmy, callpos = casm.call_with_arg(fnc, numarg)
         end
-
         @var_return_address = casm.output_stream.var_base_address(callpos)
-        print "---- Reg map ----\n"
-        context.reg_content.each do |key, value|
-          print "#{key}   #{value.class} \n"
-        end
-
-        print "---- Stack map ----\n"
-        context.stack_content.each do |value|
-          print "    #{value.class} \n"
-        end
-
+        dump_context(context)
         context
       end
     end

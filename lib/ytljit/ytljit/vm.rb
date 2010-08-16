@@ -170,6 +170,28 @@ LocalVarNode
           cnode
         end
 
+        def search_top
+          cnode = @parent
+
+          # ClassTopNode include TopTopNode
+          while !cnode.is_a?(TopNode)
+            cnode = cnode.parent
+          end
+
+          cnode
+        end
+
+        def search_end
+          cnode = @parent
+
+          # ClassTopNode include TopTopNode
+          while !cnode.is_a?(MethodEndNode)
+            cnode = cnode.body
+          end
+
+          cnode
+        end
+
         def search_frame_info
           cnode = @parent
 
@@ -192,6 +214,7 @@ LocalVarNode
       # The top of top node
       class TopNode<BaseNode
         include HaveChildlenMixin
+        include NodeUtil
         def initialize(parent, name = nil)
           super(parent)
           @name = name
@@ -199,6 +222,10 @@ LocalVarNode
         end
 
         attr_accessor :name
+
+        def modified_instance_var
+          search_end.modified_instance_var
+        end
 
         def traverse_childlen
           yield @body
@@ -302,7 +329,7 @@ LocalVarNode
           @code_space_tab = []
           @id.push 0
         end
-
+        
         def add_code_space(oldcs, newcs)
           if !@code_space_tab.include?(newcs) then
             @code_space_tab.push newcs
@@ -549,10 +576,10 @@ LocalVarNode
           modlocvar = context.modified_local_var.map {|ele| ele.dup}
           @modified_local_var_list.push modlocvar
           modinsvar = context.modified_instance_var.dup
-          @modified_instance_var_list.push modlocvar
+          @modified_instance_var_list.push modinsvar
           if @modified_instance_var_list.size == @come_from.size
-            context.merge_local_var(@modified_loca_var_list)
-            context.merge_instance_var(@modified_loca_var_list)
+            context.merge_local_var(@modified_local_var_list)
+            context.merge_instance_var(@modified_instance_var_list)
             @body.collect_info(context)
           else
             context
@@ -573,6 +600,13 @@ LocalVarNode
           end
 
           context
+        end
+
+        def traverse_block_value(comefrom, &block)
+          valnode = @come_from[comefrom]
+          if valnode then
+            yield valnode
+          end
         end
 
         def compile(context)
@@ -598,7 +632,8 @@ LocalVarNode
           @jmp_to_node = jmpto
         end
 
-        def traverse_childlen
+        def traverse_childlen(&block)
+          @jmp_to_node.traverse_block_value(self, &block)
           yield @cond
           yield @jmp_to_node
           yield @body
@@ -613,9 +648,9 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          jmptocs = @jmp_to_node.code_space
           context = @jmp_to_node.compile_block_value(context, self)
 
+          jmptocs = @jmp_to_node.code_space
           context.start_using_reg(TMPR)
           context = @cond.compile(context)
           curas = context.assembler
@@ -663,13 +698,13 @@ LocalVarNode
           @jmp_to_node = jmpto
         end
 
-        def traverse_childlen
+        def traverse_childlen(&block)
+          @jmp_to_node.traverse_block_value(self, &block)
           yield @jmp_to_node
         end
 
         def compile(context)
           context = super(context)
-
           context = @jmp_to_node.compile_block_value(context, self)
 
           jmptocs = @jmp_to_node.code_space
