@@ -152,6 +152,9 @@ LO        |                       |   |  |
       attr_accessor :slf
 
       def set_reg_content(dst, val)
+        if dst.is_a?(FunctionArgument) then
+          dst = dst.dst_opecode
+        end
         if dst.is_a?(OpRegistor) then
           if val.is_a?(OpRegistor)
             @reg_content[dst] = @reg_content[val]
@@ -159,11 +162,16 @@ LO        |                       |   |  |
             @reg_content[dst] = val
           end
         elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
+          p dst
+          p val.class
+          wsiz = Type::MACHINE_WORD.size
           if val.is_a?(OpRegistor)
-            cpustack_setn(-dst.disp, @reg_content[val])
+            cpustack_setn(-dst.disp.value / wsiz, @reg_content[val])
           else
-            cpustack_setn(-dst.disp, val)
+            cpustack_setn(-dst.disp.value / wsiz, val)
           end
+        else
+          p dst
         end
       end
 
@@ -175,18 +183,20 @@ LO        |                       |   |  |
         @reg_content[reg] = @stack_content.pop
       end
 
-      def cpustack_setn(offset, reg)
-        @stack_content[-offset] = @reg_content[reg]
+      def cpustack_setn(offset, val)
+        @stack_content[-offset] = val
       end
 
       def cpustack_pushn(num)
-        num.times do |i|
-          @stack_content.push nil
+        wsiz = Type::MACHINE_WORD.size
+        (num / wsiz).times do |i|
+          @stack_content.push 1.2
         end
       end
 
       def cpustack_popn(num)
-        num.times do |i|
+        wsiz = Type::MACHINE_WORD.size
+        (num / wsiz).times do |i|
           @stack_content.pop
         end
       end
@@ -403,7 +413,8 @@ LO        |                       |   |  |
 
         print "---- Stack map ----\n"
         @frame_info.frame_layout.each_with_index do |vinf, i|
-          if mlv = @modified_local_var[0][i] then
+          ro = @frame_info.real_offset(i)
+          if mlv = @modified_local_var[0][ro] then
             print "    #{mlv.class} \n"
           else
             print "    #{vinf.class} \n"
@@ -431,7 +442,7 @@ LO        |                       |   |  |
         casm.with_retry do
           casm.sub(SPR, argbyte)
         end
-        context.cpustack_pushn(rarg.size)
+        context.cpustack_pushn(argbyte)
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
@@ -463,17 +474,17 @@ LO        |                       |   |  |
         casm.with_retry do
           casm.mov(TMPR2, SPR)
         end
-        context.set_reg_content(TMPR2, :nil)
+        context.set_reg_content(TMPR2, SPR)
 
         # stack, generate call ...
         context = yield(context, rarg)
 
         # adjust stack
         casm = context.assembler
-        context.cpustack_popn(rarg.size)
         casm.with_retry do
           casm.add(SPR, argbyte)
         end
+        context.cpustack_popn(argbyte)
 
         context
       end

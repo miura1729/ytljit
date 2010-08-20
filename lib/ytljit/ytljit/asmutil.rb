@@ -1,4 +1,26 @@
 module YTLJit
+  module SSE
+    XMM0 = OpRXMM0.instance
+    XMM1 = OpRXMM1.instance
+    XMM2 = OpRXMM2.instance
+    XMM3 = OpRXMM3.instance
+    XMM4 = OpRXMM4.instance
+    XMM5 = OpRXMM5.instance
+    XMM6 = OpRXMM6.instance
+    XMM7 = OpRXMM7.instance
+  end
+
+  module SSE64
+    XMM8 = OpRXMM8.instance
+    XMM9 = OpRXMM9.instance
+    XMM10 = OpRXMM10.instance
+    XMM11 = OpRXMM11.instance
+    XMM12 = OpRXMM12.instance
+    XMM13 = OpRXMM13.instance
+    XMM14 = OpRXMM14.instance
+    XMM15 = OpRXMM15.instance
+  end
+
   module X86
     EAX = OpEAX.instance
     EDX = OpEDX.instance
@@ -22,6 +44,8 @@ module YTLJit
     INDIRECT_EBP = OpIndirect.new(EBX)
     INDIRECT_ESI = OpIndirect.new(ESI)
     INDIRECT_EDI = OpIndirect.new(EDI)
+
+    include SSE
   end
 
   module X64
@@ -51,6 +75,9 @@ module YTLJit
     INDIRECT_RBP = OpIndirect.new(RBX)
     INDIRECT_RSI = OpIndirect.new(RSI)
     INDIRECT_RDI = OpIndirect.new(RDI)
+
+    include SSE
+    include SSE64
   end
 
   module AbsArch

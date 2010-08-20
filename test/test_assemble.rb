@@ -134,4 +134,15 @@ class InstructionTests < Test::Unit::TestCase
     @asm.call_with_arg(OpImmidiate32.new(0), 1)
     @cs.disassemble
   end
+
+  include X86
+  def test_movss
+    @asm.movss(XMM0, @in_esp_0)
+    @asm.movss(XMM7, @in_esp_10)
+    @asm.movss(@in_esp_10, XMM0)
+    @asm.movsd(XMM0, @in_esp_0)
+    @asm.movsd(XMM7, @in_esp_10)
+    @asm.movsd(@in_esp_10, XMM0)
+    @cs.disassemble
+  end
 end

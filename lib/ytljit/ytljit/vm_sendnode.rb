@@ -142,11 +142,14 @@ module YTLJit
               context.start_using_reg(FUNC_ARG[1])
               context.start_using_reg(FUNC_ARG[2])
 
+              context.cpustack_pushn(3 * Type::MACHINE_WORD.size)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
                 casm.mov(FUNC_ARG[1], TMPR2)     # argv
               end
+              context.set_reg_content(FUNC_ARG[0], nil)
+              context.set_reg_content(FUNC_ARG[1], TMPR2)
               
               # eval self
               context = @arguments[0].compile(context)
@@ -154,9 +157,11 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG[2], context.ret_reg)
               end
+              context.set_reg_content(FUNC_ARG[1], context.ret_node)
               
               context = gen_call(context, fnc, 3)
 
+              context.cpustack_popn(3 * Type::MACHINE_WORD.size)
               context.end_using_reg(FUNC_ARG[2])
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
@@ -171,6 +176,7 @@ module YTLJit
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG[i])
             end
+            context.cpustack_pushn(numarg * Type::MACHINE_WORD.size)
 
             argpos = 0
             cursrc = 0
@@ -194,6 +200,7 @@ module YTLJit
 
             context = gen_call(context, fnc, numarg)
 
+            context.cpustack_popn(numarg * Type::MACHINE_WORD.size)
             numarg.times do |i|
               context.end_using_reg(FUNC_ARG[numarg - i - 1])
             end
@@ -208,6 +215,7 @@ module YTLJit
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG_YTL[i])
             end
+            context.cpustack_pushn(numarg * 8)
 
             # self
             context = @arguments[0].compile(context)
@@ -248,6 +256,7 @@ module YTLJit
 
             context = gen_call(context, fnc, numarg)
 
+            context.cpustack_popn(numarg * 8)
             numarg.size.times do |i|
               context.end_using_reg(FUNC_ARG_YTL[numarg - i])
             end

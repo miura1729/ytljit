@@ -1,4 +1,5 @@
 module YTLJit
+
   class OpReg8<OpRegistor
   end
 
@@ -287,6 +288,169 @@ module YTLJit
       "%r15"
     end
   end
+
+  class OpRegXMM<OpRegistor
+  end
+
+  class OpRXMM0<OpRegXMM
+    def reg_no
+      0
+    end
+
+    def to_as
+      "%xmm0"
+    end
+  end
+
+  class OpRXMM1<OpRegXMM
+    def reg_no
+      1
+    end
+
+    def to_as
+      "%xmm1"
+    end
+  end
+
+  class OpRXMM2<OpRegXMM
+    def reg_no
+      2
+    end
+
+    def to_as
+      "%xmm2"
+    end
+  end
+
+  class OpRXMM3<OpRegXMM
+    def reg_no
+      3
+    end
+
+    def to_as
+      "%xmm3"
+    end
+  end
+
+  class OpRXMM4<OpRegXMM
+    def reg_no
+      4
+    end
+
+    def to_as
+      "%xmm4"
+    end
+  end
+
+  class OpRXMM5<OpRegXMM
+    def reg_no
+      5
+    end
+
+    def to_as
+      "%xmm5"
+    end
+  end
+
+  class OpRXMM6<OpRegXMM
+    def reg_no
+      6
+    end
+
+    def to_as
+      "%xmm6"
+    end
+  end
+
+  class OpRXMM7<OpRegXMM
+    def reg_no
+      7
+    end
+
+    def to_as
+      "%xmm7"
+    end
+  end
+
+  class OpRXMM8<OpRegXMM
+    def reg_no
+      8
+    end
+
+    def to_as
+      "%xmm8"
+    end
+  end
+
+  class OpRXMM9<OpRegXMM
+    def reg_no
+      9
+    end
+
+    def to_as
+      "%xmm9"
+    end
+  end
+
+  class OpRXMM10<OpRegXMM
+    def reg_no
+      10
+    end
+
+    def to_as
+      "%xmm10"
+    end
+  end
+
+  class OpRXMM11<OpRegXMM
+    def reg_no
+      11
+    end
+
+    def to_as
+      "%xmm11"
+    end
+  end
+
+  class OpRXMM12<OpRegXMM
+    def reg_no
+      12
+    end
+
+    def to_as
+      "%xmm12"
+    end
+  end
+
+  class OpRXMM13<OpRegXMM
+    def reg_no
+      13
+    end
+
+    def to_as
+      "%xmm13"
+    end
+  end
+
+  class OpRXMM14<OpRegXMM
+    def reg_no
+      14
+    end
+
+    def to_as
+      "%xmm14"
+    end
+  end
+
+  class OpRXMM15<OpRegXMM
+    def reg_no
+      15
+    end
+
+    def to_as
+      "%xmm15"
+    end
+  end
   
   module AssemblerUtilIAModrm
     def small_integer_8bit?(num)
@@ -515,6 +679,40 @@ module YTLJit
         (rexseq + [0xD1] + modseq ).pack("#{rexfmt}C#{modfmt}")
       else
         (rexseq + [0xC1] + modseq + [shftnum]).pack("#{rexfmt}C#{modfmt}C")
+      end
+    end
+
+    def common_movssd(dst, src, op)
+      case dst
+      when OpRegXMM
+        case src
+        when OpRegXMM
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(:movss, dst, src, dst, src)
+          (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
+
+        when OpIndirect
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(:movss, dst, src, dst, src)
+          (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
+
+        else
+          return nosupported_addressing_mode(:movss, dst, src)
+        end
+
+      when OpIndirect
+        case src
+        when OpRegXMM
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(:movss, src, dst, dst, src)
+          (rexseq + [op, 0x0F, 0x11] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          
+        else
+          return nosupported_addressing_mode(:movss, dst, src)
+        end
+
+      else
+        return nosupported_addressing_mode(:movss, dst, src)
       end
     end
   end
@@ -934,6 +1132,14 @@ module YTLJit
       end
 
       return nosupported_addressing_mode(:imul, dst, src, src2)
+    end
+
+    def movss(dst, src)
+      common_movssd(dst, src, 0xF3)
+    end
+
+    def movsd(dst, src)
+      common_movssd(dst, src, 0xF2)
     end
 
     def int3

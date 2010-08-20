@@ -424,6 +424,7 @@ LocalVarNode
             asm.with_retry do
               asm.sub(SPR, siz)
             end
+            cpustack_pushn(siz)
           end
           context = @body.compile(context)
           context
