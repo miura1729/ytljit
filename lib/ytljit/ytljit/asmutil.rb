@@ -81,6 +81,7 @@ module YTLJit
   end
 
   module AbsArch
+    include SSE
     case $ruby_platform
     when /i.86/
       TMPR = OpEAX.instance

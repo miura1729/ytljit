@@ -100,6 +100,11 @@ module YTLJit
   module GeneratorExtendX64Mixin
     include FuncArgX64CommonMixin
 
+    def mov64(dst, src)
+      src2 = OpImmidiate64.new(src)
+      @asm.update_state(mov(dst, src2))
+    end
+
     def call_with_arg_get_argsize(addr, argnum)
       argnum * 8
     end

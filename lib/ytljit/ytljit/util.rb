@@ -56,3 +56,8 @@ class Fixnum
   end
 end
 
+class Float
+  def unboxing
+    [self].pack('d').unpack('q')[0]
+  end
+end

@@ -58,6 +58,25 @@ module YTLJit
   module GeneratorExtendX86Mixin
     include AbsArch
 
+    def mov64(dst, src)
+      case dst
+      when OpIndirect
+        case src
+          when Integer
+          disp = dst.disp
+          dst2 = dst.class.new(dst.reg, disp + 4)
+          bit32val = 1 << 32
+          code = @asm.update_state(mov(dst2, src / bit32val))
+          code += @asm.update_state(mov(dst, src % bit32val))
+          code
+        else
+          nosupported_addressing_mode(:mov64, dst, src)
+        end
+      else
+        nosupported_addressing_mode(:mov64, dst, src)
+      end
+    end
+
     def call_with_arg_get_argsize(addr, argnum)
       argsize = 0
       argnum.times do |i| 

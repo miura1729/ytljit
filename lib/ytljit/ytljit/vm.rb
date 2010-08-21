@@ -509,6 +509,7 @@ LocalVarNode
       # Set result of method/block
       class SetResultNode<BaseNode
         include HaveChildlenMixin
+        include UtilCodeGen
 
         def initialize(parent, valnode)
           super(parent)
@@ -523,10 +524,21 @@ LocalVarNode
         def compile(context)
           context = super(context)
           context = @value_node.compile(context)
-          curas = context.assembler
           if context.ret_reg != RETR then
-            curas.with_retry do
-              curas.mov(RETR, context.ret_reg)
+            if context.ret_reg.is_a?(OpRegXMM) then
+              if @type.boxed then
+                context = gen_boxing(context, context.ret_node)
+                curas = context.assembler
+                curas.with_retry do
+                  curas.mov(RETR, context.ret_reg)
+                end
+                context.set_reg_content(RETR, context.ret_node)
+              end
+            else
+              curas = context.assembler
+              curas.with_retry do
+                curas.mov(RETR, context.ret_reg)
+              end
             end
             context.set_reg_content(TMPR, context.ret_node)
           end
@@ -747,6 +759,22 @@ LocalVarNode
             end
             context.ret_node = self
             context.ret_reg = OpImmidiateMachineWord.new(val)
+
+          when Float
+            val = @value
+            if @type.boxed and false then
+              val = val.boxing
+              context.ret_reg = OpImmidiateMachineWord.new(val)
+            else
+              offm4 = OpIndirect.new(SPR, -Type::DOUBLE.size)
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov64(offm4, val.unboxing)
+                asm.movsd(XMM0, offm4)
+              end
+              context.ret_reg = XMM0
+            end
+            context.ret_node = self
 
           else
             if @var_value == nil then

@@ -98,6 +98,8 @@ module YTLJit
     deftype :uint32, [4, 4]
     deftype :int64, [8, 8]
     deftype :uint64, [8, 8]
+    deftype :double, [8, 8]
+    deftype :float, [4, 4]
 
     case $ruby_platform
     when /i.86/ 

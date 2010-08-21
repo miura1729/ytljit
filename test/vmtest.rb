@@ -10,6 +10,7 @@ is = RubyVM::InstructionSequence.compile(
 #        "def test(x);if x then a = 1 else a = 3 end;p a end;test(3)","", "", 0,
 #        "def test(x);if x == 3 then a = 1 else a = 3 end;p a end;test(3)","", "", 0,
         "def fib(x);if x < 2 then 1 else fib(x + -1) + fib(x + -2) end;end;p fib(35)","", "", 0,
+#        "1.1","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,
                  :specialized_instruction  => false,}
