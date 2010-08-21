@@ -224,4 +224,34 @@ class InstructionTests < Test::Unit::TestCase
       @asout = ""
     end
   end
+
+  def test_xmm_arith
+    [:addss, :addsd, :subss, :subsd, 
+     :mulss, :mulsd, :divss, :divsd].each do |mnm|
+
+      # Pattern reg, reg
+      @xmmregs.each do |reg|
+        @xmmregs.each do |src|
+          asm_ytljit(mnm, reg, src)
+          asm_gas(mnm, reg, src)
+        end
+      end
+
+      # Pattern reg, indirect
+      @indirects.each do |src|
+        @xmmregs.each do |dst|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
+  end
 end

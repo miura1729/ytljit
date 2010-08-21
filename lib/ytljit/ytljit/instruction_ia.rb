@@ -682,37 +682,60 @@ module YTLJit
       end
     end
 
-    def common_movssd(dst, src, op)
+    def common_movssd(dst, src, op, inst)
       case dst
       when OpRegXMM
         case src
         when OpRegXMM
           rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(:movss, dst, src, dst, src)
+          modseq, modfmt = modrm(inst, dst, src, dst, src)
           (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
 
         when OpIndirect
           rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(:movss, dst, src, dst, src)
+          modseq, modfmt = modrm(inst, dst, src, dst, src)
           (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
 
         else
-          return nosupported_addressing_mode(:movss, dst, src)
+          return nosupported_addressing_mode(inst, dst, src)
         end
 
       when OpIndirect
         case src
         when OpRegXMM
           rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(:movss, src, dst, dst, src)
+          modseq, modfmt = modrm(inst, src, dst, dst, src)
           (rexseq + [op, 0x0F, 0x11] + modseq).pack("#{rexfmt}C3#{modfmt}")
           
         else
-          return nosupported_addressing_mode(:movss, dst, src)
+          return nosupported_addressing_mode(inst, dst, src)
         end
 
       else
-        return nosupported_addressing_mode(:movss, dst, src)
+        return nosupported_addressing_mode(inst, dst, src)
+      end
+    end
+
+    def common_arithxmm(dst, src, op0, op1, inst)
+      case dst
+      when OpRegXMM
+        case src
+        when OpRegXMM
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(inst, dst, src, dst, src)
+          (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+
+        when OpIndirect
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(inst, dst, src, dst, src)
+          (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+
+        else
+          return nosupported_addressing_mode(inst, dst, src)
+        end
+
+      else
+        return nosupported_addressing_mode(inst, dst, src)
       end
     end
   end
@@ -1135,11 +1158,44 @@ module YTLJit
     end
 
     def movss(dst, src)
-      common_movssd(dst, src, 0xF3)
+      common_movssd(dst, src, 0xF3, :movss)
     end
 
     def movsd(dst, src)
-      common_movssd(dst, src, 0xF2)
+      common_movssd(dst, src, 0xF2, :movsd)
+    end
+
+    def addss(dst, src)
+      common_arithxmm(dst, src, 0xF3, 0x58, :addss)
+    end
+
+    def addsd(dst, src)
+      common_arithxmm(dst, src, 0xF2, 0x58, :addsd)
+    end
+
+    def subss(dst, src)
+      common_arithxmm(dst, src, 0xF3, 0x5C, :subss)
+    end
+
+    def subsd(dst, src)
+      common_arithxmm(dst, src, 0xF2, 0x5C, :subsd)
+    end
+
+
+    def mulss(dst, src)
+      common_arithxmm(dst, src, 0xF3, 0x59, :mulss)
+    end
+
+    def mulsd(dst, src)
+      common_arithxmm(dst, src, 0xF2, 0x59, :mulsd)
+    end
+
+    def divss(dst, src)
+      common_arithxmm(dst, src, 0xF3, 0x5E, :divss)
+    end
+
+    def divsd(dst, src)
+      common_arithxmm(dst, src, 0xF2, 0x5E, :divsd)
     end
 
     def int3
