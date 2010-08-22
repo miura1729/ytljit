@@ -218,7 +218,7 @@ LocalVarNode
         def initialize(parent, name = nil)
           super(parent)
           @name = name
-          @code_space = CodeSpace.new
+          @code_spaces = [[nil, CodeSpace.new]]
         end
 
         attr_accessor :name
@@ -229,6 +229,25 @@ LocalVarNode
 
         def traverse_childlen
           yield @body
+        end
+
+        def find_cs_by_signature(sig)
+          @code_spaces.each do |key, val|
+            if key == sig then
+              return val
+            end
+          end
+          nil
+        end
+
+        def add_signature(sig)
+          cs = find_cs_by_signature(sig)
+          unless cs
+            cs = CodeSpace.new
+            @code_spaces.push [sig, cs]
+          end
+
+          cs
         end
 
         def collect_info(context)
@@ -273,11 +292,13 @@ LocalVarNode
         end
 
         def compile(context)
-          context.add_code_space(@code_space)
-          context = super(context)
-          context.reset_using_reg
-          context = gen_method_prologue(context)
-          context = @body.compile(context)
+          @code_spaces.each do |sig, cs|
+            context.add_code_space(cs)
+            context = super(context)
+            context.reset_using_reg
+            context = gen_method_prologue(context)
+            context = @body.compile(context)
+          end
           context
         end
       end
@@ -813,6 +834,7 @@ LocalVarNode
           @written_in = :unkown
           @reciever = nil
           @send_node = nil
+          @signature = nil
         end
 
         def set_reciever(sendnode)
@@ -833,7 +855,8 @@ LocalVarNode
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
-              context.ret_reg = mtop.code_space.var_base_address
+              cs = mtop.find_cs_by_signature(@signature)
+              context.ret_reg = cs.var_base_address
               @written_in = :ytl
             else
               # reciever = Object

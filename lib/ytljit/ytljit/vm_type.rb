@@ -56,5 +56,13 @@ module YTLJit
         super
       end
     end
+
+    class FloatType<DefaultType
+      related_ruby_class Float
+
+      def initialize
+        super
+      end
+    end
   end
 end
