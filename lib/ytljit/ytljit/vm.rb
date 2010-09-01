@@ -94,6 +94,7 @@ LocalVarNode
       class BaseNode
         include Inspect
         include AbsArch
+
         def initialize(parent)
           cs = CodeSpace.new
           asm = Assembler.new(cs)
@@ -611,7 +612,7 @@ LocalVarNode
           @modified_local_var_list.push modlocvar
           modinsvar = context.modified_instance_var.dup
           @modified_instance_var_list.push modinsvar
-          if @modified_instance_var_list.size == @come_from.size
+          if @modified_instance_var_list.size == @come_from.size then
             context.merge_local_var(@modified_local_var_list)
             context.merge_instance_var(@modified_instance_var_list)
             @body.collect_info(context)
