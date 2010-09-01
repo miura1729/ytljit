@@ -309,9 +309,9 @@ module YTLJit
           slfnode = @arguments[0]
           context.start_using_reg(TMPR2)
           context = slfnode.compile(context)
-          if slfnode.type.boxed then
+          if context.ret_node.type.boxed then
             slfreg = context.ret_reg
-            context = gen_unboxing(context, slfnode)
+            context = gen_unboxing(context)
             context.end_using_reg(slfreg)
           end
 
@@ -326,9 +326,9 @@ module YTLJit
           # eval 2nd arguments and added
           aele = @arguments[2]
           context = aele.compile(context)
-          if aele.type.boxed then
+          if context.ret_node.type.boxed then
             slfreg = context.ret_reg
-            context = gen_unboxing(context, aele)
+            context = gen_unboxing(context)
             context.end_using_reg(slfreg)
           end
 
@@ -348,7 +348,7 @@ module YTLJit
           context.ret_node = self
           context.ret_reg = TMPR
           if type.boxed then
-            context = gen_boxing(context, self)
+            context = gen_boxing(context)
           end
 
           context

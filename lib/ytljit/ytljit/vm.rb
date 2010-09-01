@@ -102,10 +102,8 @@ LocalVarNode
             asm.mov(TMPR, 4)
             asm.ret
           end
-          @type = RubyType::DefaultType.new
-          @type_inference_proc = cs
-          @type_cache = nil
 
+          # iv for structure of VM
           @parent = parent
           @code_space = nil
           @id = nil
@@ -115,20 +113,22 @@ LocalVarNode
           else
             @id = [0]
           end
+
+          # iv for type inference
+          @type = RubyType::DefaultType.new
+          @type_list = []
+          @type_inference_proc = cs
+          @type_cache = nil
+
+          @ti_observer = []
         end
 
         attr_accessor :parent
         attr          :code_space
-        attr_accessor :type
         attr          :id
 
-        def inference_type
-          cs = @type_inference_proc
-          cs.call(cs.base_address)
-        end
-
-        def gen_type_inference_proc(code)
-        end
+        attr_accessor :type
+        attr_accessor :type_list
 
         def collect_info(context)
           if is_a?(HaveChildlenMixin) then
@@ -138,6 +138,59 @@ LocalVarNode
           end
 
           context
+        end
+
+        def ti_add_observer(dst, func = :ti_update)
+          prc = lambda { send(func, dst, self) }
+          @ti_observer[dst] = prc
+        end
+
+        def ti_changed
+          @ti_observer.each do |rec, prc|
+            prc.call
+          end
+        end
+
+        def ti_update(dst, src)
+          orgsize = dst.type_list.size
+          dst.type_list |= src.type_list
+          if orgsize != dst.type_list.size then
+            dst.ti_changed
+          end
+        end
+
+        def same_type(dst, src)
+          src.ti_add_observer(dst)
+          ti_update(dst, src)
+        end
+
+        def collect_candidate_type
+          raise "You must define collect_candidate_type per node"
+        end
+
+        def decide_type
+          case @type_list.size
+          when 0
+            @type = DefaultType.new
+          when 1
+            @type = @type_list[0]
+          else
+            @type = DefaultType.new
+          end
+
+          if is_a?(HaveChildlenMixin) then
+            traverse_childlen {|rec|
+              rec.decide_type
+            }
+          end
+        end
+
+        def inference_type
+          cs = @type_inference_proc
+          cs.call(cs.base_address)
+        end
+
+        def gen_type_inference_proc(code)
         end
 
         def compile(context)
@@ -251,12 +304,6 @@ LocalVarNode
           cs
         end
 
-        def collect_info(context)
-          context.modified_local_var.push Hash.new
-          context.modified_instance_var = {}
-          @body.collect_info(context)
-        end
-
         def construct_frame_info(locals, argnum)
           finfo = LocalFrameInfoNode.new(self)
           
@@ -290,6 +337,16 @@ LocalVarNode
           
           @body = finfo
           finfo
+        end
+
+        def collect_info(context)
+          context.modified_local_var.push Hash.new
+          context.modified_instance_var = {}
+          @body.collect_info(context)
+        end
+
+        def collect_candidate_type
+          same_type(self, @body)
         end
 
         def compile(context)
@@ -549,7 +606,7 @@ LocalVarNode
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
               if @type.boxed then
-                context = gen_boxing(context, context.ret_node)
+                context = gen_boxing(context)
                 curas = context.assembler
                 curas.with_retry do
                   curas.mov(RETR, context.ret_reg)

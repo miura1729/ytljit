@@ -291,8 +291,9 @@ LO        |                       |   |  |
 
       module UtilCodeGen
         include RubyType
-        def gen_boxing(context, valnode)
+        def gen_boxing(context)
           asm = context.assembler
+          valnode = context.ret_node
           case valnode.type
           when :FixnumType
           else
@@ -314,7 +315,8 @@ LO        |                       |   |  |
           context
         end
 
-        def gen_unboxing(context, valnode)
+        def gen_unboxing(context)
+          valnode = context.ret_node
           asm = context.assembler
           case valnode.type
           when :FixnumType
