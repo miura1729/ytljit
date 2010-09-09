@@ -126,6 +126,10 @@ LO        |                       |   |  |
         @top_node = tnode
         @code_space = nil
         @assembler = nil
+
+        # Signature of current compiling method
+        # It is array, because method may be nest.
+        @current_method_signature = []
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
@@ -141,6 +145,8 @@ LO        |                       |   |  |
       attr          :top_node
       attr          :code_space
       attr          :assembler
+
+      attr          :current_method_signature
 
       attr          :depth_reg
       attr_accessor :ret_reg

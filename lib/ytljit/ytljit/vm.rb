@@ -345,17 +345,20 @@ LocalVarNode
           @body.collect_info(context)
         end
 
-        def collect_candidate_type
+        def collect_candidate_type(sig)
+          @body.collect_candidate_type
           same_type(self, @body)
         end
 
         def compile(context)
           @code_spaces.each do |sig, cs|
+            context.current_method_signature.push sig
             context.add_code_space(cs)
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
             context = @body.compile(context)
+            context.current_method_signature.pop
           end
           context
         end
@@ -443,6 +446,10 @@ LocalVarNode
           return cnode.body
         end
 
+        def copy_frame_layout
+          @frame_layout.each { |ele| ele.dup }
+        end
+
         attr_accessor :frame_layout
         attr_accessor :argument_num
         attr_accessor :system_num
@@ -493,6 +500,13 @@ LocalVarNode
           end
 
           rc
+        end
+
+        def collect_candidate_type
+          traverse_childlen {|rec|
+            rec.collect_candidate_type
+          }
+          same_type(self, @body)
         end
 
         def compile(context)
@@ -1148,7 +1162,7 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_local_var[@name] = [self]
+          context.modified_instance_var[@name] = [self]
           @body.collect_info(context)
         end
 
