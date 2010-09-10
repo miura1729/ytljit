@@ -96,7 +96,7 @@ module YTLJit
         end
       end
 
-      def type(context)
+      def type_list(context)
         key = context.to_key
         search_types(key).value
       end
@@ -104,6 +104,28 @@ module YTLJit
   end
 
   module RubyType
+    def self.define_wraped_class(klass)
+      cn = nil
+
+      if klass then
+        cn = (klass.name + "Type").to_sym
+        newc = nil
+        if !const_defined?(cn) then
+          supklass = define_wraped_class(klass.superclass)
+
+          newc = Class.new(supklass)
+          newc.instance_eval { related_ruby_class klass}
+          const_set(cn, newc)
+        else
+          newc = const_get(cn)
+        end
+
+        newc
+      else
+         DefaultType0
+      end
+    end
+          
     class BaseType
       @@boxed_klass_tab = {}
       @@unboxed_klass_tab = {}
@@ -123,7 +145,7 @@ module YTLJit
         if klass then
           klass.new
         else
-          DefaultType.new
+          DefaultType0.new
         end
       end
 
@@ -132,7 +154,7 @@ module YTLJit
         if klass then
           klass.new
         else
-          DefaultType.new
+          DefaultType0.new
         end
       end
 
@@ -148,7 +170,8 @@ module YTLJit
     end
 
     # Same as VALUE type in MRI
-    class DefaultType<BaseType
+    # Type0 makes you can define "Defalut" class 
+    class DefaultType0<BaseType
       def initialize
         super
       end
@@ -160,28 +183,8 @@ module YTLJit
       end
     end
 
-    class FixnumType<DefaultType
-      related_ruby_class Fixnum
-
-      def initialize
-        super
-      end
-    end
-
-    class NilClassType<DefaultType
-      related_ruby_class NilClass
-
-      def initialize
-        super
-      end
-    end
-
-    class FloatType<DefaultType
-      related_ruby_class Float
-
-      def initialize
-        super
-      end
-    end
+    YTLJit::RubyType::define_wraped_class Fixnum
+    YTLJit::RubyType::define_wraped_class NilClass
+    YTLJit::RubyType::define_wraped_class Float
   end
 end
