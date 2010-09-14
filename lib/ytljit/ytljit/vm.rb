@@ -115,12 +115,12 @@ LocalVarNode
           end
 
           # iv for type inference
-          @type = RubyType::DefaultType.new
-          @type_list = []
+          @type = nil
+          @type_list = TypeUtil::TypeContainer.new
           @type_inference_proc = cs
           @type_cache = nil
 
-          @ti_observer = []
+          @ti_observer = {}
         end
 
         attr_accessor :parent
@@ -128,7 +128,10 @@ LocalVarNode
         attr          :id
 
         attr_accessor :type
-        attr_accessor :type_list
+
+        def type_list(context)
+          @type_list.type_list(context)
+        end
 
         def collect_info(context)
           if is_a?(HaveChildlenMixin) then
@@ -141,46 +144,55 @@ LocalVarNode
         end
 
         def ti_add_observer(dst, func = :ti_update)
-          prc = lambda { send(func, dst, self) }
+          prc = lambda { |tcontext| send(func, dst, self, tcontext) }
           @ti_observer[dst] = prc
         end
 
-        def ti_changed
+        def ti_changed(context)
           @ti_observer.each do |rec, prc|
-            prc.call
+            prc.call(context)
           end
         end
 
-        def ti_update(dst, src)
-          orgsize = dst.type_list.size
-          dst.type_list |= src.type_list
-          if orgsize != dst.type_list.size then
-            dst.ti_changed
+        def ti_update(dst, src, context)
+          dtlist = dst.type_list(context)
+          stlist = src.type_list(context)
+          orgsize = dtlist.size
+          dtlist |= stlist
+          if orgsize != dtlist.size then
+            dst.type = nil
+            dst.ti_changed(context)
           end
         end
 
-        def same_type(dst, src)
+        def same_type(dst, src, context)
           src.ti_add_observer(dst)
-          ti_update(dst, src)
+          ti_update(dst, src, context)
         end
 
         def collect_candidate_type
           raise "You must define collect_candidate_type per node"
         end
 
-        def decide_type
-          case @type_list.size
-          when 0
-            @type = DefaultType.new
-          when 1
-            @type = @type_list[0]
-          else
-            @type = DefaultType.new
+        def decide_type_once(context)
+          unless @type
+            case @type_list.type_list(context).size
+            when 0
+              @type = RubyType::DefaultType0.new(Object)
+            when 1
+              @type = @type_list[0]
+            else
+              @type = RubyType::DefaultType0.new(Object)
+            end
           end
+        end
+
+        def decide_type(context)
+          decide_type_once(context)
 
           if is_a?(HaveChildlenMixin) then
             traverse_childlen {|rec|
-              rec.decide_type
+              rec.decide_type(context)
             }
           end
         end
@@ -259,6 +271,10 @@ LocalVarNode
       end
 
       class DummyNode
+        def collect_candidate_type(context)
+          context
+        end
+
         def compile(context)
           # Not need super because this is dummy
           context
@@ -315,18 +331,24 @@ LocalVarNode
           i = 0
           fargstart = lsize - argnum
           argnum.times do
-            lnode = LocalVarNode.new(finfo, locals[i])
+            lnode = LocalVarNode.new(finfo, locals[i], fargstart + i)
             frame_layout[fargstart + i] = lnode
             i += 1
           end
           
-          frame_layout[fargstart - 1] = SystemValueNode.new(finfo, :RET_ADDR)
-          frame_layout[fargstart - 2] = SystemValueNode.new(finfo, :OLD_BP)
-          frame_layout[fargstart - 3] = SystemValueNode.new(finfo, :OLD_BPSTACK)
+          frame_layout[fargstart - 1] = SystemValueNode.new(finfo, 
+                                                            :RET_ADDR, 
+                                                            fargstart - 1)
+          frame_layout[fargstart - 2] = SystemValueNode.new(finfo, 
+                                                            :OLD_BP,
+                                                            fargstart - 2)
+          frame_layout[fargstart - 3] = SystemValueNode.new(finfo, 
+                                                            :OLD_BPSTACK,
+                                                            fargstart - 3)
 
           j = 0
           while i < lsize - 3 do
-            lnode = LocalVarNode.new(finfo, locals[i])
+            lnode = LocalVarNode.new(finfo, locals[i], j)
             frame_layout[j] = lnode
             i += 1
             j += 1
@@ -345,9 +367,12 @@ LocalVarNode
           @body.collect_info(context)
         end
 
-        def collect_candidate_type(sig)
-          @body.collect_candidate_type
-          same_type(self, @body)
+        def collect_candidate_type(context, sig)
+          context.current_method_signature.push sig
+          context = @body.collect_candidate_type(context)
+          same_type(self, @body, context)
+          context.current_method_signature.pop
+          context
         end
 
         def compile(context)
@@ -456,10 +481,10 @@ LocalVarNode
         attr          :previous_frame
 
         def traverse_childlen
-          yield @body
           @frame_layout.each do |vinf|
             yield vinf
           end
+          yield @body
         end
 
         def frame_size
@@ -502,11 +527,12 @@ LocalVarNode
           rc
         end
 
-        def collect_candidate_type
+        def collect_candidate_type(context)
           traverse_childlen {|rec|
-            rec.collect_candidate_type
+            context = rec.collect_candidate_type(context)
           }
-          same_type(self, @body)
+          same_type(self, @body, context)
+          context
         end
 
         def compile(context)
@@ -525,13 +551,20 @@ LocalVarNode
       end
 
       class LocalVarNode<BaseNode
-        def initialize(parent, name)
+        def initialize(parent, name, offset)
           super(parent)
           @name = name
+          @offset = offset
         end
 
         def size
           8
+        end
+
+        def collect_candidate_type(context)
+          tobj = context.current_method_signature[0][@offset]
+          same_type(self, tobj, context)
+          context
         end
 
         def compile(context)
@@ -541,12 +574,18 @@ LocalVarNode
       end
 
       class SystemValueNode<BaseNode
-        def initialize(parent, kind)
+        def initialize(parent, kind, offset)
+          super(parent)
           @kind = kind
           @offset = offset
         end
 
         attr :offset
+
+        def collect_candidate_type(context)
+          @type_list = []
+          context
+        end
 
         def size
           Type::MACHINE_WORD.size
@@ -573,6 +612,10 @@ LocalVarNode
         end
 
         attr :modified_instance_var
+
+        def collect_candidate_type(context)
+          context
+        end
 
         def collect_info(context)
           context.modified_local_var.pop
@@ -614,6 +657,13 @@ LocalVarNode
           yield @body
         end
 
+        def collect_candidate_type(context)
+          context = @value_node.collect_candidate_type(context)
+          same_type(self, @value_node, context)
+          context = @body.collect_candidate_type(context)
+          context
+        end
+
         def compile(context)
           context = super(context)
           context = @value_node.compile(context)
@@ -646,6 +696,13 @@ LocalVarNode
       class PhiNode<BaseNode
         def initialize(parent)
           super(parent)
+        end
+
+        def collect_candidate_type(context)
+          @parent.come_from.each do |vnode|
+            same_type(self, vnode, context)
+          end
+          context
         end
 
         def compile(context)
@@ -712,6 +769,14 @@ LocalVarNode
           valnode = @come_from[comefrom]
           if valnode then
             yield valnode
+          else
+            nil
+          end
+        end
+
+        def collect_candidate_type(context, sender = nil)
+          unless sender
+            @body.collect_candidate_type(context)
           end
         end
 
@@ -721,7 +786,9 @@ LocalVarNode
 
           # When all node finish to compile, next node compile
           if @come_from_val.size == @come_from.size then
-            context = @body.compile(context)
+            @body.compile(context)
+          else
+            context
           end
 
           context
@@ -751,6 +818,11 @@ LocalVarNode
           raise "Don't use this node direct"
         end
           
+        def collect_candidate_type(context)
+          context = @cond.collect_candidate_type(context)
+          context = @jmp_to_node.collect_candidate_type(context, self)
+          @body.collect_candidate_type(context)
+        end
 
         def compile(context)
           context = super(context)
@@ -809,6 +881,14 @@ LocalVarNode
           yield @jmp_to_node
         end
 
+        def collect_candidate_type(context)
+          block = lambda {|rec| 
+            context = rec.collect_candidate_type(context)
+          }
+          context = @jmp_to_node.traverse_block_value(self, &block)
+          @jmp_to_node.collect_candidate_type(context, self)
+        end
+
         def compile(context)
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
@@ -840,6 +920,11 @@ LocalVarNode
         end
         
         attr :value
+
+        def collect_candidate_type(context)
+          @type_list = [@type]
+          context
+        end
 
         def compile(context)
           context = super(context)
@@ -891,6 +976,10 @@ LocalVarNode
         
         attr :kind
 
+        def collect_candidate_type(context)
+          context
+        end
+
         def compile(context)
 #          raise "Can't compile"
           context = super(context)
@@ -921,6 +1010,10 @@ LocalVarNode
         attr :name
         attr :written_in
         attr_accessor :reciever
+
+        def collect_candidate_type(context)
+          context
+        end
 
         def compile(context)
           context = super(context)
@@ -1027,6 +1120,13 @@ LocalVarNode
           context
         end
 
+        def collect_candidate_type(context)
+          @var_type_info.each do |src|
+            same_type(self, src, context)
+          end
+          context
+        end
+
         def compile(context)
           context = super(context)
           context = gen_pursue_parent_function(context, @depth)
@@ -1051,6 +1151,11 @@ LocalVarNode
           offarg = @current_frame_info.offset_arg(@offset, base)
           context.ret_node = self
           context.ret_reg = offarg
+        end
+
+        def collect_candidate_type(context)
+          @type_list = [RubyType.from_ruby_object(@classtop.klass_object)]
+          context
         end
 
         def compile(context)
@@ -1078,6 +1183,12 @@ LocalVarNode
           @body.collect_info(context)
         end
           
+        def collect_candidate_type(context)
+          context = @val.collect_candidate_type(context)
+          same_type(self, @val, context)
+          @body.collect_candidate_type(context)
+        end
+
         def compile(context)
           context = super(context)
           context = @val.compile(context)
@@ -1137,6 +1248,13 @@ LocalVarNode
           context
         end
 
+        def collect_candidate_type(context)
+          @var_type_info.each do |src|
+            same_type(self, src, context)
+          end
+          context
+        end
+
         def compile_main(context)
           context
         end
@@ -1164,6 +1282,12 @@ LocalVarNode
           context = @val.collect_info(context)
           context.modified_instance_var[@name] = [self]
           @body.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          context = @val.collect_candidate_type(context)
+          same_type(self, @val, context)
+          @body.collect_candidate_type(context)
         end
 
         def compile_main(context)

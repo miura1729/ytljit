@@ -119,6 +119,20 @@ LO        |                       |   |  |
         @modified_instance_var = res
       end
     end
+    
+    class TypeInferenceContext
+      def initialize(tnode)
+        @top_node = tnode
+        @current_method_signature = []
+      end
+
+      def to_key
+        @current_method_signature[0]
+      end
+
+      attr          :top_node
+      attr          :current_method_signature
+    end
 
     class CompileContext
       include AbsArch
@@ -168,8 +182,6 @@ LO        |                       |   |  |
             @reg_content[dst] = val
           end
         elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
-          p dst
-          p val.class
           wsiz = Type::MACHINE_WORD.size
           if val.is_a?(OpRegistor)
             cpustack_setn(-dst.disp.value / wsiz, @reg_content[val])

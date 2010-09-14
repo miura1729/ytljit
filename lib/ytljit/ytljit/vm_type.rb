@@ -76,7 +76,7 @@ module YTLJit
       end
 
       def search_types(key)
-        @type_list.search(key)
+        @types_list.search(key)
       end
 
       def add_type(type, context)
@@ -143,23 +143,24 @@ module YTLJit
       def self.from_object(obj)
         klass =  @@boxed_klass_tab[obj.class]
         if klass then
-          klass.new
+          klass.new(obj.class)
         else
-          DefaultType0.new
+          DefaultType0.new(obj.class)
         end
       end
 
       def self.from_ruby_class(rcls)
         klass =  @@boxed_klass_tab[rcls]
         if klass then
-          klass.new
+          klass.new(rcls)
         else
-          DefaultType0.new
+          DefaultType0.new(rcls)
         end
       end
 
-      def initialize
+      def initialize(rtype)
         @asm_type = Type::MACHINE_WORD
+        @ruby_type = rtype
       end
 
       def boxed
@@ -167,12 +168,13 @@ module YTLJit
       end
 
       attr_accessor :asm_type
+      attr_accessor :ruby_type
     end
 
     # Same as VALUE type in MRI
     # Type0 makes you can define "Defalut" class 
     class DefaultType0<BaseType
-      def initialize
+      def initialize(klass)
         super
       end
     end

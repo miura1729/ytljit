@@ -110,8 +110,9 @@ module YTLJit
           }
           if is_fcall or is_vcall then
             # Call method of same class
-            if @class_top.method_tab[@func.name] then
-              miv = @class_top.method_tab[@func.name].modified_instance_var
+            mt = @class_top.method_tab[@func.name]
+            if mt then
+              miv = mt.modified_instance_var
               if miv then
                 miv.each do |vname, vall|
                   context.modified_instance_var[vname] = vall
@@ -124,6 +125,32 @@ module YTLJit
           @modified_instance_var = context.modified_instance_var.dup
 
           context
+        end
+
+        def collect_candidate_type(context)
+          traverse_childlen {|rec|
+            context = rec.collect_candidate_type(context)
+          }
+          mt = nil
+          if is_fcall or is_vcall then
+            mt = @class_top.method_tab[@func.name]
+          else
+            @arguments[0].decide_type_once(context)
+            slf = @arguments[0].type
+            mt = @class_top.method_tab[slf.ruby_type.name]
+          end
+          
+          if mt then
+            same_type(self, mt, context)
+            sig = []
+            @arguments.each do |arg|
+              arg.decide_type_once(context)
+              sig.push arg.type
+            end
+            context = mt.collect_candidate_type(context, sig)
+          end
+
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)
