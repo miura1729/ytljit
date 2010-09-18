@@ -123,15 +123,22 @@ LO        |                       |   |  |
     class TypeInferenceContext
       def initialize(tnode)
         @top_node = tnode
-        @current_method_signature = []
+        @current_method_signature_node = []
       end
 
       def to_key
-        @current_method_signature[0]
+        @current_method_signature_node[0].map { |enode|
+          if enode.is_a?(Node::BaseNode) then
+            enode.decide_type_once(context)
+            enode.type
+          else
+            enode
+          end
+        }
       end
 
       attr          :top_node
-      attr          :current_method_signature
+      attr          :current_method_signature_node
     end
 
     class CompileContext
@@ -279,6 +286,10 @@ LO        |                       |   |  |
           @depth_reg[reg] = nil
           @reg_content.delete(reg)
         end
+      end
+
+      def to_key
+        @current_method_signature[0]
       end
 
       def end_using_reg(reg)

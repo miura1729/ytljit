@@ -135,19 +135,18 @@ module YTLJit
           if is_fcall or is_vcall then
             mt = @class_top.method_tab[@func.name]
           else
-            @arguments[0].decide_type_once(context)
-            slf = @arguments[0].type
+            @arguments[2].decide_type_once(context)
+            slf = @arguments[2].type
             mt = @class_top.method_tab[slf.ruby_type.name]
           end
           
           if mt then
             same_type(self, mt, context)
-            sig = []
+            signode = []
             @arguments.each do |arg|
-              arg.decide_type_once(context)
-              sig.push arg.type
+              signode.push arg
             end
-            context = mt.collect_candidate_type(context, sig)
+            context = mt.collect_candidate_type(context, signode)
           end
 
           @body.collect_candidate_type(context)
@@ -179,7 +178,7 @@ module YTLJit
               context.set_reg_content(FUNC_ARG[1], TMPR2)
               
               # eval self
-              context = @arguments[0].compile(context)
+              context = @arguments[2].compile(context)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[2], context.ret_reg)
@@ -197,7 +196,7 @@ module YTLJit
             end
 
           when :c_fixarg
-            numarg = @arguments.size - 1
+            numarg = @arguments.size - 2
 
             context.start_using_reg(RETR)
             numarg.times do |i|
@@ -208,8 +207,8 @@ module YTLJit
             argpos = 0
             cursrc = 0
             @arguments.each do |arg|
-              # skip block argument
-              if cursrc == 1 then
+              # skip prevenv and block_argument
+              if cursrc < 2 then
                 cursrc = cursrc + 1
                 next
               end
@@ -234,9 +233,7 @@ module YTLJit
             context.end_using_reg(fnc)
 
           when :ytl
-            # + 1 means prev env
-            # other extra arg define in visit_send
-            numarg = @arguments.size + 1
+            numarg = @arguments.size
 
             context.start_using_reg(RETR)
             numarg.times do |i|
@@ -244,14 +241,12 @@ module YTLJit
             end
             context.cpustack_pushn(numarg * 8)
 
-            # self
-            context = @arguments[0].compile(context)
+            # push prev env
             casm = context.assembler
             casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[0], context.ret_reg)
+              casm.mov(FUNC_ARG_YTL[0], BPR)
             end
-            context.set_reg_content(FUNC_ARG_YTL[0], context.ret_node)
-            context.end_using_reg(context.ret_reg)
+            context.set_reg_content(FUNC_ARG_YTL[0], nil)
 
             # block
             context = @arguments[1].compile(context)
@@ -263,23 +258,25 @@ module YTLJit
             context.set_reg_content(FUNC_ARG_YTL[1], nil)
             context.end_using_reg(context.ret_reg)
 
+            # self
+            context = @arguments[2].compile(context)
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[2], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[0], context.ret_node)
+            context.end_using_reg(context.ret_reg)
+
             # other arguments
-            @arguments[2..-1].each_with_index do |arg, i|
+            @arguments[3..-1].each_with_index do |arg, i|
               context = arg.compile(context)
               casm = context.assembler
               casm.with_retry do 
-                casm.mov(FUNC_ARG_YTL[i + 2], context.ret_reg)
+                casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
               end
               context.set_reg_content(FUNC_ARG_YTL[i + 1], context.ret_node)
               context.end_using_reg(context.ret_reg)
             end
-
-            # push prev env
-            casm = context.assembler
-            casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[numarg - 1], BPR)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[numarg - 1], nil)
 
             context = gen_call(context, fnc, numarg)
 
@@ -302,15 +299,20 @@ module YTLJit
         add_special_send_node :"core#define_method"
         def initialize(parent, func, arguments, op_flag)
           super
-          @new_method = arguments[4]
-          if arguments[3].is_a?(LiteralNode) then
-            @class_top.method_tab[arguments[3].value] = arguments[4]
+          @new_method = arguments[5]
+          if arguments[4].is_a?(LiteralNode) then
+            @class_top.method_tab[arguments[4].value] = arguments[5]
           end
         end
 
         def traverse_childlen
           yield @body
           yield @new_method
+        end
+
+        def collect_candidate_type(context)
+          # type inference of @new method execute when "send" instruction.
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)
@@ -333,9 +335,10 @@ module YTLJit
         def compile(context)
 
           # eval 1st arg(self)
-          slfnode = @arguments[0]
+          slfnode = @arguments[2]
           context.start_using_reg(TMPR2)
           context = slfnode.compile(context)
+          context.ret_node.decide_type_once(context)
           if context.ret_node.type.boxed then
             slfreg = context.ret_reg
             context = gen_unboxing(context)
@@ -350,9 +353,11 @@ module YTLJit
           context.end_using_reg(context.ret_reg)
 
           # @argunemnts[1] is block
+          # @argunemnts[2] is self
           # eval 2nd arguments and added
-          aele = @arguments[2]
+          aele = @arguments[3]
           context = aele.compile(context)
+          context.ret_node.decide_type_once(context)
           if context.ret_node.type.boxed then
             slfreg = context.ret_reg
             context = gen_unboxing(context)
@@ -374,6 +379,8 @@ module YTLJit
           context.set_reg_content(TMPR, self)
           context.ret_node = self
           context.ret_reg = TMPR
+
+          decide_type_once(context)
           if type.boxed then
             context = gen_boxing(context)
           end

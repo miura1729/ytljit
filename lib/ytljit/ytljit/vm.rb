@@ -130,7 +130,11 @@ LocalVarNode
         attr_accessor :type
 
         def type_list(context)
-          @type_list.type_list(context)
+          @type_list.type_list(context).value
+        end
+
+        def set_type_list(context, val)
+          @type_list.type_list(context).value = val
         end
 
         def collect_info(context)
@@ -159,6 +163,8 @@ LocalVarNode
           stlist = src.type_list(context)
           orgsize = dtlist.size
           dtlist |= stlist
+          dst.set_type_list(context, dtlist)
+          p dst.type_list(context)
           if orgsize != dtlist.size then
             dst.type = nil
             dst.ti_changed(context)
@@ -166,33 +172,51 @@ LocalVarNode
         end
 
         def same_type(dst, src, context)
-          src.ti_add_observer(dst)
+          print "#{src.class} -> #{dst.class} \n"
+          if dst.is_a?(LocalVarNode) then
+            print "#{dst.name} \n"
+          end
+          if dst.is_a?(LiteralNode) then
+            print "#{dst.value.inspect} \n"
+          end
+
+          if dst.is_a?(BaseNode) then
+            src.ti_add_observer(dst)
+          end
+
           ti_update(dst, src, context)
         end
 
-        def collect_candidate_type
+        def collect_candidate_type(context)
           raise "You must define collect_candidate_type per node"
+          context
         end
 
         def decide_type_once(context)
           unless @type
-            case @type_list.type_list(context).size
+            tlist = @type_list.type_list(context).value
+            tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
+            case tlist.size
             when 0
-              @type = RubyType::DefaultType0.new(Object)
+              @type = RubyType::DefaultType0.new(Object).to_box
+
             when 1
-              @type = @type_list[0]
+              @type = tlist[0]
+
             else
-              @type = RubyType::DefaultType0.new(Object)
+              @type = RubyType::DefaultType0.new(Object).to_box
             end
           end
+
+          context
         end
 
         def decide_type(context)
-          decide_type_once(context)
+          context = decide_type_once(context)
 
           if is_a?(HaveChildlenMixin) then
             traverse_childlen {|rec|
-              rec.decide_type(context)
+              context = rec.decide_type(context)
             }
           end
         end
@@ -288,10 +312,17 @@ LocalVarNode
         def initialize(parent, name = nil)
           super(parent)
           @name = name
-          @code_spaces = [[nil, CodeSpace.new]]
+          @code_spaces = [] # [[nil, CodeSpace.new]]
+          if @parent then
+            @classtop = search_class_top
+          else
+            @classtop = self
+          end
+          @end_nodes = []
         end
 
         attr_accessor :name
+        attr          :end_nodes
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -303,21 +334,24 @@ LocalVarNode
 
         def find_cs_by_signature(sig)
           @code_spaces.each do |key, val|
-            if key == sig then
+            if key.zip(sig).all? {|a, b| a.class == b.class} then
               return val
             end
           end
+
           nil
         end
 
-        def add_signature(sig)
+        def add_cs_for_signature(sig)
           cs = find_cs_by_signature(sig)
-          unless cs
+          if cs then
+            return nil
+
+          else
             cs = CodeSpace.new
             @code_spaces.push [sig, cs]
+            return cs
           end
-
-          cs
         end
 
         def construct_frame_info(locals, argnum)
@@ -367,11 +401,24 @@ LocalVarNode
           @body.collect_info(context)
         end
 
-        def collect_candidate_type(context, sig)
-          context.current_method_signature.push sig
+        def collect_candidate_type(context, signode)
+          sig = signode.map {|ele| 
+            if ele then 
+              ele.decide_type_once(context)
+              ele.type
+            else ele 
+            end 
+          }
+          if add_cs_for_signature(sig) == nil then
+            return context
+          end
+          context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
-          same_type(self, @body, context)
-          context.current_method_signature.pop
+          @end_nodes.each do |enode|
+            same_type(self, enode, context)
+            same_type(enode, self, context)
+          end
+          context.current_method_signature_node.pop
           context
         end
 
@@ -531,8 +578,7 @@ LocalVarNode
           traverse_childlen {|rec|
             context = rec.collect_candidate_type(context)
           }
-          same_type(self, @body, context)
-          context
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)
@@ -557,13 +603,23 @@ LocalVarNode
           @offset = offset
         end
 
+        attr :name
+
         def size
           8
         end
 
         def collect_candidate_type(context)
-          tobj = context.current_method_signature[0][@offset]
-          same_type(self, tobj, context)
+          flay = @parent.frame_layout
+          fragstart = flay.size - @parent.argument_num
+          if fragstart <= @offset then
+            argoff = @offset - fragstart
+            tobj = context.current_method_signature_node.last[argoff]
+            if tobj then
+              same_type(self, tobj, context)
+              same_type(tobj, self, context)
+            end
+          end
           context
         end
 
@@ -583,7 +639,6 @@ LocalVarNode
         attr :offset
 
         def collect_candidate_type(context)
-          @type_list = []
           context
         end
 
@@ -613,13 +668,14 @@ LocalVarNode
 
         attr :modified_instance_var
 
-        def collect_candidate_type(context)
-          context
-        end
-
         def collect_info(context)
           context.modified_local_var.pop
           @modified_instance_var = context.modified_instance_var
+          context
+        end
+
+        def collect_candidate_type(context)
+          same_type(self, @parent, context)
           context
         end
 
@@ -699,7 +755,7 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @parent.come_from.each do |vnode|
+          @parent.come_from.values.each do |vnode|
             same_type(self, vnode, context)
           end
           context
@@ -775,9 +831,11 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, sender = nil)
-          unless sender
+          if @come_from.keys[0] == sender then
             @body.collect_candidate_type(context)
           end
+
+          context
         end
 
         def compile(context)
@@ -915,14 +973,13 @@ LocalVarNode
         def initialize(parent, val)
           super(parent)
           @value = val
-          @var_value = nil
-          @type = RubyType::BaseType.from_object(@value)
+          @type = RubyType::BaseType.from_object(val)
         end
         
         attr :value
 
         def collect_candidate_type(context)
-          @type_list = [@type]
+          @type_list.add_type(@type, context)
           context
         end
 
@@ -995,7 +1052,6 @@ LocalVarNode
           @written_in = :unkown
           @reciever = nil
           @send_node = nil
-          @signature = nil
         end
 
         def set_reciever(sendnode)
@@ -1003,7 +1059,7 @@ LocalVarNode
           if sendnode.is_fcall then
             @reciever = @parent.class_top
           else
-            @reciever = sendnode.arguments[0]
+            @reciever = sendnode.arguments[2]
           end
         end
         
@@ -1015,12 +1071,22 @@ LocalVarNode
           context
         end
 
+        def signature(context)
+          res = []
+          @parent.arguments.each do |ele|
+            ele.decide_type_once(context)
+            res.push ele.type
+          end
+
+          res
+        end
+
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
-              cs = mtop.find_cs_by_signature(@signature)
+              cs = mtop.find_cs_by_signature(signature(context))
               context.ret_reg = cs.var_base_address
               @written_in = :ytl
             else
@@ -1141,7 +1207,7 @@ LocalVarNode
 
       class SelfRefNode<LocalVarRefNode
         def initialize(parent)
-          super(parent, 0, 0)
+          super(parent, 0, 2)
           @classtop = search_class_top
         end
 
@@ -1154,7 +1220,8 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @type_list = [RubyType.from_ruby_object(@classtop.klass_object)]
+          @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
+          @type_list.add_type(tyobj, context)
           context
         end
 

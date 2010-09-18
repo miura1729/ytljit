@@ -5,6 +5,7 @@ module YTLJit
 
       def initialize
         @the_top = TopTopNode.new(nil, Object)
+        @top_nodes = [@the_top]
         @current_file_name = nil
         @current_class_node = the_top
         @current_method_name = nil
@@ -23,6 +24,7 @@ module YTLJit
       end
 
       attr :the_top
+      attr :top_nodes
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
@@ -157,8 +159,8 @@ module YTLJit
       # setspecial
 
       def visit_getdynamic(code, ins, context)
-        # + 1 mean pointer to block function
-        offset = code.header['misc'][:local_size] + 2 - ins[1]
+        # + 3 mean prtv_env/pointer to block function/self
+        offset = code.header['misc'][:local_size] + 3 - ins[1]
         node = LocalVarRefNode.new(context.current_node, offset, ins[2])
         context.expstack.push node
       end
@@ -166,7 +168,7 @@ module YTLJit
       def visit_setdynamic(code, ins, context)
         val = context.expstack.pop
         curnode = context.current_node
-        offset = code.header['misc'][:local_size] + 2 - ins[1]
+        offset = code.header['misc'][:local_size] + 3 - ins[1]
         node = LocalAssignNode.new(curnode, offset, ins[2], val)
         curnode.body = node
         context.current_node = node
@@ -228,6 +230,7 @@ module YTLJit
           raise "Maybe bug not appear top block."
         end
         ncontext.current_node = mtopnode
+        ncontext.top_nodes.push mtopnode
 
         ncontext.current_file_name = context.current_file_name
         ncontext.current_class_node = context.current_class_node
@@ -319,6 +322,7 @@ module YTLJit
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
+        ncontext.top_nodes.push mtopnode
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -331,18 +335,25 @@ module YTLJit
         blk_iseq = ins[3]
         curnode = context.current_node
         numarg = ins[2]
+
+        # regular arguments
         arg = []
         numarg.times do |i|
           argele = context.expstack.pop
           arg.push argele
         end
         
+        # self
+        arg.push context.expstack.pop
+
+        # block
         if blk_iseq then
           body = VMLib::InstSeqTree.new(code, blk_iseq)
           ncontext = YARVContext.new
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = curnode
           btn = ncontext.current_node = BlockTopNode.new(curnode)
+          ncontext.top_nodes.push btn
 
           tr = self.class.new([body])
           tr.translate(ncontext)
@@ -351,8 +362,9 @@ module YTLJit
           arg.push LiteralNode.new(curnode, nil) # block(dymmy)
         end
 
-        arg.push context.expstack.pop # self
- 
+        # perv env
+        arg.push LiteralNode.new(curnode, nil)
+
         arg = arg.reverse
 
         func = MethodSelectNode.new(curnode, ins[1])
@@ -391,6 +403,7 @@ module YTLJit
           nnode = ClassEndNode.new(curnode)
         end
 
+        context.top_nodes.last.end_nodes.push nnode
         srnode.body = nnode
       end
       

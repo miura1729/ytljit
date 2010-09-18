@@ -35,6 +35,7 @@ module YTLJit
 
       def search(key)
         cnode = @node
+
         while cnode
           if key.zip(cnode.key).all? {|a, b| a == b } then
             return cnode
@@ -63,12 +64,12 @@ module YTLJit
       attr_accessor :same_klass
       attr_accessor :next_klass
       attr          :key
-      attr          :value
+      attr_accessor :value
     end
 
     class TypeContainer
       def initialize
-        @types_list = KlassTree.new
+        @types_tree = KlassTree.new
       end
 
       def to_key(context)
@@ -76,29 +77,28 @@ module YTLJit
       end
 
       def search_types(key)
-        @types_list.search(key)
+        @types_tree.search(key)
       end
 
       def add_type(type, context)
         key = context.to_key
-        tvs = @type_list.search(key)
+        tvs = @types_tree.search(key).value
         if tvs then
-          if !tvs.include?(type) then
-            tvs.push type
-          end
+          tvs.push type
         else
           # inherit types of most similar signature 
           ival = []
-          simnode = @type_list.add(key, ival)
+          simnode = @types_tree.add(key, ival)
           simnode.value.each do |ele|
             ival.push ele
           end
+          ival.push type
         end
       end
 
       def type_list(context)
         key = context.to_key
-        search_types(key).value
+        search_types(key)
       end
     end
   end
@@ -167,6 +167,14 @@ module YTLJit
         true
       end
 
+      def to_unbox
+        @@box_to_unbox_tab[self.class].new(@ruby_type)
+      end
+
+      def to_box
+        self
+      end
+
       attr_accessor :asm_type
       attr_accessor :ruby_type
     end
@@ -182,6 +190,14 @@ module YTLJit
     module UnBoxedTypeMixin
       def boxed
         false
+      end
+
+      def to_box
+        @@unbox_to_box_tab[self.clsss].new(@ruby_type)
+      end
+
+      def to_unbox
+        self
       end
     end
 
