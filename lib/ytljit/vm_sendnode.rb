@@ -328,8 +328,43 @@ module YTLJit
 
       class SendPlusNode<SendNode
         add_special_send_node :+
+
         def initialize(parent, func, arguments, op_flag)
           super
+        end
+
+        def collect_candidate_type(context)
+          traverse_childlen {|rec|
+            context = rec.collect_candidate_type(context)
+          }
+          mt = nil
+          @arguments[2].decide_type_once(context)
+          slf = @arguments[2].type
+
+          if slf.instance_of?(DefaultType0) then
+            # Chaos
+            
+          else
+            mt = @class_top.method_tab[slf.ruby_type.name]
+            if mt then
+              # for redefined method
+              same_type(self, mt, context)
+              signode = []
+              @arguments.each do |arg|
+                signode.push arg
+              end
+              context = mt.collect_candidate_type(context, signode)
+            else
+              # regident method
+              case [slf.ruby_type]
+              when [Fixnum], [Float], [String]
+                same_type(@arguments[3], @arguments[2], context)
+                same_type(self, @arguments[2], context)
+              end
+            end
+          end
+
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)

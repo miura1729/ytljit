@@ -6,10 +6,9 @@ module YTLJit
 
 Hi     |  |Argn                   |   |
        |  |   :                   |   |
-       |  |Arg3(exception status) |   |
-       |  |Arg2(block pointer)    |   |
-       |  |Arg1(parent frame)     |  -+
-       |  |Arg0(self)             |
+       |  |Arg2(self)             |   |
+       |  |Arg1(block pointer)    |   |
+       |  |Arg0(parent frame)     |  -+
        |  |Return Address         |
        +- |old bp                 | <-+
           |old bp on stack        |  -+
@@ -25,11 +24,10 @@ LO
 
   Stack layout (on heap frame)
 
-
-Hi     |  |Arg0(self)             |   |
-       |  |Arg1(parent frame)     |  -+
-       |  |Arg2(block pointer)    |
-       |  |Arg3(exception status) |
+                                      |
+Hi     |  |Arg0(parent frame)     |  -+
+       |  |Arg1(block pointer)    |  
+       |  |Arg2(self)             |
        |  |   :                   |
        |  |Arg n                  |
        |  |Return Address         |

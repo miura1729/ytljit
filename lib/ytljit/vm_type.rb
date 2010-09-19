@@ -90,9 +90,12 @@ module YTLJit
           ival = []
           simnode = @types_tree.add(key, ival)
           simnode.value.each do |ele|
-            ival.push ele
+            val.push ele
           end
-          ival.push type
+
+          if ival.all? {|ele| type.class != ele.class} then
+            ival.push type
+          end
         end
       end
 
@@ -104,7 +107,7 @@ module YTLJit
   end
 
   module RubyType
-    def self.define_wraped_class(klass)
+    def self.define_wraped_class(klass, base = RubyTypeBoxed)
       cn = nil
 
       if klass then
@@ -122,7 +125,7 @@ module YTLJit
 
         newc
       else
-         DefaultType0
+        base
       end
     end
           
@@ -134,7 +137,7 @@ module YTLJit
 
       def self.related_ruby_class(klass)
         @@boxed_klass_tab[klass] = self
-        unboxslf = self.dup.instance_eval {include UnBoxedTypeMixin}
+        unboxslf = Class.new(RubyTypeUnboxed)
         @@unboxed_klass_tab[klass] = unboxslf
         @@box_to_unbox_tab[self] = unboxslf
         @@unbox_to_box_tab[unboxslf] = self
@@ -163,6 +166,23 @@ module YTLJit
         @ruby_type = rtype
       end
 
+      attr_accessor :asm_type
+      attr_accessor :ruby_type
+    end
+
+    # Same as VALUE type in MRI
+    # Type0 makes you can define "Defalut" class 
+    class DefaultType0<BaseType
+      def initialize(klass)
+        super
+      end
+
+      def boxed
+        true
+      end
+    end
+
+    class RubyTypeBoxed<BaseType
       def boxed
         true
       end
@@ -174,20 +194,9 @@ module YTLJit
       def to_box
         self
       end
-
-      attr_accessor :asm_type
-      attr_accessor :ruby_type
     end
 
-    # Same as VALUE type in MRI
-    # Type0 makes you can define "Defalut" class 
-    class DefaultType0<BaseType
-      def initialize(klass)
-        super
-      end
-    end
-
-    module UnBoxedTypeMixin
+    class RubyTypeUnboxed<BaseType
       def boxed
         false
       end
@@ -201,8 +210,8 @@ module YTLJit
       end
     end
 
-    YTLJit::RubyType::define_wraped_class Fixnum
-    YTLJit::RubyType::define_wraped_class NilClass
-    YTLJit::RubyType::define_wraped_class Float
+    YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
+    YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeUnboxed)
+    YTLJit::RubyType::define_wraped_class(Float, RubyTypeUnboxed)
   end
 end

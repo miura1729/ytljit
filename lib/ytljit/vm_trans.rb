@@ -394,13 +394,13 @@ module YTLJit
 
         case code.header['type']
         when :method
-          nnode = MethodEndNode.new(curnode)
+          nnode = MethodEndNode.new(srnode)
         when :block
-          nnode = BlockEndNode.new(curnode)
+          nnode = BlockEndNode.new(srnode)
         when :class
-          nnode = ClassEndNode.new(curnode)
+          nnode = ClassEndNode.new(srnode)
         when :top
-          nnode = ClassEndNode.new(curnode)
+          nnode = ClassEndNode.new(srnode)
         end
 
         context.top_nodes.last.end_nodes.push nnode

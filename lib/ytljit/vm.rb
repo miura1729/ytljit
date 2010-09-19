@@ -158,12 +158,22 @@ LocalVarNode
           end
         end
 
+        def merge_type(dst, src)
+          res = dst
+          src.each do |sele|
+            if dst.all? {|dele| sele.class != dele.class } then
+              res.push sele
+            end
+          end
+
+          res
+        end
+
         def ti_update(dst, src, context)
           dtlist = dst.type_list(context)
           stlist = src.type_list(context)
           orgsize = dtlist.size
-          dtlist |= stlist
-          dst.set_type_list(context, dtlist)
+          dst.set_type_list(context, merge_type(dtlist, stlist))
           p dst.type_list(context)
           if orgsize != dtlist.size then
             dst.type = nil
@@ -198,13 +208,13 @@ LocalVarNode
             tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
             case tlist.size
             when 0
-              @type = RubyType::DefaultType0.new(Object).to_box
+              @type = RubyType::DefaultType0.new(Object)
 
             when 1
-              @type = tlist[0]
+              @type = tlist[0].to_box
 
             else
-              @type = RubyType::DefaultType0.new(Object).to_box
+              @type = RubyType::DefaultType0.new(Object)
             end
           end
 
@@ -986,6 +996,7 @@ LocalVarNode
         def compile(context)
           context = super(context)
 
+          decide_type_once(context)
           case @value
           when Fixnum
             val = @value
