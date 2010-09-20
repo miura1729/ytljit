@@ -467,7 +467,7 @@ ytl_step_handler()
 }
 
 void 
-Init_ytljit() 
+Init_ytljit_ext() 
 {
   VALUE *argv;
 

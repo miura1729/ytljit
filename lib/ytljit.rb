@@ -9,7 +9,7 @@ end
 
 require 'iseq'
 
-require "ext/ytljit.#{RbConfig::CONFIG['DLEXT']}"
+require "ytljit_ext"
 
 require 'ytljit/codespace'
 
