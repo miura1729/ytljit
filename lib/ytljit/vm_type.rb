@@ -138,6 +138,26 @@ module YTLJit
       def self.related_ruby_class(klass)
         @@boxed_klass_tab[klass] = self
         unboxslf = Class.new(RubyTypeUnboxed)
+
+        boxedname =  klass.name + "TypeBoxedCodeGen"
+
+        begin
+          boxmod = VM::TypeCodeGen.const_get(boxedname)
+          self.instance_eval {include boxmod}
+
+        rescue NameError
+          self.instance_eval {include VM::TypeCodeGen::DefaultTypeCodeGen}
+        end
+
+        unboxedname =  klass.name + "TypeUnboxedCodeGen"
+        begin
+          unboxmod = VM::TypeCodeGen.const_get(unboxedname)
+          unboxslf.instance_eval {include unboxmod}
+          
+        rescue NameError
+          unboxslf.instance_eval {include VM::TypeCodeGen::DefaultTypeCodeGen}
+        end
+
         @@unboxed_klass_tab[klass] = unboxslf
         @@box_to_unbox_tab[self] = unboxslf
         @@unbox_to_box_tab[unboxslf] = self

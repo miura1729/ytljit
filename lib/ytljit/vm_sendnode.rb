@@ -42,7 +42,6 @@ module YTLJit
         include HaveChildlenMixin
         include OptFlagOp
         include SendNodeCodeGen
-        include UtilCodeGen
         include NodeUtil
 
         @@current_node = nil
@@ -214,6 +213,9 @@ module YTLJit
               end
 
               context = arg.compile(context)
+              context.ret_node.decide_type_once(context)
+              rtype = context.ret_node.type
+              context = rtype.gen_boxing(context)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
@@ -341,7 +343,7 @@ module YTLJit
           @arguments[2].decide_type_once(context)
           slf = @arguments[2].type
 
-          if slf.instance_of?(DefaultType0) then
+          if slf.instance_of?(RubyType::DefaultType0) then
             # Chaos
             
           else
@@ -373,10 +375,13 @@ module YTLJit
           slfnode = @arguments[2]
           context.start_using_reg(TMPR2)
           context = slfnode.compile(context)
+
           context.ret_node.decide_type_once(context)
-          if context.ret_node.type.boxed then
-            slfreg = context.ret_reg
-            context = gen_unboxing(context)
+          rtype = context.ret_node.type
+          slfreg = context.ret_reg
+
+          context = rtype.gen_unboxing(context)
+          if slfreg != context.ret_reg then
             context.end_using_reg(slfreg)
           end
 
@@ -393,9 +398,10 @@ module YTLJit
           aele = @arguments[3]
           context = aele.compile(context)
           context.ret_node.decide_type_once(context)
-          if context.ret_node.type.boxed then
-            slfreg = context.ret_reg
-            context = gen_unboxing(context)
+          rtype = context.ret_node.type
+          slfreg = context.ret_reg
+          context = rtype.gen_unboxing(context)
+          if context.ret_reg != slfreg then
             context.end_using_reg(slfreg)
           end
 
@@ -416,9 +422,7 @@ module YTLJit
           context.ret_reg = TMPR
 
           decide_type_once(context)
-          if type.boxed then
-            context = gen_boxing(context)
-          end
+          context = type.gen_boxing(context)
 
           context
         end

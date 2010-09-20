@@ -211,7 +211,7 @@ LocalVarNode
               @type = RubyType::DefaultType0.new(Object)
 
             when 1
-              @type = tlist[0].to_box
+              @type = tlist[0].to_unbox
 
             else
               @type = RubyType::DefaultType0.new(Object)
@@ -711,7 +711,6 @@ LocalVarNode
       # Set result of method/block
       class SetResultNode<BaseNode
         include HaveChildlenMixin
-        include UtilCodeGen
 
         def initialize(parent, valnode)
           super(parent)
@@ -735,12 +734,13 @@ LocalVarNode
           context = @value_node.compile(context)
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
-              if @type.boxed then
-                context = gen_boxing(context)
+              context = @type.gen_boxing(context)
+              if context.ret_reg != RETR then
                 curas = context.assembler
                 curas.with_retry do
                   curas.mov(RETR, context.ret_reg)
                 end
+                
                 context.set_reg_content(RETR, context.ret_node)
               end
             else

@@ -315,57 +315,6 @@ LO        |                       |   |  |
     end
 
     module Node
-
-      module UtilCodeGen
-        include RubyType
-        def gen_boxing(context)
-          asm = context.assembler
-          valnode = context.ret_node
-          case valnode.type
-          when :FixnumType
-          else
-            val = context.ret_reg
-            vnode = context.ret_node
-            context.start_using_reg(TMPR)
-            asm.with_retry do
-              if val != TMPR then
-                asm.mov(TMPR, val)
-              end
-              asm.add(TMPR, TMPR)
-              asm.add(TMPR, OpImmidiate8.new(1))
-            end
-            context.set_reg_content(TMPR, vnode)
-            context.ret_reg = TMPR
-            context.ret_node = self
-#          else
-          end
-          context
-        end
-
-        def gen_unboxing(context)
-          valnode = context.ret_node
-          asm = context.assembler
-          case valnode.type
-          when :FixnumType
-          else
-            val = context.ret_reg
-            vnode = context.ret_node
-            context.start_using_reg(TMPR)
-            asm.with_retry do
-              if val != TMPR then
-                asm.mov(TMPR, val)
-              end
-              asm.sar(TMPR)
-            end
-            context.set_reg_content(TMPR, vnode)
-            context.ret_node = self
-            context.ret_reg = TMPR
-#          else
-          end
-          context
-        end
-      end
-
       module MethodTopCodeGen
         include AbsArch
         
@@ -475,6 +424,9 @@ LO        |                       |   |  |
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
+          context.ret_node.decide_type_once(context)
+          rtype = context.ret_node.type
+          context = rtype.gen_boxing(context)
           casm = context.assembler
           dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
           if context.ret_reg.is_a?(OpRegistor) or 
