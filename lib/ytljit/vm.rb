@@ -1124,7 +1124,11 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
+            context.ret_node.decide_type_once(context)
+            rtype = context.ret_node.type
+            context = rtype.gen_boxing(context)
             recval = context.ret_reg
+
             mnval = @name.address
                 
             objclass = OpMemAddress.new(address_of("rb_obj_class"))

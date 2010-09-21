@@ -612,6 +612,22 @@ module YTLJit
             (rexseq + [0x81] + modseq + [srcv]).pack("#{rexfmt}C#{modfmt}L")
           end
 
+        when OpImmidiate64
+          srcv = src.value
+
+          if small_integer_8bit?(srcv) then
+            return common_operand_80_imm8(dst, srcv, optc, inst)
+          end
+
+          rexseq, rexfmt = rex(dst, src)
+
+          if dst.class == OpEAX or dst.class == OpRAX then
+            [*rexseq, bopc + 0x5, srcv].pack("#{rexfmt}CQ")
+          else
+            modseq, modfmt = modrm(inst, optc, dst, dst, src)
+            (rexseq + [0x81] + modseq + [srcv]).pack("#{rexfmt}C#{modfmt}Q")
+          end
+
         when OpReg32, OpReg64
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, src, dst, dst, src)
@@ -893,11 +909,6 @@ module YTLJit
           rexseq, rexfmt = rex(dst, 0)
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
-
-        when OpImmidiate64
-          rexseq, rexfmt = rex(dst, 0)
-          modseq, modfmt = modrm(:mov, 0, dst, dst, src)
-          (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}Q")
 
         when Integer
           rexseq, rexfmt = rex(dst, 0)

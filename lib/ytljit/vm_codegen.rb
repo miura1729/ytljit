@@ -429,8 +429,9 @@ LO        |                       |   |  |
           context = rtype.gen_boxing(context)
           casm = context.assembler
           dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
-          if context.ret_reg.is_a?(OpRegistor) or 
-             context.ret_reg.is_a?(OpImmidiate) then
+          if  context.ret_reg.is_a?(OpRegistor) or 
+              context.ret_reg.is_a?(OpImmidiate32) or 
+              context.ret_reg.is_a?(OpImmidiate8) then
 
             casm.with_retry do
               casm.mov(dst, context.ret_reg)
