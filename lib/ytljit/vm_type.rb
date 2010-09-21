@@ -11,11 +11,11 @@ module YTLJit
         ocnode = nil
         while cnode
           ocnode = cnode
-          if key.zip(cnode.key).all? {|a, b| a == b } then
+          if key == cnode.key then
             return cnode
           end
           
-          if key.zip(cnode.key).all? {|a, b| b.is_a?(a.class) } then
+          if key == cnode.key then
             cnode = cnode.same_klass
             if cnode == nil then
               ocnode.same_klass = KlassTreeNode.new(key, value)
@@ -37,7 +37,7 @@ module YTLJit
         cnode = @node
 
         while cnode
-          if key.zip(cnode.key).all? {|a, b| a == b } then
+          if key == cnode.key then
             return cnode
           end
           
@@ -84,7 +84,9 @@ module YTLJit
         key = context.to_key
         tvs = @types_tree.search(key).value
         if tvs then
-          tvs.push type
+          if !tvs.include? type then
+            tvs.push type
+          end
         else
           # inherit types of most similar signature 
           ival = []
@@ -93,7 +95,7 @@ module YTLJit
             val.push ele
           end
 
-          if ival.all? {|ele| type.class != ele.class} then
+          if !ival.include? type then
             ival.push type
           end
         end
@@ -111,74 +113,70 @@ module YTLJit
       cn = nil
 
       if klass then
-        cn = (klass.name + "Type").to_sym
-        newc = nil
-        if !const_defined?(cn) then
-          supklass = define_wraped_class(klass.superclass)
-
-          newc = Class.new(supklass)
-          newc.instance_eval { related_ruby_class klass}
-          const_set(cn, newc)
-        else
-          newc = const_get(cn)
+        cn = klass.name.to_sym
+        basett, boxtt, unboxtt = BaseType.type_tab
+        if boxtt[cn] == nil then
+          BaseType.related_ruby_class(klass, base)
         end
 
-        newc
-      else
-        base
+        boxobj = boxtt[cn]
+        unboxobj = unboxtt[cn]
+        [boxobj, unboxobj]
       end
     end
           
     class BaseType
-      @@boxed_klass_tab = {}
-      @@unboxed_klass_tab = {}
+      @@base_type_tab = {}
+      @@boxed_type_tab = {}
+      @@unboxed_type_tab = {}
       @@box_to_unbox_tab = {}
       @@unbox_to_box_tab = {}
 
-      def self.related_ruby_class(klass)
-        @@boxed_klass_tab[klass] = self
-        unboxslf = Class.new(RubyTypeUnboxed)
+      def self.type_tab
+        [@@base_type_tab, @@boxed_type_tab, @@unboxed_type_tab]
+      end
 
-        boxedname =  klass.name + "TypeBoxedCodeGen"
-
+      def self.related_ruby_class(klass, base)
+        boxslf = RubyTypeBoxed.new(klass)
+        mixinname = klass.name + "TypeBoxedCodeGen"
         begin
-          boxmod = VM::TypeCodeGen.const_get(boxedname)
-          self.instance_eval {include boxmod}
-
+          mixin = VM::TypeCodeGen.const_get(mixinname)
+          boxslf.extend mixin
         rescue NameError
-          self.instance_eval {include VM::TypeCodeGen::DefaultTypeCodeGen}
+          boxslf.extend VM::TypeCodeGen::DefaultTypeCodeGen
         end
 
-        unboxedname =  klass.name + "TypeUnboxedCodeGen"
+        unboxslf = RubyTypeUnboxed.new(klass)
+        mixinname = klass.name + "TypeUnboxedCodeGen"
         begin
-          unboxmod = VM::TypeCodeGen.const_get(unboxedname)
-          unboxslf.instance_eval {include unboxmod}
-          
+          mixin = VM::TypeCodeGen.const_get(mixinname)
+          unboxslf.extend mixin
         rescue NameError
-          unboxslf.instance_eval {include VM::TypeCodeGen::DefaultTypeCodeGen}
+          unboxslf.extend VM::TypeCodeGen::DefaultTypeCodeGen
         end
 
-        @@unboxed_klass_tab[klass] = unboxslf
-        @@box_to_unbox_tab[self] = unboxslf
-        @@unbox_to_box_tab[unboxslf] = self
+        @@base_type_tab[klass] = unboxslf
+        @@boxed_type_tab[klass] = boxslf
+        @@unboxed_type_tab[klass] = unboxslf
+        @@box_to_unbox_tab[boxslf] = unboxslf
+        @@box_to_unbox_tab[unboxslf] = unboxslf
+        @@unbox_to_box_tab[unboxslf] = boxslf
+        @@unbox_to_box_tab[boxslf] = boxslf
+
+        [boxslf, unboxslf]
       end
 
       def self.from_object(obj)
-        klass =  @@boxed_klass_tab[obj.class]
-        if klass then
-          klass.new(obj.class)
-        else
-          DefaultType0.new(obj.class)
-        end
+        from_ruby_class(obj.class)
       end
 
       def self.from_ruby_class(rcls)
-        klass =  @@boxed_klass_tab[rcls]
-        if klass then
-          klass.new(rcls)
-        else
-          DefaultType0.new(rcls)
+        tobj =  @@base_type_tab[rcls]
+        if tobj == nil then
+          tobj = DefaultType0.new(rcls)
         end
+
+        tobj
       end
 
       def initialize(rtype)
@@ -200,6 +198,8 @@ module YTLJit
       def boxed
         true
       end
+
+      include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
     class RubyTypeBoxed<BaseType

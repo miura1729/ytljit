@@ -422,7 +422,9 @@ module YTLJit
           context.ret_reg = TMPR
 
           decide_type_once(context)
-          context = type.gen_boxing(context)
+          if type.boxed then
+            context = type.gen_boxing(context)
+          end
 
           context
         end

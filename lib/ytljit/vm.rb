@@ -161,7 +161,7 @@ LocalVarNode
         def merge_type(dst, src)
           res = dst
           src.each do |sele|
-            if dst.all? {|dele| sele.class != dele.class } then
+            if ! dst.include? sele then
               res.push sele
             end
           end
@@ -211,7 +211,7 @@ LocalVarNode
               @type = RubyType::DefaultType0.new(Object)
 
             when 1
-              @type = tlist[0].to_unbox
+              @type = tlist[0]
 
             else
               @type = RubyType::DefaultType0.new(Object)
@@ -344,7 +344,7 @@ LocalVarNode
 
         def find_cs_by_signature(sig)
           @code_spaces.each do |key, val|
-            if key.zip(sig).all? {|a, b| a.class == b.class} then
+            if key == sig then
               return val
             end
           end
