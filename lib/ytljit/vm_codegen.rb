@@ -125,9 +125,9 @@ LO        |                       |   |  |
       end
 
       def to_key
-        @current_method_signature_node[0].map { |enode|
+        @current_method_signature_node.last.map { |enode|
           if enode.is_a?(Node::BaseNode) then
-            enode.decide_type_once(context)
+            enode.decide_type_once(self)
             enode.type
           else
             enode
@@ -287,7 +287,7 @@ LO        |                       |   |  |
       end
 
       def to_key
-        @current_method_signature[0]
+        @current_method_signature.last
       end
 
       def end_using_reg(reg)

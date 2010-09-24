@@ -117,6 +117,7 @@ LocalVarNode
           # iv for type inference
           @type = nil
           @type_list = TypeUtil::TypeContainer.new
+          @element_node_list = []
           @type_inference_proc = cs
           @type_cache = nil
 
@@ -128,6 +129,7 @@ LocalVarNode
         attr          :id
 
         attr_accessor :type
+        attr_accessor :element_node_list
 
         def type_list(context)
           @type_list.type_list(context).value
@@ -174,9 +176,17 @@ LocalVarNode
           stlist = src.type_list(context)
           orgsize = dtlist.size
           dst.set_type_list(context, merge_type(dtlist, stlist))
-          p dst.type_list(context)
+
           if orgsize != dtlist.size then
             dst.type = nil
+            dst.ti_changed(context)
+          end
+
+          dtlist = dst.element_node_list
+          stlist = dst.element_node_list
+          orgsize = dtlist.size
+          dst.element_node_list = merge_type(dtlist, stlist)
+          if orgsize != dtlist.size then
             dst.ti_changed(context)
           end
         end
@@ -202,22 +212,25 @@ LocalVarNode
           context
         end
 
+        def decide_type_core(tlist)
+          tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
+          case tlist.size
+          when 0
+            RubyType::DefaultType0.new
+            
+          when 1
+            tlist[0]
+            
+          else
+            RubyType::DefaultType0.new
+          end
+        end
+
         def decide_type_once(context)
           unless @type
             tlist = @type_list.type_list(context).value
-            tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
-            case tlist.size
-            when 0
-              @type = RubyType::DefaultType0.new(Object)
-
-            when 1
-              @type = tlist[0]
-
-            else
-              @type = RubyType::DefaultType0.new(Object)
-            end
+            @type = decide_type_core(tlist)
           end
-
           context
         end
 
@@ -432,6 +445,17 @@ LocalVarNode
           context
         end
 
+        def disp_signature
+          tcontext = CompileContext.new(self)
+          @code_spaces.each do |sig, cs|
+            tcontext.current_method_signature.push sig
+            print sig, " -> "
+            tl = @type_list.type_list(tcontext).value
+            print decide_type_core(tl).inspect, "\n"
+            tcontext.current_method_signature.pop
+          end
+        end
+
         def compile(context)
           @code_spaces.each do |sig, cs|
             context.current_method_signature.push sig
@@ -442,6 +466,8 @@ LocalVarNode
             context = @body.compile(context)
             context.current_method_signature.pop
           end
+
+          disp_signature
           context
         end
       end
@@ -449,6 +475,7 @@ LocalVarNode
       # Top of method definition
       class MethodTopNode<TopNode
         include MethodTopCodeGen
+
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
           locals.unshift :_block
@@ -464,6 +491,7 @@ LocalVarNode
 
       class ClassTopNode<TopNode
         include MethodTopCodeGen
+
         def initialize(parent, klassobj, name = nil)
           super(parent, name)
           @nested_class_tab = {}
@@ -1082,22 +1110,13 @@ LocalVarNode
           context
         end
 
-        def signature(context)
-          res = []
-          @parent.arguments.each do |ele|
-            ele.decide_type_once(context)
-            res.push ele.type
-          end
-
-          res
-        end
-
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
-              cs = mtop.find_cs_by_signature(signature(context))
+              sig = @parent.signature(context)
+              cs = mtop.find_cs_by_signature(sig)
               context.ret_reg = cs.var_base_address
               @written_in = :ytl
             else
@@ -1236,7 +1255,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          @type_list.add_type(tyobj, context)
+          @type_list.add_type(@type, context)
           context
         end
 

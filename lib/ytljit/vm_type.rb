@@ -40,8 +40,21 @@ module YTLJit
           if key == cnode.key then
             return cnode
           end
-          
-          if key.zip(cnode.key).all? {|a, b| b.is_a?(a.class) } then
+
+          if key.zip(cnode.key).all? {|a, b| 
+              if a then
+                atype = a.ruby_type
+
+                if b then
+                  btype = b.ruby_type
+                  btype.is_a?(atype.class) 
+                else
+                  nil
+                end
+              else
+                return !b
+              end
+            } then
             cnode = cnode.same_klass
           else
             cnode = cnode.next_klass
@@ -82,10 +95,11 @@ module YTLJit
 
       def add_type(type, context)
         key = context.to_key
-        tvs = @types_tree.search(key).value
+        tvs = @types_tree.search(key)
         if tvs then
-          if !tvs.include? type then
-            tvs.push type
+          tvsv = tvs.value
+          if !tvsv.include? type then
+            tvsv.push type
           end
         else
           # inherit types of most similar signature 
@@ -101,9 +115,26 @@ module YTLJit
         end
       end
 
+      def add_node(context)
+        key = context.to_key
+        # inherit types of most similar signature 
+        ival = []
+        simnode = @types_tree.add(key, ival)
+        simnode.value.each do |ele|
+          ival.push ele
+        end
+
+        simnode
+      end
+
       def type_list(context)
         key = context.to_key
-        search_types(key)
+        res = search_types(key)
+        if res == nil then
+          res = add_node(context)
+        end
+        
+        res
       end
     end
   end
@@ -173,7 +204,7 @@ module YTLJit
       def self.from_ruby_class(rcls)
         tobj =  @@base_type_tab[rcls]
         if tobj == nil then
-          tobj = DefaultType0.new(rcls)
+          tobj = DefaultType0.new
         end
 
         tobj
@@ -191,8 +222,8 @@ module YTLJit
     # Same as VALUE type in MRI
     # Type0 makes you can define "Defalut" class 
     class DefaultType0<BaseType
-      def initialize(klass)
-        super
+      def initialize
+        super(Object)
       end
 
       def boxed

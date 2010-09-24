@@ -151,6 +151,16 @@ module YTLJit
           @body.collect_candidate_type(context)
         end
 
+        def signature(context)
+          res = []
+          @arguments.each do |ele|
+            ele.decide_type_once(context)
+            res.push ele.type
+          end
+
+          res
+        end
+
         def compile(context)
           context = super(context)
           # it is legal. TMPR2 uses in method select
@@ -370,6 +380,7 @@ module YTLJit
         end
 
         def compile(context)
+          context.current_method_signature.push signature(context)
 
           # eval 1st arg(self)
           slfnode = @arguments[2]
@@ -426,6 +437,7 @@ module YTLJit
             context = type.gen_boxing(context)
           end
 
+          context.current_method_signature.pop
           context
         end
       end
