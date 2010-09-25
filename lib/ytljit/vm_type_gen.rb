@@ -2,6 +2,13 @@ module YTLJit
   module VM
     module TypeCodeGen
       module DefaultTypeCodeGen
+        def instance
+          self
+        end
+
+        def init_type
+        end
+
         def gen_boxing(context)
           context
         end

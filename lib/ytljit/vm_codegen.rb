@@ -125,7 +125,8 @@ LO        |                       |   |  |
       end
 
       def to_key
-        @current_method_signature_node.last.map { |enode|
+        cursig = @current_method_signature_node.pop
+        res = cursig.map { |enode|
           if enode.is_a?(Node::BaseNode) then
             enode.decide_type_once(self)
             enode.type
@@ -133,6 +134,8 @@ LO        |                       |   |  |
             enode
           end
         }
+        @current_method_signature_node.push cursig
+        res
       end
 
       attr          :top_node

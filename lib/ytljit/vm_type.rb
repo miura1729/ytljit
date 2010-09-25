@@ -174,7 +174,6 @@ module YTLJit
           mixin = VM::TypeCodeGen.const_get(mixinname)
           boxslf.extend mixin
         rescue NameError
-          boxslf.extend VM::TypeCodeGen::DefaultTypeCodeGen
         end
 
         unboxslf = RubyTypeUnboxed.new(klass)
@@ -183,7 +182,6 @@ module YTLJit
           mixin = VM::TypeCodeGen.const_get(mixinname)
           unboxslf.extend mixin
         rescue NameError
-          unboxslf.extend VM::TypeCodeGen::DefaultTypeCodeGen
         end
 
         @@base_type_tab[klass] = unboxslf
@@ -204,10 +202,10 @@ module YTLJit
       def self.from_ruby_class(rcls)
         tobj =  @@base_type_tab[rcls]
         if tobj == nil then
-          tobj = DefaultType0.new
+          DefaultType0.new
+        else
+          tobj.instance
         end
-
-        tobj
       end
 
       def initialize(rtype)
@@ -245,6 +243,8 @@ module YTLJit
       def to_box
         self
       end
+
+      include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
     class RubyTypeUnboxed<BaseType
@@ -259,6 +259,8 @@ module YTLJit
       def to_unbox
         self
       end
+
+      include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
     YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
