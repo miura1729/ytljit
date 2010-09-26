@@ -131,6 +131,12 @@ module YTLJit
         rcode  += @asm.update_state(call_stephandler)
         @asm.current_address = orgaddress
         return rcode
+
+      when OpRegXMM
+        case inst
+        when :mov
+          @asm.update_state(movsd(dst, src))
+        end
       end
 
       case dst
@@ -141,6 +147,12 @@ module YTLJit
         rcode  += @asm.update_state(call_stephandler)
         @asm.current_address = orgaddress
         return rcode
+
+      when OpRegXMM
+        case inst
+        when :mov
+          @asm.update_state(movsd(dst, src))
+        end
       end
 
       super

@@ -34,7 +34,8 @@ module YTLJit
       end
 
       fainfo.used_arg_tab[@no] = size
-      unless inst == :mov and src == TMPR then
+      if !(inst == :mov and src == TMPR) and
+          (!dst.is_a?(OpRegXMM) and !src.is_a?(OpRegXMM)) then
         code += asm.update_state(gen.send(inst, TMPR, src))
       end
       code += asm.update_state(gen.mov(argdst, TMPR))

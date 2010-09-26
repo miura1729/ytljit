@@ -84,7 +84,7 @@ module YTLJit
           @frame_info = search_frame_info
 
           @modified_instance_var = nil
-          @modified_local_var = nil
+          @modified_local_var = [{}]
         end
 
         attr_accessor :func
@@ -134,13 +134,13 @@ module YTLJit
           if is_fcall or is_vcall then
             mt = @class_top.method_tab[@func.name]
           else
-            @arguments[2].decide_type_once(context)
+            @arguments[2].decide_type_once(context.to_key)
             slf = @arguments[2].type
             mt = @class_top.method_tab[slf.ruby_type.name]
           end
           
           if mt then
-            same_type(self, mt, context)
+            same_type(self, mt, context.to_key, context.to_key)
             signode = []
             @arguments.each do |arg|
               signode.push arg
@@ -154,7 +154,7 @@ module YTLJit
         def signature(context)
           res = []
           @arguments.each do |ele|
-            ele.decide_type_once(context)
+            ele.decide_type_once(context.to_key)
             res.push ele.type
           end
 
@@ -223,7 +223,7 @@ module YTLJit
               end
 
               context = arg.compile(context)
-              context.ret_node.decide_type_once(context)
+              context.ret_node.decide_type_once(context.to_key)
               rtype = context.ret_node.type
               context = rtype.gen_boxing(context)
               casm = context.assembler
@@ -350,7 +350,7 @@ module YTLJit
             context = rec.collect_candidate_type(context)
           }
           mt = nil
-          @arguments[2].decide_type_once(context)
+          @arguments[2].decide_type_once(context.to_key)
           slf = @arguments[2].type
 
           if slf.instance_of?(RubyType::DefaultType0) then
@@ -360,7 +360,7 @@ module YTLJit
             mt = @class_top.method_tab[slf.ruby_type.name]
             if mt then
               # for redefined method
-              same_type(self, mt, context)
+              same_type(self, mt, context.to_key, context.to_key)
               signode = []
               @arguments.each do |arg|
                 signode.push arg
@@ -370,8 +370,9 @@ module YTLJit
               # regident method
               case [slf.ruby_type]
               when [Fixnum], [Float], [String]
-                same_type(@arguments[3], @arguments[2], context)
-                same_type(self, @arguments[2], context)
+                same_type(@arguments[3], @arguments[2], 
+                          context.to_key, context.to_key)
+                same_type(self, @arguments[2], context.to_key, context.to_key)
               end
             end
           end
@@ -387,7 +388,7 @@ module YTLJit
           context.start_using_reg(TMPR2)
           context = slfnode.compile(context)
 
-          context.ret_node.decide_type_once(context)
+          context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
           slfreg = context.ret_reg
 
@@ -408,7 +409,7 @@ module YTLJit
           # eval 2nd arguments and added
           aele = @arguments[3]
           context = aele.compile(context)
-          context.ret_node.decide_type_once(context)
+          context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
           slfreg = context.ret_reg
           context = rtype.gen_unboxing(context)
@@ -432,7 +433,7 @@ module YTLJit
           context.ret_node = self
           context.ret_reg = TMPR
 
-          decide_type_once(context)
+          decide_type_once(context.to_key)
           if type.boxed then
             context = type.gen_boxing(context)
           end

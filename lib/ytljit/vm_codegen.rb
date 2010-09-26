@@ -98,7 +98,7 @@ LO        |                       |   |  |
             res = lvs.map {|lvt| lvt.dup}
           end
         end
-      
+
         @modified_local_var = res
       end
 
@@ -124,17 +124,16 @@ LO        |                       |   |  |
         @current_method_signature_node = []
       end
 
-      def to_key
-        cursig = @current_method_signature_node.pop
+      def to_key(offset = -1)
+        cursig = @current_method_signature_node[offset]
         res = cursig.map { |enode|
           if enode.is_a?(Node::BaseNode) then
-            enode.decide_type_once(self)
+            enode.decide_type_once(to_key(offset - 1))
             enode.type
           else
             enode
           end
         }
-        @current_method_signature_node.push cursig
         res
       end
 
@@ -289,8 +288,8 @@ LO        |                       |   |  |
         end
       end
 
-      def to_key
-        @current_method_signature.last
+      def to_key(offset = -1)
+        @current_method_signature[offset]
       end
 
       def end_using_reg(reg)
@@ -427,7 +426,7 @@ LO        |                       |   |  |
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
-          context.ret_node.decide_type_once(context)
+          context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
           context = rtype.gen_boxing(context)
           casm = context.assembler

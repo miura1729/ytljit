@@ -2,6 +2,7 @@ require "rubygems"
 
 require 'tempfile'
 require 'rbconfig'
+require 'pp'
 if $ruby_platform == nil then
   $ruby_platform = RUBY_PLATFORM
 end

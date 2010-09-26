@@ -15,11 +15,11 @@ module YTLJit
             return cnode
           end
           
-          if key == cnode.key then
+          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)}  then
             cnode = cnode.same_klass
             if cnode == nil then
               ocnode.same_klass = KlassTreeNode.new(key, value)
-              return snode
+              return ocnode.same_klass
             else
               snode = cnode
             end
@@ -27,7 +27,7 @@ module YTLJit
             cnode = cnode.next_klass
             if cnode == nil then
               ocnode.next_klass = KlassTreeNode.new(key, value)
-              return snode
+              return ocnode.next_klass
             end
           end
         end
@@ -85,16 +85,15 @@ module YTLJit
         @types_tree = KlassTree.new
       end
 
-      def to_key(context)
-        context.current_method_signature.last
+      def to_key(context, offset = -1)
+        context.current_method_signature[offset]
       end
 
       def search_types(key)
         @types_tree.search(key)
       end
 
-      def add_type(type, context)
-        key = context.to_key
+      def add_type(type, key)
         tvs = @types_tree.search(key)
         if tvs then
           tvsv = tvs.value
@@ -105,9 +104,11 @@ module YTLJit
           # inherit types of most similar signature 
           ival = []
           simnode = @types_tree.add(key, ival)
+=begin
           simnode.value.each do |ele|
-            val.push ele
+            ival.push ele
           end
+=end
 
           if !ival.include? type then
             ival.push type
@@ -115,23 +116,23 @@ module YTLJit
         end
       end
 
-      def add_node(context)
-        key = context.to_key
+      def add_node(key)
         # inherit types of most similar signature 
         ival = []
         simnode = @types_tree.add(key, ival)
+=begin
         simnode.value.each do |ele|
           ival.push ele
         end
+=end
 
         simnode
       end
 
-      def type_list(context)
-        key = context.to_key
+      def type_list(key)
         res = search_types(key)
         if res == nil then
-          res = add_node(context)
+          res = add_node(key)
         end
         
         res
@@ -263,8 +264,8 @@ module YTLJit
       include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
-    YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeUnboxed)
+    YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(Float, RubyTypeUnboxed)
   end
 end

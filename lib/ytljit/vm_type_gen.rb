@@ -69,6 +69,34 @@ module YTLJit
           context
         end
       end
+
+      module FloatTypeBoxedCodeGen
+        include AbsArch
+
+        def gen_boxing(context)
+          p "boxingaaa"
+          context
+        end
+
+        def gen_unboxing(context)
+          p "inboxing"
+          context
+        end
+      end
+
+      module FloatTypeUnboxedCodeGen
+        include AbsArch
+
+        def gen_boxing(context)
+          p "boxing"
+          context
+        end
+
+        def gen_unboxing(context)
+          p "unboxing"
+          context
+        end
+      end
     end
   end
 end
