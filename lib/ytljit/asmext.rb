@@ -67,12 +67,26 @@ module YTLJit
   class FunctionArgument
     def initialize(no, kind)
       @no = no
-      @kind = kind
+      @abi_kind = kind
     end
+  end
 
+  class FunctionArgumentInt<FunctionArgument
     case $ruby_platform
     when /x86_64/
-      include FunctionArgumentX64Mixin
+      include FunctionArgumentX64MixinCommon
+      include FunctionArgumentX64MixinInt
+
+    when /i.86/
+      include FunctionArgumentX86Mixin
+    end
+  end
+
+  class FunctionArgumentFloat<FunctionArgument
+    case $ruby_platform
+    when /x86_64/
+      include FunctionArgumentX64MixinCommon
+      include FunctionArgumentX64MixinFloat
 
     when /i.86/
       include FunctionArgumentX86Mixin

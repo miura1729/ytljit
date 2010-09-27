@@ -299,8 +299,14 @@ module YTLJit
             context.end_using_reg(fnc)
           end
           
+          decide_type_once(context.to_key)
+          if @type.is_a?(RubyType::RubyTypeUnboxed) and 
+              @type.ruby_type == Float then
+            context.ret_reg = XMM0
+          else
+            context.ret_reg = RETR
+          end
           context.ret_node = self
-          context.ret_reg = RETR
 
           context.end_using_reg(TMPR2)
           context = @body.compile(context)

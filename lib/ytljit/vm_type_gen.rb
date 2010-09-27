@@ -88,7 +88,17 @@ module YTLJit
         include AbsArch
 
         def gen_boxing(context)
-          p "boxing"
+          asm = context.assembler
+          val = context.ret_reg
+          vnode = context.ret_node
+          context.start_using_reg(FUNC_FLOAT_ARG[0])
+          rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
+          asm.with_retry do
+            asm.mov(FUNC_FLOAT_ARG[0], val)
+            asm.call(rbfloatnew)
+          end
+          context.end_using_reg(FUNC_FLOAT_ARG[0])
+          context.ret_reg = RETR
           context
         end
 

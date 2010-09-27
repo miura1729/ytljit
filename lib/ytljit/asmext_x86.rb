@@ -3,7 +3,7 @@ module YTLJit
     include AbsArch
 
     def size
-      case @kind
+      case @abi_kind
       when :c 
         Type::MACHINE_WORD.size
 
@@ -34,11 +34,14 @@ module YTLJit
       end
 
       fainfo.used_arg_tab[@no] = size
-      if !(inst == :mov and src == TMPR) and
-          (!dst.is_a?(OpRegXMM) and !src.is_a?(OpRegXMM)) then
-        code += asm.update_state(gen.send(inst, TMPR, src))
+      if src.is_a?(OpRegXMM) then
+        code += asm.update_state(gen.movsd(argdst, src))
+      else
+        unless inst == :mov and src == TMPR
+          code += asm.update_state(gen.send(inst, TMPR, src))
+        end
+        code += asm.update_state(gen.mov(argdst, TMPR))
       end
-      code += asm.update_state(gen.mov(argdst, TMPR))
       code
     end
 

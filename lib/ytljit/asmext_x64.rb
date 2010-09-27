@@ -3,13 +3,14 @@ module YTLJit
     include AbsArch
     include X64
     ARGPOS2REG = [RDI, RSI, RDX, RCX, R8, R9]
+    ARGPOS2FREG = [XMM0, XMM1, XMM2, XMM3]
   end
 
-  module FunctionArgumentX64Mixin
+  module FunctionArgumentX64MixinInt
     include FuncArgX64CommonMixin
 
     def argpos2reg
-      case @kind
+      case @abi_kind
       when :c
         ARGPOS2REG
 
@@ -17,9 +18,30 @@ module YTLJit
         []
 
       else
-        raise "#{@kind}"
+        raise "#{@abi_kind}"
       end
     end
+  end
+
+  module FunctionArgumentX64MixinFloat
+    include FuncArgX64CommonMixin
+
+    def argpos2reg
+      case @abi_kind
+      when :c
+        ARGPOS2FREG
+
+      when :ytl
+        []
+
+      else
+        raise "#{@abi_kind}"
+      end
+    end
+  end
+
+  module FunctionArgumentX64MixinCommon
+    include FuncArgX64CommonMixin
 
     def dst_opecode
       if @no < argpos2reg.size then
@@ -69,10 +91,14 @@ module YTLJit
         spos = @no - argpos2reg.size
         argdst = OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
 
-        unless inst == :mov and src == TMPR then
-          code += asm.update_state(gen.send(inst, TMPR, src))
+        if src.is_a?(OpRegXMM) then
+          code += asm.update_state(gen.movsd(argdst, src))
+        else
+          unless inst == :mov and src == TMPR
+            code += asm.update_state(gen.send(inst, TMPR, src))
+          end
+          code += asm.update_state(gen.mov(argdst, TMPR))
         end
-        code += asm.update_state(gen.mov(argdst, TMPR))
       end
 
       fainfo.used_arg_tab[@no] = @size
@@ -105,8 +131,12 @@ module YTLJit
       when OpIndirect
         case src
         when Integer
-          src2 = OpImmidiate64.new(src)
-          mov(dst, src2)
+          disp = dst.disp
+          dst2 = dst.class.new(dst.reg, disp + 4)
+          bit32val = 1 << 32
+          code = mov(dst2, src / bit32val)
+          code += mov(dst, src % bit32val)
+          code
         else
           nosupported_addressing_mode(:mov64, dst, src)
         end

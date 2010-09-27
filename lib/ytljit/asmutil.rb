@@ -106,10 +106,16 @@ module YTLJit
     INDIRECT_SPR = OpIndirect.new(SPR)
     INDIRECT_BPR = OpIndirect.new(BPR)
     FUNC_ARG = Hash.new {|hash, key| 
-      hash[key] = FunctionArgument.new(key, :c)
+      hash[key] = FunctionArgumentInt.new(key, :c)
+    }
+    FUNC_FLOAT_ARG = Hash.new {|hash, key| 
+      hash[key] = FunctionArgumentFloat.new(key, :c)
     }
     FUNC_ARG_YTL = Hash.new {|hash, key| 
-      hash[key] = FunctionArgument.new(key, :ytl)
+      hash[key] = FunctionArgumentInt.new(key, :ytl)
+    }
+    FUNC_FLOAT_ARG_YTL = Hash.new {|hash, key| 
+      hash[key] = FunctionArgumentFloat.new(key, :ytl)
     }
   end
 
