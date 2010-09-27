@@ -101,8 +101,18 @@ module YTLJit
     include FuncArgX64CommonMixin
 
     def mov64(dst, src)
-      src2 = OpImmidiate64.new(src)
-      @asm.update_state(mov(dst, src2))
+      case dst
+      when OpIndirect
+        case src
+        when Integer
+          src2 = OpImmidiate64.new(src)
+          mov(dst, src2)
+        else
+          nosupported_addressing_mode(:mov64, dst, src)
+        end
+      else
+        nosupported_addressing_mode(:mov64, dst, src)
+      end
     end
 
     def call_with_arg_get_argsize(addr, argnum)

@@ -140,7 +140,7 @@ module YTLJit
           end
           
           if mt then
-            same_type(self, mt, context.to_key, context.to_key)
+            same_type(self, mt, context.to_key, signature(context))
             signode = []
             @arguments.each do |arg|
               signode.push arg

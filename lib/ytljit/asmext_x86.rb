@@ -67,8 +67,8 @@ module YTLJit
           disp = dst.disp
           dst2 = dst.class.new(dst.reg, disp + 4)
           bit32val = 1 << 32
-          code = @asm.update_state(mov(dst2, src / bit32val))
-          code += @asm.update_state(mov(dst, src % bit32val))
+          code = mov(dst2, src / bit32val)
+          code += mov(dst, src % bit32val)
           code
         else
           nosupported_addressing_mode(:mov64, dst, src)

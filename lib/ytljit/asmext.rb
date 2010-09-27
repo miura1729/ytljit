@@ -135,7 +135,7 @@ module YTLJit
       when OpRegXMM
         case inst
         when :mov
-          @asm.update_state(movsd(dst, src))
+          return movsd(dst, src)
         end
       end
 
@@ -151,7 +151,7 @@ module YTLJit
       when OpRegXMM
         case inst
         when :mov
-          @asm.update_state(movsd(dst, src))
+          return movsd(dst, src)
         end
       end
 
