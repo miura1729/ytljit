@@ -49,7 +49,7 @@ def hello2
   # registor definition
   hello ="Hello World11234".address
 #  asm.step_mode = true
-  RubyType::rstring_ptr(hello, csentry, cs)
+  InternalRubyType::rstring_ptr(hello, csentry, cs)
   asm.with_retry do
     asm.mov(FUNC_ARG[0], TMPR)
     rbp = address_of("puts")

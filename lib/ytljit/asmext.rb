@@ -21,7 +21,7 @@ module YTLJit
       asm = gen.asm
       base = @entity
       case @type
-      when Type::Scalar, Type::Pointer, Type::Array
+      when AsmType::Scalar, AsmType::Pointer, AsmType::Array
         if base != TMPR then
           code = ""
           code += asm.update_state(gen.mov(TMPR, base))
@@ -30,13 +30,13 @@ module YTLJit
           ["", @type]
         end
 
-      when Type::StructMember
+      when AsmType::StructMember
         code = ""
         if base != TMPR then
           code += asm.update_state(gen.mov(TMPR, base))
         end
         oi = OpIndirect.new(TMPR, @type.offset)
-        if @type.type.is_a?(Type::Array) then
+        if @type.type.is_a?(AsmType::Array) then
           code += asm.update_state(gen.call_stephandler) if code != ""
           code += asm.update_state(gen.lea(TMPR, oi))
         else
@@ -45,7 +45,7 @@ module YTLJit
         end
         [code, @type.type]
 
-      when Type::PointedData
+      when AsmType::PointedData
         # Now support only index == 0
         code = ""
         if base != TMPR then

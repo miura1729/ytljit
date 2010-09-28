@@ -1,5 +1,5 @@
 module YTLJit
-  module Type
+  module AsmType
     class StructMember<TypeCommon
       def initialize(type, offset)
         @type = type

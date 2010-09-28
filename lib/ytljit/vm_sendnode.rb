@@ -177,7 +177,7 @@ module YTLJit
               context.start_using_reg(FUNC_ARG[1])
               context.start_using_reg(FUNC_ARG[2])
 
-              context.cpustack_pushn(3 * Type::MACHINE_WORD.size)
+              context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
@@ -196,7 +196,7 @@ module YTLJit
               
               context = gen_call(context, fnc, 3)
 
-              context.cpustack_popn(3 * Type::MACHINE_WORD.size)
+              context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
               context.end_using_reg(FUNC_ARG[2])
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
@@ -211,7 +211,7 @@ module YTLJit
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG[i])
             end
-            context.cpustack_pushn(numarg * Type::MACHINE_WORD.size)
+            context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
 
             argpos = 0
             cursrc = 0
@@ -238,7 +238,7 @@ module YTLJit
 
             context = gen_call(context, fnc, numarg)
 
-            context.cpustack_popn(numarg * Type::MACHINE_WORD.size)
+            context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
             numarg.times do |i|
               context.end_using_reg(FUNC_ARG[numarg - i - 1])
             end

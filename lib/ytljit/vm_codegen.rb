@@ -189,7 +189,7 @@ LO        |                       |   |  |
             @reg_content[dst] = val
           end
         elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
-          wsiz = Type::MACHINE_WORD.size
+          wsiz = AsmType::MACHINE_WORD.size
           if val.is_a?(OpRegistor)
             cpustack_setn(-dst.disp.value / wsiz, @reg_content[val])
           else
@@ -213,14 +213,14 @@ LO        |                       |   |  |
       end
 
       def cpustack_pushn(num)
-        wsiz = Type::MACHINE_WORD.size
+        wsiz = AsmType::MACHINE_WORD.size
         (num / wsiz).times do |i|
           @stack_content.push 1.2
         end
       end
 
       def cpustack_popn(num)
-        wsiz = Type::MACHINE_WORD.size
+        wsiz = AsmType::MACHINE_WORD.size
         (num / wsiz).times do |i|
           @stack_content.pop
         end
@@ -407,18 +407,18 @@ LO        |                       |   |  |
       
       def gen_make_argv(context)
         casm = context.assembler
-        rarg = @arguments[2..-1]
+        rarg = @arguments[3..-1]
 
 =begin
         # adjust stack pointer
         casm.with_retry do
-          casm.sub(SPR, rarg.size * Type::MACHINE_WORD.size)
+          casm.sub(SPR, rarg.size * AsmType::MACHINE_WORD.size)
         end
 =end
         
         # make argv
         casm = context.assembler
-        argbyte = rarg.size * Type::MACHINE_WORD.size
+        argbyte = rarg.size * AsmType::MACHINE_WORD.size
         casm.with_retry do
           casm.sub(SPR, argbyte)
         end
@@ -430,7 +430,7 @@ LO        |                       |   |  |
           rtype = context.ret_node.type
           context = rtype.gen_boxing(context)
           casm = context.assembler
-          dst = OpIndirect.new(SPR, i * Type::MACHINE_WORD.size)
+          dst = OpIndirect.new(SPR, i * AsmType::MACHINE_WORD.size)
           if  context.ret_reg.is_a?(OpRegistor) or 
               context.ret_reg.is_a?(OpImmidiate32) or 
               context.ret_reg.is_a?(OpImmidiate8) then

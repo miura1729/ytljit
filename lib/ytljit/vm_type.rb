@@ -210,7 +210,7 @@ module YTLJit
       end
 
       def initialize(rtype)
-        @asm_type = Type::MACHINE_WORD
+        @asm_type = AsmType::MACHINE_WORD
         @ruby_type = rtype
       end
 

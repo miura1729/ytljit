@@ -119,31 +119,36 @@ module YTLJit
     }
   end
 
-  module RubyType
+  module InternalRubyType
     include AbsArch
-    VALUE = Type::MACHINE_WORD
-    P_CHAR = Type::Pointer.new(Type::INT8)
+    VALUE = AsmType::MACHINE_WORD
+    P_CHAR = AsmType::Pointer.new(AsmType::INT8)
 
-    RBasic = Type::Struct.new(
+    RBasic = AsmType::Struct.new(
               VALUE, :flags,
               VALUE, :klass
              )
-    RString = Type::Struct.new(
+    RString = AsmType::Struct.new(
                RBasic, :basic,
-               Type::Union.new(
-                Type::Struct.new(
-                 Type::INT32, :len,
+               AsmType::Union.new(
+                AsmType::Struct.new(
+                 AsmType::INT32, :len,
                  P_CHAR, :ptr,
-                 Type::Union.new(
-                   Type::INT32, :capa,
+                 AsmType::Union.new(
+                   AsmType::INT32, :capa,
                    VALUE, :shared,
                  ), :aux
                 ), :heap,
-                Type::Array.new(
-                   Type::INT8,
+                AsmType::Array.new(
+                   AsmType::INT8,
                    24
                 ), :ary
                ), :as
+              )
+
+    RFloat = AsmType::Struct.new(
+               RBasic, :basic,
+               AsmType::DOUBLE, :float_value
               )
 
     EMBEDER_FLAG = (1 << 13)
@@ -151,7 +156,7 @@ module YTLJit
       cs_embed = CodeSpace.new
 
       asm = Assembler.new(csstart)
-      rsstr = TypedData.new(RubyType::RString, str)
+      rsstr = TypedData.new(InternalRubyType::RString, str)
       # asm.step_mode = true
       asm.with_retry do
         asm.mov(TMPR, rsstr[:basic][:flags])

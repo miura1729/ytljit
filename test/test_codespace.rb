@@ -1,5 +1,5 @@
 require 'test/unit'
-require 'lib/ytljit/ytljit.rb'
+require 'ytljit.rb'
 
 class CodeSpaceTests < Test::Unit::TestCase
   include YTLJit

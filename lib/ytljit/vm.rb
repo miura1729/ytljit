@@ -687,7 +687,7 @@ LocalVarNode
         end
 
         def size
-          Type::MACHINE_WORD.size
+          AsmType::MACHINE_WORD.size
         end
 
         def compile(context)
@@ -1046,7 +1046,7 @@ LocalVarNode
               val = val.boxing
               context.ret_reg = OpImmidiateMachineWord.new(val)
             else
-              offm4 = OpIndirect.new(SPR, -Type::DOUBLE.size)
+              offm4 = OpIndirect.new(SPR, -AsmType::DOUBLE.size)
               asm = context.assembler
               context.start_using_reg(XMM0)
               asm.with_retry do

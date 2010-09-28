@@ -1,6 +1,6 @@
 module YTLJit
 
-  module Type
+  module AsmType
     class TypeCommon
       def initialize
         @type = nil

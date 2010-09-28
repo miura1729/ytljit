@@ -5,7 +5,7 @@ module YTLJit
     def size
       case @abi_kind
       when :c 
-        Type::MACHINE_WORD.size
+        AsmType::MACHINE_WORD.size
 
       when :ytl
         8

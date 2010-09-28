@@ -1,5 +1,5 @@
 require 'test/unit'
-require 'lib/ytljit/ytljit.rb'
+require 'ytljit.rb'
 
 include YTLJit
 class InstructionTests < Test::Unit::TestCase
@@ -76,22 +76,22 @@ class InstructionTests < Test::Unit::TestCase
       fp.write @asm.rcr(@eax, 2)
       fp.write @asm.rol(@eax, 2)
       fp.write @asm.ror(@eax, 2)
-      st = Type::Struct.new(
-                          Type::INT32, :foo,
-                          Type::INT32, :bar,
-                          Type::Struct.new(
-                                 Type::INT32, :kkk,
-                                 Type::INT32, :ass,
-                                 Type::INT32, :baz,
+      st = AsmType::Struct.new(
+                          AsmType::INT32, :foo,
+                          AsmType::INT32, :bar,
+                          AsmType::Struct.new(
+                                 AsmType::INT32, :kkk,
+                                 AsmType::INT32, :ass,
+                                 AsmType::INT32, :baz,
                                             ), :aaa,
-                           Type::INT32, :baz
+                           AsmType::INT32, :baz
                           )
       foo = TypedData.new(st, X86::EAX)
       cd, foo = @asm.mov(X86::EAX, foo[:baz])
       fp.write cd
 =end
     hello = OpImmidiate32.new("Hello World".address)
-    rshello = TypedData.new(RubyType::RString, hello)
+    rshello = TypedData.new(InternalRubyType::RString, hello)
       cd, foo = @asm.mov(X86::EAX, rshello[:as][:heap][:ptr])
     fp.write cd
     fp.write @asm.push(X86::EAX)
@@ -103,25 +103,25 @@ class InstructionTests < Test::Unit::TestCase
   end
 
   def test_struct
-    st = Type::Struct.new(
-                          Type::INT32, :foo,
-                          Type::INT32, :bar,
-                          Type::INT32, :baz
+    st = AsmType::Struct.new(
+                          AsmType::INT32, :foo,
+                          AsmType::INT32, :bar,
+                          AsmType::INT32, :baz
                           )
     foo = TypedData.new(st, X86::EAX)
     cd, type = @asm.mov(X86::EAX, foo[:baz])
     assert_equal(cd, 
                  [0x8b, 0x80, 0x8, 0x0, 0x0, 0x0].pack("C*"))
 
-     st = Type::Struct.new(
-                          Type::INT32, :foo,
-                          Type::INT32, :bar,
-                          Type::Struct.new(
-                                 Type::INT32, :kkk,
-                                 Type::INT32, :ass,
-                                 Type::INT32, :baz,
+     st = AsmType::Struct.new(
+                          AsmType::INT32, :foo,
+                          AsmType::INT32, :bar,
+                          AsmType::Struct.new(
+                                 AsmType::INT32, :kkk,
+                                 AsmType::INT32, :ass,
+                                 AsmType::INT32, :baz,
                                             ), :aaa,
-                           Type::INT32, :baz
+                           AsmType::INT32, :baz
                           )
     foo = TypedData.new(st, X86::EBX)
     cd, type = @asm.mov(X86::EDX, foo[:aaa][:baz])
