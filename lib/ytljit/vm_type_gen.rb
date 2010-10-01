@@ -25,7 +25,6 @@ module YTLJit
           asm = context.assembler
           val = context.ret_reg
           vnode = context.ret_node
-          context.start_using_reg(TMPR)
           asm.with_retry do
             if val != TMPR then
               asm.mov(TMPR, val)
@@ -56,7 +55,6 @@ module YTLJit
           asm = context.assembler
           val = context.ret_reg
           vnode = context.ret_node
-          context.start_using_reg(TMPR)
           asm.with_retry do
             if val != TMPR then
               asm.mov(TMPR, val)

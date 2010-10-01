@@ -94,10 +94,12 @@ module YTLJit
         if src.is_a?(OpRegXMM) then
           code += asm.update_state(gen.movsd(argdst, src))
         else
-          unless inst == :mov and src == TMPR
+          if inst == :mov and !src.is_a?(OpRegistor) then
             code += asm.update_state(gen.send(inst, TMPR, src))
+            code += asm.update_state(gen.mov(argdst, TMPR))
+          else
+            code += asm.update_state(gen.mov(argdst, src))
           end
-          code += asm.update_state(gen.mov(argdst, TMPR))
         end
       end
 

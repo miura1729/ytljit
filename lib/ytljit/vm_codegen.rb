@@ -438,16 +438,12 @@ LO        |                       |   |  |
             casm.with_retry do
               casm.mov(dst, context.ret_reg)
             end
-            context.end_using_reg(context.ret_reg)
 
           else
-            context.start_using_reg(TMPR)
             casm.with_retry do
               casm.mov(TMPR, context.ret_reg)
               casm.mov(dst, TMPR)
             end
-            context.end_using_reg(TMPR)
-            context.end_using_reg(context.ret_reg)
           end
           context.cpustack_setn(i, context.ret_node)
         end

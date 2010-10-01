@@ -103,6 +103,11 @@ module YTLJit
           yield @func
         end
 
+        def collect_candidate_type_regident(context, slf)
+          p @func.name
+          context
+        end
+
         def collect_info(context)
           traverse_childlen {|rec|
             context = rec.collect_info(context)
@@ -136,16 +141,23 @@ module YTLJit
           else
             @arguments[2].decide_type_once(context.to_key)
             slf = @arguments[2].type
-            mt = @class_top.method_tab[slf.ruby_type.name]
+            if slf.instance_of?(RubyType::DefaultType0) then
+              # Chaos
+            else
+              mt = @class_top.method_tab[slf.ruby_type.name]
+            end
           end
           
           if mt then
             same_type(self, mt, context.to_key, signature(context))
+            same_type(mt, self, signature(context), context.to_key)
             signode = []
             @arguments.each do |arg|
               signode.push arg
             end
             context = mt.collect_candidate_type(context, signode)
+          else
+            context = collect_candidate_type_regident(context, slf)
           end
 
           @body.collect_candidate_type(context)
@@ -163,56 +175,57 @@ module YTLJit
 
         def compile(context)
           context = super(context)
-          # it is legal. TMPR2 uses in method select
+
           context.start_using_reg(TMPR2)
-          context.set_reg_content(TMPR2, :nil)
+          context.start_using_reg(TMPR3)
+          # Method Select
+          # it is legal. use TMPR2 for method select
+          # use TMPR3 for store self
           context = @func.compile(context)
           fnc = context.ret_reg
+          
           case @func.written_in
           when :c_vararg
-            context.start_using_reg(RETR)
-
+            context.start_using_reg(TMPR2)
+            
             context = gen_make_argv(context) do |context, rarg|
               context.start_using_reg(FUNC_ARG[0])
               context.start_using_reg(FUNC_ARG[1])
               context.start_using_reg(FUNC_ARG[2])
-
+              
               context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
                 casm.mov(FUNC_ARG[1], TMPR2)     # argv
+                casm.mov(FUNC_ARG[2], TMPR3)     # self
               end
               context.set_reg_content(FUNC_ARG[0], nil)
               context.set_reg_content(FUNC_ARG[1], TMPR2)
-              
-              # eval self
-              context = @arguments[2].compile(context)
-              casm = context.assembler
-              casm.with_retry do 
-                casm.mov(FUNC_ARG[2], context.ret_reg)
-              end
-              context.set_reg_content(FUNC_ARG[1], context.ret_node)
+              context.set_reg_content(FUNC_ARG[2], context.ret_node)
               
               context = gen_call(context, fnc, 3)
-
               context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
+              
               context.end_using_reg(FUNC_ARG[2])
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
+              context.end_using_reg(TMPR2)
               
+              decide_type_once(context.to_key)
+              context = @type.to_box.gen_unboxing(context)
+
               context
             end
-
+            
           when :c_fixarg
             numarg = @arguments.size - 2
-
-            context.start_using_reg(RETR)
+            
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG[i])
             end
             context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
-
+            
             argpos = 0
             cursrc = 0
             @arguments.each do |arg|
@@ -222,45 +235,61 @@ module YTLJit
                 next
               end
 
-              context = arg.compile(context)
-              context.ret_node.decide_type_once(context.to_key)
-              rtype = context.ret_node.type
-              context = rtype.gen_boxing(context)
-              casm = context.assembler
-              casm.with_retry do 
-                casm.mov(FUNC_ARG[argpos], context.ret_reg)
+              if cursrc == 2 then
+                # Self
+                casm = context.assembler
+                casm.with_retry do 
+                  casm.mov(FUNC_ARG[0], TMPR3)
+                end
+                context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
+              else
+                # other arg.
+                context = arg.compile(context)
+                context.ret_node.decide_type_once(context.to_key)
+                rtype = context.ret_node.type
+                context = rtype.gen_boxing(context)
+                casm = context.assembler
+                casm.with_retry do 
+                  casm.mov(FUNC_ARG[argpos], context.ret_reg)
+                end
+                context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
               end
-              context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
-              context.end_using_reg(context.ret_reg)
               argpos = argpos + 1
               cursrc = cursrc + 1
             end
-
+            
+            casm = context.assembler
             context = gen_call(context, fnc, numarg)
-
+            
             context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
             numarg.times do |i|
               context.end_using_reg(FUNC_ARG[numarg - i - 1])
             end
             context.end_using_reg(fnc)
 
+            decide_type_once(context.to_key)
+            p @func.name
+            p type_list(context.to_key)
+            p @type
+            context = @type.to_box.gen_unboxing(context)
+
           when :ytl
             numarg = @arguments.size
-
-            context.start_using_reg(RETR)
+            
             numarg.times do |i|
               context.start_using_reg(FUNC_ARG_YTL[i])
             end
             context.cpustack_pushn(numarg * 8)
-
-            # push prev env
             casm = context.assembler
+            
+            # push prev env
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], BPR)
             end
             context.set_reg_content(FUNC_ARG_YTL[0], nil)
-
+            
             # block
+            # eval block
             context = @arguments[1].compile(context)
             casm = context.assembler
             casm.with_retry do 
@@ -268,17 +297,15 @@ module YTLJit
               casm.mov(FUNC_ARG_YTL[1], entry)
             end
             context.set_reg_content(FUNC_ARG_YTL[1], nil)
-            context.end_using_reg(context.ret_reg)
-
+            
             # self
-            context = @arguments[2].compile(context)
             casm = context.assembler
             casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[2], context.ret_reg)
+              # Self
+              casm.mov(FUNC_ARG_YTL[2], TMPR3)
             end
-            context.set_reg_content(FUNC_ARG_YTL[0], context.ret_node)
-            context.end_using_reg(context.ret_reg)
-
+            context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
+            
             # other arguments
             @arguments[3..-1].each_with_index do |arg, i|
               context = arg.compile(context)
@@ -287,11 +314,10 @@ module YTLJit
                 casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
               end
               context.set_reg_content(FUNC_ARG_YTL[i + 1], context.ret_node)
-              context.end_using_reg(context.ret_reg)
             end
-
+            
             context = gen_call(context, fnc, numarg)
-
+            
             context.cpustack_popn(numarg * 8)
             numarg.size.times do |i|
               context.end_using_reg(FUNC_ARG_YTL[numarg - i])
@@ -307,9 +333,11 @@ module YTLJit
             context.ret_reg = RETR
           end
           context.ret_node = self
-
+          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
+          
           context = @body.compile(context)
+          context
         end
       end
 
@@ -331,6 +359,7 @@ module YTLJit
         def collect_candidate_type(context)
           # type inference of @new method execute when "send" instruction.
           @body.collect_candidate_type(context)
+          context
         end
 
         def compile(context)
@@ -351,41 +380,21 @@ module YTLJit
           super
         end
 
-        def collect_candidate_type(context)
-          traverse_childlen {|rec|
-            context = rec.collect_candidate_type(context)
-          }
-          mt = nil
-          @arguments[2].decide_type_once(context.to_key)
-          slf = @arguments[2].type
-
-          if slf.instance_of?(RubyType::DefaultType0) then
-            # Chaos
-            
-          else
-            mt = @class_top.method_tab[slf.ruby_type.name]
-            if mt then
-              # for redefined method
-              same_type(self, mt, context.to_key, context.to_key)
-              signode = []
-              @arguments.each do |arg|
-                signode.push arg
-              end
-              context = mt.collect_candidate_type(context, signode)
-            else
-              # regident method
-              case [slf.ruby_type]
-              when [Fixnum], [Float], [String]
-                same_type(@arguments[3], @arguments[2], 
-                          context.to_key, context.to_key)
-                same_type(self, @arguments[2], context.to_key, context.to_key)
-              end
-            end
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum], [Float], [String]
+            same_type(@arguments[3], @arguments[2], 
+                      context.to_key, context.to_key)
+            same_type(@arguments[2], @arguments[3], 
+                      context.to_key, context.to_key)
+            same_type(self, @arguments[2], context.to_key, context.to_key)
+            same_type(@arguments[2], self, context.to_key, context.to_key)
           end
 
-          @body.collect_candidate_type(context)
+          context
         end
 
+#=begin
         def compile(context)
           context.current_method_signature.push signature(context)
 
@@ -396,19 +405,14 @@ module YTLJit
 
           context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
-          slfreg = context.ret_reg
 
           context = rtype.gen_unboxing(context)
-          if slfreg != context.ret_reg then
-            context.end_using_reg(slfreg)
-          end
 
           asm = context.assembler
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
           end
           context.set_reg_content(TMPR2, context.ret_node)
-          context.end_using_reg(context.ret_reg)
 
           # @argunemnts[1] is block
           # @argunemnts[2] is self
@@ -417,11 +421,7 @@ module YTLJit
           context = aele.compile(context)
           context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
-          slfreg = context.ret_reg
           context = rtype.gen_unboxing(context)
-          if context.ret_reg != slfreg then
-            context.end_using_reg(slfreg)
-          end
 
           asm = context.assembler
           asm.with_retry do
@@ -429,7 +429,6 @@ module YTLJit
           end
           context.set_reg_content(TMPR2, self)
 
-          context.end_using_reg(context.ret_reg)
           asm.with_retry do
             asm.mov(TMPR, TMPR2)
           end
@@ -447,6 +446,38 @@ module YTLJit
           context.current_method_signature.pop
           context
         end
+#=end
+      end
+
+      class SendCompareNode<SendNode
+        def collect_candidate_type_regident(context, slf)
+          same_type(@arguments[3], @arguments[2], 
+                    context.to_key, context.to_key)
+          same_type(@arguments[2], @arguments[3], 
+                    context.to_key, context.to_key)
+          tt = RubyType::BaseType.from_ruby_class(true)
+          @type_list.add_type(tt, context.to_key)
+          tt = RubyType::BaseType.from_ruby_class(false)
+          @type_list.add_type(tt, context.to_key)
+
+          context
+        end
+      end
+
+      class SendGtNode<SendCompareNode
+        add_special_send_node :<
+      end
+
+      class SendGeNode<SendCompareNode
+        add_special_send_node :<=
+      end
+
+      class SendLtNode<SendCompareNode
+        add_special_send_node :>
+      end
+
+      class SendLeNode<SendCompareNode
+        add_special_send_node :>=
       end
     end
   end

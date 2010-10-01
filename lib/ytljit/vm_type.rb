@@ -229,6 +229,14 @@ module YTLJit
         true
       end
 
+      def to_unbox
+        self
+      end
+
+      def to_box
+        self
+      end
+
       include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
@@ -238,7 +246,7 @@ module YTLJit
       end
 
       def to_unbox
-        @@box_to_unbox_tab[self.class].new(@ruby_type)
+        @@box_to_unbox_tab[self]
       end
 
       def to_box
@@ -254,7 +262,7 @@ module YTLJit
       end
 
       def to_box
-        @@unbox_to_box_tab[self.clsss].new(@ruby_type)
+        @@unbox_to_box_tab[self]
       end
 
       def to_unbox
@@ -267,5 +275,7 @@ module YTLJit
     YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(Float, RubyTypeUnboxed)
+    YTLJit::RubyType::define_wraped_class(TrueClass, RubyTypeBoxed)
+    YTLJit::RubyType::define_wraped_class(FalseClass, RubyTypeBoxed)
   end
 end

@@ -720,6 +720,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           same_type(self, @parent, context.to_key, context.to_key)
+          same_type(@parent, self, context.to_key, context.to_key)
           context
         end
 
@@ -759,6 +760,7 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @value_node.collect_candidate_type(context)
           same_type(self, @value_node, context.to_key, context.to_key)
+          same_type(@value_node, self, context.to_key, context.to_key)
           context = @body.collect_candidate_type(context)
           context
         end
@@ -801,6 +803,7 @@ LocalVarNode
         def collect_candidate_type(context)
           @parent.come_from.values.each do |vnode|
             same_type(self, vnode, context.to_key, context.to_key)
+            same_type(vnode, self, context.to_key, context.to_key)
           end
           context
         end
@@ -931,7 +934,6 @@ LocalVarNode
           context = @jmp_to_node.compile_block_value(context, self)
 
           jmptocs = @jmp_to_node.code_space
-          context.start_using_reg(TMPR)
           context = @cond.compile(context)
           curas = context.assembler
           curas.with_retry do
@@ -942,9 +944,6 @@ LocalVarNode
             # In 64bit mode. It will be sign extended to 64 bit
             curas.and(TMPR, OpImmidiate32.new(~4))
           end
-
-          # pop don't move condition flags
-          context.end_using_reg(TMPR)
 
           curas.with_retry do
             branch(curas, jmptocs.var_base_address)
@@ -1048,7 +1047,6 @@ LocalVarNode
             else
               offm4 = OpIndirect.new(SPR, -AsmType::DOUBLE.size)
               asm = context.assembler
-              context.start_using_reg(XMM0)
               asm.with_retry do
                 asm.mov64(offm4, val.unboxing)
                 asm.movsd(XMM0, offm4)
@@ -1120,6 +1118,10 @@ LocalVarNode
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR3, 4)
+            end
             mtop = @reciever.method_tab[@name]
             if mtop then
               sig = @parent.signature(context)
@@ -1160,9 +1162,16 @@ LocalVarNode
             objclass = OpMemAddress.new(address_of("rb_obj_class"))
 
             addr = address_of("ytl_method_address_of_raw")
-            meaddrof = OpMemAddress.new(addr)
+
             context.start_using_reg(TMPR2)
+            context.start_using_reg(FUNC_ARG[0])
+            context.start_using_reg(FUNC_ARG[1])
+
             asm = context.assembler
+            meaddrof = OpMemAddress.new(addr)
+            asm.with_retry do
+              asm.mov(TMPR3, recval)
+            end
             asm.with_retry do
               asm.mov(FUNC_ARG[0], recval)
               asm.call_with_arg(objclass, 1)
@@ -1171,6 +1180,9 @@ LocalVarNode
               asm.call_with_arg(meaddrof, 2)
               asm.mov(TMPR2, RETR)
             end
+
+            context.end_using_reg(FUNC_ARG[1])
+            context.end_using_reg(FUNC_ARG[0])
 
             context.ret_node = self
             context.set_reg_content(RETR, self)
@@ -1310,16 +1322,12 @@ LocalVarNode
             asm.with_retry do
               asm.mov(offarg, valr)
             end
-            context.end_using_reg(valr)
 
           else
-            context.start_using_reg(TMPR)
             asm.with_retry do
               asm.mov(TMPR, valr)
               asm.mov(offarg, TMPR)
             end
-            context.end_using_reg(TMPR)
-            context.end_using_reg(valr)
           end
           
           context.ret_reg = nil
