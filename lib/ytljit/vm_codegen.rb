@@ -191,11 +191,12 @@ LO        |                       |   |  |
         elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
           wsiz = AsmType::MACHINE_WORD.size
           if val.is_a?(OpRegistor)
-            cpustack_setn(-dst.disp.value / wsiz, @reg_content[val])
+            cpustack_setn(dst.disp.value / wsiz, @reg_content[val])
           else
-            cpustack_setn(-dst.disp.value / wsiz, val)
+            cpustack_setn(dst.disp.value / wsiz, val)
           end
         else
+          p "foo"
           p dst
         end
       end
@@ -288,10 +289,6 @@ LO        |                       |   |  |
         end
       end
 
-      def to_key(offset = -1)
-        @current_method_signature[offset]
-      end
-
       def end_using_reg(reg)
         case reg
         when OpRegistor
@@ -313,6 +310,10 @@ LO        |                       |   |  |
             end_using_reg_aux(regdst)
           end
         end
+      end
+
+      def to_key(offset = -1)
+        @current_method_signature[offset]
       end
     end
 
@@ -409,13 +410,6 @@ LO        |                       |   |  |
         casm = context.assembler
         rarg = @arguments[3..-1]
 
-=begin
-        # adjust stack pointer
-        casm.with_retry do
-          casm.sub(SPR, rarg.size * AsmType::MACHINE_WORD.size)
-        end
-=end
-        
         # make argv
         casm = context.assembler
         argbyte = rarg.size * AsmType::MACHINE_WORD.size
@@ -445,7 +439,7 @@ LO        |                       |   |  |
               casm.mov(dst, TMPR)
             end
           end
-          context.cpustack_setn(i, context.ret_node)
+          context.cpustack_setn(i * AsmType::MACHINE_WORD.size, context.ret_node)
         end
 
         # Copy Stack Pointer

@@ -1143,14 +1143,12 @@ LocalVarNode
             context.ret_node.decide_type_once(context.to_key)
             rtype = context.ret_node.type
             rklass = rtype.ruby_type
-=begin
-            if variable_argument?(rklass.method(@name).parameters) then
+            mth = rklass.instance_method(@name)
+            if variable_argument?(mth.parameters) then
               @written_in = :c_vararg
             else
               @written_in = :c_fixarg
             end
-=end
-            @written_in = :c_fixarg
           end
 
           context
@@ -1169,7 +1167,6 @@ LocalVarNode
               cs = mtop.find_cs_by_signature(sig)
               context.ret_reg = cs.var_base_address
             else
-              # reciever = Object
               if @reciever.klass_object then
                 addr = @reciever.klass_object.method_address_of(@name)
                 if addr then
@@ -1191,39 +1188,54 @@ LocalVarNode
             context = rtype.gen_boxing(context)
             recval = context.ret_reg
 
-            mnval = @name.address
-                
-            objclass = OpMemAddress.new(address_of("rb_obj_class"))
+            if rtype.is_a?(RubyType::DefaultType0) then
+              # Can't type inference. Dynamic method search
+              mnval = @name.address
+              objclass = OpMemAddress.new(address_of("rb_obj_class"))
+              addr = address_of("ytl_method_address_of_raw")
+              meaddrof = OpMemAddress.new(addr)
 
-            addr = address_of("ytl_method_address_of_raw")
+              context.start_using_reg(TMPR2)
+              context.start_using_reg(FUNC_ARG[0])
+              context.start_using_reg(FUNC_ARG[1])
+              
+              asm = context.assembler
+              asm.with_retry do
+                asm.push(recval)
+                asm.mov(FUNC_ARG[0], recval)
+                asm.call_with_arg(objclass, 1)
+                asm.mov(FUNC_ARG[0], RETR)
+                asm.mov(FUNC_ARG[1], mnval)
+                asm.call_with_arg(meaddrof, 2)
+                asm.mov(TMPR2, RETR)
+                asm.pop(TMPR3)
+              end
+              
+              context.end_using_reg(FUNC_ARG[1])
+              context.end_using_reg(FUNC_ARG[0])
+              
+              context.ret_node = self
+              context.set_reg_content(RETR, self)
+              context.set_reg_content(TMPR2, self)
+              context.set_reg_content(TMPR3, @reciever)
+              context.ret_reg = TMPR2
+            else
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(TMPR3, recval)
+              end
 
-            context.start_using_reg(TMPR2)
-            context.start_using_reg(FUNC_ARG[0])
-            context.start_using_reg(FUNC_ARG[1])
-
-            asm = context.assembler
-            meaddrof = OpMemAddress.new(addr)
-            asm.with_retry do
-              asm.push(recval)
-              asm.mov(FUNC_ARG[0], recval)
-              asm.call_with_arg(objclass, 1)
-              asm.mov(FUNC_ARG[0], RETR)
-              asm.mov(FUNC_ARG[1], mnval)
-              asm.call_with_arg(meaddrof, 2)
-              asm.mov(TMPR2, RETR)
-              asm.pop(TMPR3)
+              addr = rtype.ruby_type.method_address_of(@name)
+              if addr then
+                context.ret_reg = OpMemAddress.new(addr)
+                context.ret_node = self
+              else
+                raise "Unkown method - #{@name}"
+                context.ret_reg = OpImmidiateAddress.new(0)
+                context.ret_node = self
+              end
             end
-
-            context.end_using_reg(FUNC_ARG[1])
-            context.end_using_reg(FUNC_ARG[0])
-
-            context.ret_node = self
-            context.set_reg_content(RETR, self)
-            context.set_reg_content(TMPR2, self)
-            context.set_reg_content(TMPR3, @reciever)
-            context.ret_reg = TMPR2
           end
-
           context
         end
       end

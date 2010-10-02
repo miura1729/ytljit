@@ -203,7 +203,7 @@ module YTLJit
                 casm.mov(FUNC_ARG[2], TMPR3)     # self
               end
               context.set_reg_content(FUNC_ARG[0], nil)
-              context.set_reg_content(FUNC_ARG[1], nil)
+              context.set_reg_content(FUNC_ARG[1], TMPR2)
               context.set_reg_content(FUNC_ARG[2], context.ret_node)
               
               context = gen_call(context, fnc, 3)
@@ -248,7 +248,7 @@ module YTLJit
                 casm.with_retry do 
                   casm.mov(FUNC_ARG[0], TMPR3)
                 end
-                context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
+                context.set_reg_content(FUNC_ARG[0], context.ret_node)
               else
                 # other arg.
                 context = arg.compile(context)
@@ -274,9 +274,6 @@ module YTLJit
             context.end_using_reg(fnc)
 
             decide_type_once(context.to_key)
-            p @func.name
-            p type_list(context.to_key)
-            p @type
             context = @type.to_box.gen_unboxing(context)
 
           when :ytl
@@ -292,7 +289,7 @@ module YTLJit
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], BPR)
             end
-            context.set_reg_content(FUNC_ARG_YTL[0], nil)
+            context.set_reg_content(FUNC_ARG_YTL[0], BPR)
             
             # block
             # eval block
@@ -311,7 +308,7 @@ module YTLJit
               casm.with_retry do 
                 casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
               end
-              context.set_reg_content(FUNC_ARG_YTL[i + 1], context.ret_node)
+              context.set_reg_content(FUNC_ARG_YTL[i + 3], context.ret_node)
             end
             
             # self
@@ -404,7 +401,7 @@ module YTLJit
           context
         end
 
-=begin
+#=begin
         def compile(context)
           context.current_method_signature.push signature(context)
 
@@ -456,7 +453,7 @@ module YTLJit
           context.current_method_signature.pop
           context
         end
-=end
+#=end
       end
 
       class SendCompareNode<SendNode

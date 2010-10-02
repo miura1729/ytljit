@@ -56,7 +56,8 @@ module YTLJit
       if @no < argpos2reg.size then
         argpos2reg[@no]
       else
-        spos = @no - argpos2reg.size
+        # +1 means return address slot
+        spos = @no - argpos2reg.size + 1
         OpIndirect.new(SPR, OpImmidiate8.new(spos * 8))
       end
     end

@@ -18,8 +18,9 @@ module YTLJit
 
 
     def src_opecode
-      offset = 4 + @no * size
-      OpIndirect.new(ESP, offset)
+      # AsmType::MACHINE_WORD.size is return address slot
+      offset = AsmType::MACHINE_WORD.size + @no * size
+      OpIndirect.new(SPR, offset)
     end
 
     def gen_access_dst(gen, inst, dst, src, src2)
