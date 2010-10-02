@@ -1115,6 +1115,47 @@ LocalVarNode
           context
         end
 
+        def set_written_in(context)
+          if @send_node.is_fcall or @send_node.is_vcall then
+            mtop = @reciever.method_tab[@name]
+            if mtop then
+              @written_in = :ytl
+            else
+              # reciever = Object
+              if @reciever.klass_object then
+                addr = @reciever.klass_object.method_address_of(@name)
+                if addr then
+                  if variable_argument?(@eciever.method(@name).parameters) then
+                    @written_in = :c_vararg
+                  else
+                    @written_in = :c_fixarg
+                  end
+                else
+                  raise "Unkown method - #{@name}"
+                  @written_in = :c
+                end
+              else
+                raise "foo"
+              end
+            end
+          else
+            context = @reciever.compile(context)
+            context.ret_node.decide_type_once(context.to_key)
+            rtype = context.ret_node.type
+            rklass = rtype.ruby_type
+=begin
+            if variable_argument?(rklass.method(@name).parameters) then
+              @written_in = :c_vararg
+            else
+              @written_in = :c_fixarg
+            end
+=end
+            @written_in = :c_fixarg
+          end
+
+          context
+        end
+
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
@@ -1127,7 +1168,6 @@ LocalVarNode
               sig = @parent.signature(context)
               cs = mtop.find_cs_by_signature(sig)
               context.ret_reg = cs.var_base_address
-              @written_in = :ytl
             else
               # reciever = Object
               if @reciever.klass_object then
@@ -1135,16 +1175,10 @@ LocalVarNode
                 if addr then
                   context.ret_reg = OpMemAddress.new(addr)
                   context.ret_node = self
-                  if variable_argument?(@eciever.method(@name).parameters) then
-                    @written_in = :c_vararg
-                  else
-                    @written_in = :c_fixarg
-                  end
                 else
                   raise "Unkown method - #{@name}"
                   context.ret_reg = OpImmidiateAddress.new(0)
                   context.ret_node = self
-                  @written_in = :c
                 end
               else
                 raise "foo"
@@ -1170,15 +1204,14 @@ LocalVarNode
             asm = context.assembler
             meaddrof = OpMemAddress.new(addr)
             asm.with_retry do
-              asm.mov(TMPR3, recval)
-            end
-            asm.with_retry do
+              asm.push(recval)
               asm.mov(FUNC_ARG[0], recval)
               asm.call_with_arg(objclass, 1)
               asm.mov(FUNC_ARG[0], RETR)
               asm.mov(FUNC_ARG[1], mnval)
               asm.call_with_arg(meaddrof, 2)
               asm.mov(TMPR2, RETR)
+              asm.pop(TMPR3)
             end
 
             context.end_using_reg(FUNC_ARG[1])
@@ -1187,8 +1220,8 @@ LocalVarNode
             context.ret_node = self
             context.set_reg_content(RETR, self)
             context.set_reg_content(TMPR2, self)
+            context.set_reg_content(TMPR3, @reciever)
             context.ret_reg = TMPR2
-            @written_in = :c_fixarg
           end
 
           context

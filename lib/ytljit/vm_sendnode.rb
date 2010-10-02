@@ -178,11 +178,8 @@ module YTLJit
 
           context.start_using_reg(TMPR2)
           context.start_using_reg(TMPR3)
-          # Method Select
-          # it is legal. use TMPR2 for method select
-          # use TMPR3 for store self
-          context = @func.compile(context)
-          fnc = context.ret_reg
+          context = @func.set_written_in(context)
+          fnc = nil
           
           case @func.written_in
           when :c_vararg
@@ -195,13 +192,18 @@ module YTLJit
               
               context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
               casm = context.assembler
+              # Method Select
+              # it is legal. use TMPR2 for method select
+              # use TMPR3 for store self
+              context = @func.compile(context)
+              fnc = context.ret_reg
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], rarg.size) # argc
                 casm.mov(FUNC_ARG[1], TMPR2)     # argv
                 casm.mov(FUNC_ARG[2], TMPR3)     # self
               end
               context.set_reg_content(FUNC_ARG[0], nil)
-              context.set_reg_content(FUNC_ARG[1], TMPR2)
+              context.set_reg_content(FUNC_ARG[1], nil)
               context.set_reg_content(FUNC_ARG[2], context.ret_node)
               
               context = gen_call(context, fnc, 3)
@@ -237,6 +239,11 @@ module YTLJit
 
               if cursrc == 2 then
                 # Self
+                # Method Select
+                # it is legal. use TMPR2 for method select
+                # use TMPR3 for store self
+                context = @func.compile(context)
+                fnc = context.ret_reg
                 casm = context.assembler
                 casm.with_retry do 
                   casm.mov(FUNC_ARG[0], TMPR3)
@@ -258,7 +265,6 @@ module YTLJit
               cursrc = cursrc + 1
             end
             
-            casm = context.assembler
             context = gen_call(context, fnc, numarg)
             
             context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
@@ -298,14 +304,6 @@ module YTLJit
             end
             context.set_reg_content(FUNC_ARG_YTL[1], nil)
             
-            # self
-            casm = context.assembler
-            casm.with_retry do 
-              # Self
-              casm.mov(FUNC_ARG_YTL[2], TMPR3)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
-            
             # other arguments
             @arguments[3..-1].each_with_index do |arg, i|
               context = arg.compile(context)
@@ -315,6 +313,18 @@ module YTLJit
               end
               context.set_reg_content(FUNC_ARG_YTL[i + 1], context.ret_node)
             end
+            
+            # self
+            # Method Select
+            # it is legal. use TMPR2 for method select
+            # use TMPR3 for store self
+            context = @func.compile(context)
+            fnc = context.ret_reg
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[2], TMPR3)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
             
             context = gen_call(context, fnc, numarg)
             
@@ -394,7 +404,7 @@ module YTLJit
           context
         end
 
-#=begin
+=begin
         def compile(context)
           context.current_method_signature.push signature(context)
 
@@ -446,7 +456,7 @@ module YTLJit
           context.current_method_signature.pop
           context
         end
-#=end
+=end
       end
 
       class SendCompareNode<SendNode
