@@ -1093,7 +1093,7 @@ LocalVarNode
         def initialize(parent, val)
           super(parent)
           @name = val
-          @written_in = :unkown
+          @calling_convention = :unkown
           @reciever = nil
           @send_node = nil
         end
@@ -1108,31 +1108,31 @@ LocalVarNode
         end
         
         attr :name
-        attr :written_in
+        attr :calling_convention
         attr_accessor :reciever
 
         def collect_candidate_type(context)
           context
         end
 
-        def set_written_in(context)
+        def set_calling_convention(context)
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
-              @written_in = :ytl
+              @calling_convention = :ytl
             else
               # reciever = Object
               if @reciever.klass_object then
                 addr = @reciever.klass_object.method_address_of(@name)
                 if addr then
                   if variable_argument?(@eciever.method(@name).parameters) then
-                    @written_in = :c_vararg
+                    @calling_convention = :c_vararg
                   else
-                    @written_in = :c_fixarg
+                    @calling_convention = :c_fixarg
                   end
                 else
                   raise "Unkown method - #{@name}"
-                  @written_in = :c
+                  @calling_convention = :c
                 end
               else
                 raise "foo"
@@ -1145,9 +1145,9 @@ LocalVarNode
             rklass = rtype.ruby_type
             mth = rklass.instance_method(@name)
             if variable_argument?(mth.parameters) then
-              @written_in = :c_vararg
+              @calling_convention = :c_vararg
             else
-              @written_in = :c_fixarg
+              @calling_convention = :c_fixarg
             end
           end
 

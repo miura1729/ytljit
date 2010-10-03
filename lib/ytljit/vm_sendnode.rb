@@ -37,6 +37,19 @@ module YTLJit
         end
       end
 
+      module SendUtil
+        def gen_eval_self(context)
+          # eval 1st arg(self)
+          slfnode = @arguments[2]
+          context = slfnode.compile(context)
+          
+          context.ret_node.decide_type_once(context.to_key)
+          rtype = context.ret_node.type
+          
+          rtype.gen_unboxing(context)
+        end
+      end
+
       # Send methodes
       class SendNode<BaseNode
         include HaveChildlenMixin
@@ -178,10 +191,10 @@ module YTLJit
 
           context.start_using_reg(TMPR2)
           context.start_using_reg(TMPR3)
-          context = @func.set_written_in(context)
+          context = @func.set_calling_convention(context)
           fnc = nil
           
-          case @func.written_in
+          case @func.calling_convention
           when :c_vararg
             context.start_using_reg(TMPR2)
             
@@ -381,6 +394,8 @@ module YTLJit
       end
 
       class SendPlusNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
         add_special_send_node :+
 
         def initialize(parent, func, arguments, op_flag)
@@ -404,52 +419,8 @@ module YTLJit
 #=begin
         def compile(context)
           context.current_method_signature.push signature(context)
-
-          # eval 1st arg(self)
-          slfnode = @arguments[2]
-          context.start_using_reg(TMPR2)
-          context = slfnode.compile(context)
-
-          context.ret_node.decide_type_once(context.to_key)
-          rtype = context.ret_node.type
-
-          context = rtype.gen_unboxing(context)
-
-          asm = context.assembler
-          asm.with_retry do
-            asm.mov(TMPR2, context.ret_reg)
-          end
-          context.set_reg_content(TMPR2, context.ret_node)
-
-          # @argunemnts[1] is block
-          # @argunemnts[2] is self
-          # eval 2nd arguments and added
-          aele = @arguments[3]
-          context = aele.compile(context)
-          context.ret_node.decide_type_once(context.to_key)
-          rtype = context.ret_node.type
-          context = rtype.gen_unboxing(context)
-
-          asm = context.assembler
-          asm.with_retry do
-            asm.add(TMPR2, context.ret_reg)
-          end
-          context.set_reg_content(TMPR2, self)
-
-          asm.with_retry do
-            asm.mov(TMPR, TMPR2)
-          end
-          context.end_using_reg(TMPR2)
-
-          context.set_reg_content(TMPR, self)
-          context.ret_node = self
-          context.ret_reg = TMPR
-
-          decide_type_once(context.to_key)
-          if type.boxed then
-            context = type.gen_boxing(context)
-          end
-
+          context = gen_eval_self(context)
+          context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
           context.current_method_signature.pop
           context
         end
