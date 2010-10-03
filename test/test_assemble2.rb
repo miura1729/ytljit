@@ -36,7 +36,11 @@ class InstructionTests < Test::Unit::TestCase
 
   def asm_ytljit(nm, dst, src)
     @asm.with_retry do
-      @asm.send(nm, dst, src)
+      if src then
+        @asm.send(nm, dst, src)
+      else
+        @asm.send(nm, dst)
+      end
     end
   end
 
@@ -173,6 +177,24 @@ class InstructionTests < Test::Unit::TestCase
           asm_ytljit(mnm, dst, src)
           asm_gas(mnm, dst, src)
         end
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
+  end
+
+  def test_setcc
+    [:seta, :setae, :setb, :setbe, :setl, :setle, :setna, :setnae,  
+     :setnb, :setnle, :setno, :seto, :setz, :setnz].each do |mnm|
+      @indirects.each do |dst|
+        asm_ytljit(mnm, dst, nil)
+        asm_gas(mnm, dst, nil)
       end
       
       ytlres = disasm_ytljit(@cs)

@@ -546,7 +546,7 @@ module YTLJit
         end
 
       else
-          return nosupported_addressing_mode(inst, dst, src, src2)
+        return nosupported_addressing_mode(inst, dst, src, src2)
       end
     end
   end
@@ -681,6 +681,16 @@ module YTLJit
       else
         offset = addr2 - @asm.current_address - 6
         [0x0F, lopc, offset].pack("C2L")
+      end
+    end
+
+    def common_setcc(dst, opc, inst)
+      case dst
+      when OpReg8, OpIndirect, OpMem8
+        modseq, modfmt = modrm(inst, 0, dst, dst, nil)
+        ([0x0F, opc] + modseq).pack("C2#{modfmt}")
+      else
+        return nosupported_addressing_mode(inst, dst, nil)
       end
     end
 
@@ -1030,6 +1040,70 @@ module YTLJit
 
     def jnz(addr)
       common_jcc(addr, 0x75, 0x85, :jnz)
+    end
+
+    def seta(dst)
+      common_setcc(dst, 0x97, :seta)
+    end
+
+    def setae(dst)
+      common_setcc(dst, 0x93, :setae)
+    end
+
+    def setb(dst)
+      common_setcc(dst, 0x92, :setb)
+    end
+
+    def setbe(dst)
+      common_setcc(dst, 0x96, :setbe)
+    end
+
+    def setl(dst)
+      common_setcc(dst, 0x9c, :setl)
+    end
+
+    def setle(dst)
+      common_setcc(dst, 0x9e, :setle)
+    end
+
+    def setna(dst)
+      common_setcc(dst, 0x96, :setna)
+    end
+
+    def setnae(dst)
+      common_setcc(dst, 0x92, :setnae)
+    end
+
+    def setnb(dst)
+      common_setcc(dst, 0x93, :setnb)
+    end
+
+    def setnbe(dst)
+      common_setcc(dst, 0x97, :setnbe)
+    end
+
+    def setnc(dst)
+      common_setcc(dst, 0x93, :setnc)
+    end
+
+    def setnle(dst)
+      common_setcc(dst, 0x9f, :setnle)
+    end
+
+    def setno(dst)
+      common_setcc(dst, 0x91, :setno)
+    end
+
+    def seto(dst)
+      common_setcc(dst, 0x90, :seto)
+    end
+
+    def setz(dst)
+      common_setcc(dst, 0x94, :setz)
+    end
+
+    def setnz(dst)
+      common_setcc(dst, 0x95, :setnz)
     end
 
     def jmp(addr)

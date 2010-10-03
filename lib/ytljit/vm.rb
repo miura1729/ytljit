@@ -497,16 +497,32 @@ LocalVarNode
 
       class ClassTopNode<TopNode
         include MethodTopCodeGen
+        @@class_top_tab = {}
 
         def initialize(parent, klassobj, name = nil)
           super(parent, name)
           @nested_class_tab = {}
           @method_tab = {}
           @klass_object = klassobj
+          unless @@class_top_tab[klassobj]
+            @@class_top_tab[klassobj] = self
+          end
+        end
+
+        def method_tab(klassobj = nil)
+          if klassobj then
+            ktop =  @@class_top_tab[klassobj]
+            if ktop then
+              ktop.method_tab
+            else
+              {}
+            end
+          else
+            @method_tab
+          end
         end
 
         attr :nested_class_tab
-        attr :method_tab
         attr :klass_object
 
         def construct_frame_info(locals, argnum)
@@ -857,11 +873,14 @@ LocalVarNode
           if valnode then
             context = valnode.compile(context)
             asm = context.assembler
-            if RETR != context.ret_reg then
-              asm.with_retry do
-                asm.mov(RETR, context.ret_reg)
+            if !context.ret_reg.is_a?(OpRegXMM) then
+              if RETR != context.ret_reg then
+                asm.with_retry do
+                  asm.mov(RETR, context.ret_reg)
+                end
+                context.set_reg_content(RETR, context.ret_node)
+                context.ret_reg = RETR
               end
-              context.set_reg_content(RETR, context.ret_node)
             end
           end
 

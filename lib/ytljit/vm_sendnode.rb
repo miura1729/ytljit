@@ -43,9 +43,7 @@ module YTLJit
           slfnode = @arguments[2]
           context = slfnode.compile(context)
           
-          context.ret_node.decide_type_once(context.to_key)
           rtype = context.ret_node.type
-          
           rtype.gen_unboxing(context)
         end
       end
@@ -157,7 +155,7 @@ module YTLJit
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
             else
-              mt = @class_top.method_tab[slf.ruby_type.name]
+              mt = @class_top.method_tab(slf.ruby_type)[@func.name]
             end
           end
           
@@ -418,9 +416,22 @@ module YTLJit
 
 #=begin
         def compile(context)
+          @arguments[2].decide_type_once(context.to_key)
+          rtype = @arguments[2].type
+          if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
+              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+            return super(context)
+          end
+
           context.current_method_signature.push signature(context)
           context = gen_eval_self(context)
-          context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
+          if rtype.ruby_type == Fixnum then
+            context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
+          elsif rtype.ruby_type == Float then
+            context = gen_arithmetic_operation(context, :addsd, XMM4, XMM0)
+          else
+            raise "Unkown method #{rtype.ruby_type} #{@func.name}"
+          end
           context.current_method_signature.pop
           context
         end
