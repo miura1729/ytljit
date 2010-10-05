@@ -18,6 +18,7 @@ class InstructionTests < Test::Unit::TestCase
     @asm = Assembler.new(@cs, GeneratorExtend)
     @asout = ""
     @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
+    @regs8 = [AL, CL, DL, BL]
 #    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
 #             R11, R12, R13, R14, R15]
 
@@ -190,9 +191,15 @@ class InstructionTests < Test::Unit::TestCase
   end
 
   def test_setcc
-    [:seta, :setae, :setb, :setbe, :setl, :setle, :setna, :setnae,  
-     :setnb, :setnle, :setno, :seto, :setz, :setnz].each do |mnm|
+    [:seta, :setae, :setb, :setbe, :setg, :setge, :setl, :setle, 
+     :setna, :setnae, :setnb, :setnle, :setno, :seto, 
+     :setz, :setnz].each do |mnm|
       @indirects.each do |dst|
+        asm_ytljit(mnm, dst, nil)
+        asm_gas(mnm, dst, nil)
+      end
+
+      @regs8.each do |dst|
         asm_ytljit(mnm, dst, nil)
         asm_gas(mnm, dst, nil)
       end

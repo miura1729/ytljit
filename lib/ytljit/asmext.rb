@@ -135,6 +135,18 @@ module YTLJit
           @asm.current_address = orgaddress
           return [rcode, TypedData.new(rtype, dst)]
         end
+
+      when :seta, :setae, :setb, :setbe, :setl, :setle, :setg, :setge,
+           :setna, :setnae, :setnb, :setnbe, :setnc, :setnle,
+           :setno, :seto, :setz, :setnz
+        case dst
+        when OpReg32, OpReg64
+          rcode = ""
+          reg8 = [AL, CL, DL, BL][dst.reg_no]
+          rcode += send(inst, reg8)
+          rcode += self.and(dst, 1)
+          return rcode
+        end
       end
 
       case src

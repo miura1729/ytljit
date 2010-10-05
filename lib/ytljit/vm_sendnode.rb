@@ -433,12 +433,13 @@ module YTLJit
             raise "Unkown method #{rtype.ruby_type} #{@func.name}"
           end
           context.current_method_signature.pop
-          context
+          @body.compile(context)
         end
 #=end
       end
 
       class SendCompareNode<SendNode
+        include SendUtil
         def collect_candidate_type_regident(context, slf)
           same_type(@arguments[3], @arguments[2], 
                     context.to_key, context.to_key)
@@ -451,22 +452,57 @@ module YTLJit
 
           context
         end
+
+        def compile(context)
+          @arguments[2].decide_type_once(context.to_key)
+          rtype = @arguments[2].type
+          if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
+              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+            return super(context)
+          end
+
+          context.current_method_signature.push signature(context)
+          context = gen_eval_self(context)
+          if rtype.ruby_type == Fixnum then
+            context = compile_compare(context)
+          else
+            raise "Unkown method #{rtype.ruby_type} #{@func.name}"
+          end
+          context.current_method_signature.pop
+          @body.compile(context)
+        end
       end
 
       class SendGtNode<SendCompareNode
+        include CompareOperationUtil
         add_special_send_node :<
+        def compile_compare(context)
+          context = gen_compare_operation(context , :setg, TMPR2, TMPR)
+        end
       end
 
       class SendGeNode<SendCompareNode
+        include CompareOperationUtil
         add_special_send_node :<=
+        def compile_compare(context)
+          context = gen_compare_operation(context , :setge, TMPR2, TMPR)
+        end
       end
 
       class SendLtNode<SendCompareNode
+        include CompareOperationUtil
         add_special_send_node :>
+        def compile_compare(context)
+          context = gen_compare_operation(context , :setl, TMPR2, TMPR)
+        end
       end
 
       class SendLeNode<SendCompareNode
+        include CompareOperationUtil
         add_special_send_node :>=
+        def compile_compare(context)
+          context = gen_compare_operation(context , :setle, TMPR2, TMPR)
+        end
       end
     end
   end

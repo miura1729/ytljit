@@ -81,6 +81,11 @@ module YTLJit
   end
 
   module AbsArch
+    AL = OpAL.instance
+    CL = OpCL.instance
+    DL = OpDL.instance
+    BL = OpBL.instance
+
     include SSE
     case $ruby_platform
     when /i.86/

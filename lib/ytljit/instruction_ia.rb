@@ -1058,6 +1058,14 @@ module YTLJit
       common_setcc(dst, 0x96, :setbe)
     end
 
+    def setg(dst)
+      common_setcc(dst, 0x9f, :setg)
+    end
+
+    def setge(dst)
+      common_setcc(dst, 0x9d, :setge)
+    end
+
     def setl(dst)
       common_setcc(dst, 0x9c, :setl)
     end
