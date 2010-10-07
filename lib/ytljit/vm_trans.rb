@@ -243,13 +243,20 @@ module YTLJit
       end
 
       def visit_putstring(code, ins, context)
+        nnode = LiteralNode.new(nil, ins[1])
+        context.expstack.push nnode
       end
 
       # concatstrings
       # tostring
       # toregexp
       # newarray
-      # duparray
+
+      def visit_duparray(code, ins, context)
+        nnode = LiteralNode.new(nil, ins[1])
+        context.expstack.push nnode
+      end
+
       # expandarray
       # concatarray
       # splatarray

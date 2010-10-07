@@ -9,11 +9,19 @@ module YTLJit
         def init_type
         end
 
+        def have_element?
+          false
+        end
+
         def gen_boxing(context)
           context
         end
 
         def gen_unboxing(context)
+          context
+        end
+
+        def gen_copy(context)
           context
         end
       end
@@ -101,6 +109,42 @@ module YTLJit
         def gen_unboxing(context)
           p "unboxing"
           context
+        end
+      end
+
+      module ArrayTypeBoxedCodeGen
+        include AbsArch
+
+        def instance
+          ni = self.dup
+          ni.instance_eval { extend ArrayTypeBoxedCodeGen }
+          ni.init
+          ni
+        end
+
+        def init
+          @element_type = nil
+        end
+
+        attr_accessor :element_type
+
+        def have_element?
+          true
+        end
+
+        def gen_copy(context)
+          p "copy"
+          context
+        end
+
+        def ==(other)
+          other.is_a?(self.class)
+        end
+      end
+
+      module ArrayTypeUnboxedCodeGen
+        def have_element?
+          true
         end
       end
     end

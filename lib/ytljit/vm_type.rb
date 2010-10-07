@@ -93,7 +93,7 @@ module YTLJit
         @types_tree.search(key)
       end
 
-      def add_type(type, key)
+      def add_type(key, type)
         tvs = @types_tree.search(key)
         if tvs then
           tvsv = tvs.value
@@ -161,14 +161,20 @@ module YTLJit
       @@base_type_tab = {}
       @@boxed_type_tab = {}
       @@unboxed_type_tab = {}
-      @@box_to_unbox_tab = {}
-      @@unbox_to_box_tab = {}
 
       def self.type_tab
         [@@base_type_tab, @@boxed_type_tab, @@unboxed_type_tab]
       end
 
       def self.related_ruby_class(klass, base)
+        baseslf = base.new(klass)
+        mixinname = klass.name + base.name.gsub(/.*::Ruby/, "") + "CodeGen"
+        begin
+          mixin = VM::TypeCodeGen.const_get(mixinname)
+          baseslf.extend mixin
+        rescue NameError
+        end
+
         boxslf = RubyTypeBoxed.new(klass)
         mixinname = klass.name + "TypeBoxedCodeGen"
         begin
@@ -185,13 +191,9 @@ module YTLJit
         rescue NameError
         end
 
-        @@base_type_tab[klass] = unboxslf
+        @@base_type_tab[klass] = baseslf
         @@boxed_type_tab[klass] = boxslf
         @@unboxed_type_tab[klass] = unboxslf
-        @@box_to_unbox_tab[boxslf] = unboxslf
-        @@box_to_unbox_tab[unboxslf] = unboxslf
-        @@unbox_to_box_tab[unboxslf] = boxslf
-        @@unbox_to_box_tab[boxslf] = boxslf
 
         [boxslf, unboxslf]
       end
@@ -246,7 +248,7 @@ module YTLJit
       end
 
       def to_unbox
-        @@box_to_unbox_tab[self]
+        @@unboxed_type_tab[@ruby_type].instance
       end
 
       def to_box
@@ -262,7 +264,7 @@ module YTLJit
       end
 
       def to_box
-        @@unbox_to_box_tab[self]
+        @@boxed_type_tab[@ruby_type].instance
       end
 
       def to_unbox
@@ -272,10 +274,13 @@ module YTLJit
       include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
-    YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeUnboxed)
+    YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeBoxed)
     YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(Float, RubyTypeUnboxed)
     YTLJit::RubyType::define_wraped_class(TrueClass, RubyTypeBoxed)
     YTLJit::RubyType::define_wraped_class(FalseClass, RubyTypeBoxed)
+    YTLJit::RubyType::define_wraped_class(String, RubyTypeBoxed)
+    YTLJit::RubyType::define_wraped_class(Array, RubyTypeBoxed)
+    YTLJit::RubyType::define_wraped_class(Hash, RubyTypeBoxed)
   end
 end

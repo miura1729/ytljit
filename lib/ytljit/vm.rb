@@ -131,6 +131,10 @@ LocalVarNode
         attr_accessor :type
         attr_accessor :element_node_list
 
+        def add_type(key, type)
+          @type_list.add_type(key, type)
+        end
+
         def type_list(key)
           @type_list.type_list(key).value
         end
@@ -149,12 +153,12 @@ LocalVarNode
           context
         end
 
-        def ti_add_observer(dst, dkey, skey)
-          prc = lambda { ti_update(dst, self, dkey, skey) }
+        def ti_add_observer(dst, dkey, skey, upmethod = :ti_update)
+          prc = lambda { send(:ti_update, dst, self, dkey, skey) }
           @ti_observer[dst] = prc
         end
 
-        def ti_changed(dkey, skey)
+        def ti_changed
           @ti_observer.each do |rec, prc|
             prc.call
           end
@@ -184,15 +188,15 @@ LocalVarNode
 
           if orgsize != dtlist.size then
             dst.type = nil
-            dst.ti_changed(dkey, skey)
+            dst.ti_changed
           end
 
           dtlist = dst.element_node_list
-          stlist = dst.element_node_list
+          stlist = src.element_node_list
           orgsize = dtlist.size
           dst.element_node_list = merge_type(dtlist, stlist)
           if orgsize != dtlist.size then
-            dst.ti_changed(dkey, skey)
+            dst.ti_changed
           end
         end
 
@@ -214,6 +218,19 @@ LocalVarNode
           ti_update(dst, src, dkey, skey)
         end
 
+        def add_element_node(key, type)
+          slfetnode = @element_node_list
+          unless slfetnode.include?(type)
+            @element_node_list.push [key, type]
+            orgkey = @element_node_list[0][0]
+            orgtype = @element_node_list[0][1]
+            if orgtype != type then
+              same_type(orgtype, type, orgkey, key)
+            end
+            ti_changed
+          end
+        end
+
         def collect_candidate_type(context)
           raise "You must define collect_candidate_type per node"
           context
@@ -226,10 +243,17 @@ LocalVarNode
             RubyType::DefaultType0.new
             
           when 1
+            if tlist[0].have_element? then
+              key = @element_node_list[0][0]
+              node = @element_node_list[0][1]
+              node.decide_type_once(key)
+              tlist[0].element_type = node.type
+            end
             tlist[0]
             
           else
             RubyType::DefaultType0.new
+
           end
         end
 
@@ -430,14 +454,7 @@ LocalVarNode
           @body.collect_info(context)
         end
 
-        def collect_candidate_type(context, signode)
-          sig = signode.map {|ele| 
-            if ele then 
-              ele.decide_type_once(context.to_key)
-              ele.type
-            else ele 
-            end 
-          }
+        def collect_candidate_type(context, signode, sig)
           if add_cs_for_signature(sig) == nil then
             return context
           end
@@ -1041,7 +1058,16 @@ LocalVarNode
         attr :value
 
         def collect_candidate_type(context)
-          @type_list.add_type(@type, context.to_key)
+          @type_list.add_type(context.to_key, @type)
+          case @value
+          when Array
+            key = context.to_key
+            @element_node_list = [[key, BaseNode.new(self)]]
+            @value.each do |ele|
+              etype = RubyType::BaseType.from_object(ele)
+              @element_node_list[0][1].add_type(key, etype)
+            end
+          end
           context
         end
 
@@ -1082,6 +1108,7 @@ LocalVarNode
 
             context.ret_node = self
             context.ret_reg = @var_value
+            context = @type.gen_copy(context)
           end
 
           context
@@ -1338,7 +1365,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          @type_list.add_type(@type, context.to_key)
+          @type_list.add_type(context.to_key, @type)
           context
         end
 

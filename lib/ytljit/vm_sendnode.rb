@@ -160,13 +160,10 @@ module YTLJit
           end
           
           if mt then
-            same_type(self, mt, context.to_key, signature(context))
-            same_type(mt, self, signature(context), context.to_key)
-            signode = []
-            @arguments.each do |arg|
-              signode.push arg
-            end
-            context = mt.collect_candidate_type(context, signode)
+            signat = signature(context)
+            same_type(self, mt, context.to_key, signat)
+            same_type(mt, self, signat, context.to_key)
+            context = mt.collect_candidate_type(context, @arguments, signat)
           else
             context = collect_candidate_type_regident(context, slf)
           end
@@ -224,8 +221,12 @@ module YTLJit
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
               context.end_using_reg(TMPR2)
+              context.ret_reg = RETR
+              context.ret_node = self
               
               decide_type_once(context.to_key)
+              p @type
+              p @type.to_box
               context = @type.to_box.gen_unboxing(context)
 
               context
@@ -446,9 +447,9 @@ module YTLJit
           same_type(@arguments[2], @arguments[3], 
                     context.to_key, context.to_key)
           tt = RubyType::BaseType.from_ruby_class(true)
-          @type_list.add_type(tt, context.to_key)
+          @type_list.add_type(context.to_key, tt)
           tt = RubyType::BaseType.from_ruby_class(false)
-          @type_list.add_type(tt, context.to_key)
+          @type_list.add_type(context.to_key, tt)
 
           context
         end
@@ -502,6 +503,36 @@ module YTLJit
         add_special_send_node :>=
         def compile_compare(context)
           context = gen_compare_operation(context , :setle, TMPR2, TMPR)
+        end
+      end
+
+      class SendRefNode<SendNode
+        include SendUtil
+        add_special_send_node :[]
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Array]
+            fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
+            @arguments[3].add_type(context.to_key, fixtype)
+            @arguments[2].add_element_node(context.to_key, self)
+            key = context.to_key
+            decide_type_once(key)
+#            @arguments[2].type = nil
+#            @arguments[2].decide_type_once(context.to_key)
+            epare = @arguments[2].element_node_list[0]
+            ekey = epare[0]
+            enode = epare[1]
+            if enode != self then
+              p enode.class
+              same_type(self, enode, key, ekey)
+              same_type(enode, self, ekey, key)
+            end
+
+          when [Hash]
+            @arguments[2].add_element_node(context.to_key, self)
+          end
+
+          context
         end
       end
     end
