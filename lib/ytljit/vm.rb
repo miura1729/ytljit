@@ -915,7 +915,7 @@ LocalVarNode
 
         def collect_candidate_type(context, sender = nil)
           if @come_from.keys[0] == sender then
-            @body.collect_candidate_type(context)
+            context = @body.collect_candidate_type(context)
           end
 
           context
@@ -1020,9 +1020,12 @@ LocalVarNode
 
         def collect_candidate_type(context)
           block = lambda {|rec| 
-            context = rec.collect_candidate_type(context)
+            rec.collect_candidate_type(context)
           }
-          context = @jmp_to_node.traverse_block_value(self, &block)
+          tcontext = @jmp_to_node.traverse_block_value(self, &block)
+          if tcontext then
+            context = tcontext
+          end
           @jmp_to_node.collect_candidate_type(context, self)
         end
 

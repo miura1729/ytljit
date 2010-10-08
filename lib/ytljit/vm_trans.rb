@@ -21,6 +21,7 @@ module YTLJit
         @expstack = []
         @local_label_tab = {}
 
+        @not_reached_pos = false
       end
 
       attr :the_top
@@ -40,6 +41,8 @@ module YTLJit
 
       attr          :expstack
       attr          :local_label_tab
+
+      attr_accessor :not_reached_pos
     end
 
     class YARVTranslatorBase
@@ -76,9 +79,10 @@ module YTLJit
             # line no
             context.current_line_no = ins
           elsif ins.is_a?(Symbol) then
+            context.not_reached_pos = false
             visit_symbol(code, ins, context)
 
-          else
+          elsif !context.not_reached_pos then
             opname = ins[0].to_s
             send(("visit_" + opname).to_sym, code, ins, context)
           end
@@ -428,6 +432,7 @@ module YTLJit
 
         curnode.body = jpnode
         context.current_node = jpnode
+        context.not_reached_pos = true
       end
 
       def visit_branchif(code, ins, context)
