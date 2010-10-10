@@ -130,7 +130,7 @@ module YTLJit
         mtopnode = context.current_node
 
         locals = code.header['locals']
-        args   = code.header['args']
+        args   = code.header['misc'][:arg_size]
 
         context.current_node = mtopnode.construct_frame_info(locals, args)
       end
@@ -392,6 +392,36 @@ module YTLJit
       end
 
       def visit_invokeblock(code, ins, context)
+        curnode = context.current_node
+        nnode = YieldNode.new(curnode)
+        numarg = ins[1]
+
+        # regular arguments
+        args = []
+        numarg.times do |i|
+          argele = context.expstack.pop
+          args.push argele
+        end
+
+        frameinfo = nnode.search_frame_info
+        roff = frameinfo.real_offset(0)  # offset of prevenv
+        framelayout = frameinfo.frame_layout
+
+        # self
+        args.push framelayout[roff + 2]
+
+        # block
+        args.push framelayout[roff + 1]
+        
+        # perv env
+        args.push framelayout[roff]
+
+        args = args.reverse
+
+        nnode.arguments = args
+        context.expstack.push nnode
+
+        context
       end
 
       def visit_leave(code, ins, context)

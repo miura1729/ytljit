@@ -347,6 +347,27 @@ LocalVarNode
         end
       end
 
+      module SendUtil
+        def gen_eval_self(context)
+          # eval 1st arg(self)
+          slfnode = @arguments[2]
+          context = slfnode.compile(context)
+          
+          rtype = context.ret_node.type
+          rtype.gen_unboxing(context)
+        end
+
+        def signature(context)
+          res = []
+          @arguments.each do |ele|
+            ele.decide_type_once(context.to_key)
+            res.push ele.type
+          end
+
+          res
+        end
+      end
+
       class DummyNode
         def collect_candidate_type(context)
           context
@@ -366,6 +387,7 @@ LocalVarNode
           super(parent)
           @name = name
           @code_spaces = [] # [[nil, CodeSpace.new]]
+          @yield_node = nil
           if @parent then
             @classtop = search_class_top
           else
@@ -376,6 +398,7 @@ LocalVarNode
 
         attr_accessor :name
         attr          :end_nodes
+        attr          :yield_node
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -451,7 +474,10 @@ LocalVarNode
         def collect_info(context)
           context.modified_local_var.push Hash.new
           context.modified_instance_var = {}
+          context.yield_node.push []
           @body.collect_info(context)
+          @yield_node = context.yield_node.pop
+          context
         end
 
         def collect_candidate_type(context, signode, sig)
@@ -480,9 +506,10 @@ LocalVarNode
         end
 
         def compile(context)
+          oldcs = context.code_space
           @code_spaces.each do |sig, cs|
             context.current_method_signature.push sig
-            context.add_code_space(cs)
+            context.set_code_space(cs)
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
@@ -490,6 +517,9 @@ LocalVarNode
             context.current_method_signature.pop
           end
 
+          if oldcs then
+            context.set_code_space(oldcs)
+          end
           disp_signature
           context
         end
@@ -558,6 +588,7 @@ LocalVarNode
           super
           
           @code_space_tab = []
+          @asm_tab = {}
           @id.push 0
         end
         
@@ -568,6 +599,7 @@ LocalVarNode
         end
 
         attr :code_space_tab
+        attr :asm_tab
       end
 
       class LocalFrameInfoNode<BaseNode
@@ -831,10 +863,11 @@ LocalVarNode
       class PhiNode<BaseNode
         def initialize(parent)
           super(parent)
+          @local_label = parent
         end
 
         def collect_candidate_type(context)
-          @parent.come_from.values.each do |vnode|
+          @local_label.come_from.values.each do |vnode|
             same_type(self, vnode, context.to_key, context.to_key)
             same_type(vnode, self, context.to_key, context.to_key)
           end
@@ -986,8 +1019,9 @@ LocalVarNode
           end
 
           context = @body.compile(context)
-          context.add_code_space(jmptocs)
+          oldcs = context.set_code_space(jmptocs)
           context = @jmp_to_node.compile(context)
+#          context.set_code_space(oldcs)
 
           context
         end
@@ -1039,8 +1073,9 @@ LocalVarNode
             curas.jmp(jmptocs.var_base_address)
           end
 
-          context.add_code_space(jmptocs)
+          oldcs = context.set_code_space(jmptocs)
           context = @jmp_to_node.compile(context)
+          context.set_code_space(oldcs)
           context
         end
       end
@@ -1133,6 +1168,34 @@ LocalVarNode
         def compile(context)
 #          raise "Can't compile"
           context = super(context)
+          context
+        end
+      end
+
+      # yield(invokeblock)
+      class YieldNode<BaseNode
+        include NodeUtil
+        include SendUtil
+
+        def initialize(parent)
+          super(parent)
+          @arguments = nil
+        end
+
+        attr_accessor :arguments
+
+        def collect_info(context)
+          context.yield_node.last.push self
+          @arguments.each do |arg|
+            context = arg.collect_info(context)
+          end
+          context
+        end
+
+        def collect_candidate_type(context)
+          @arguments.each do |arg|
+            context = arg.collect_candidate_type(context)
+          end
           context
         end
       end
@@ -1406,6 +1469,14 @@ LocalVarNode
         def compile(context)
           context = super(context)
           context = @val.compile(context)
+#=begin
+          decide_type_once(context.to_key)
+          if @type.boxed then
+            @val.decide_type_once(context.to_key)
+            rtype = @val.type
+            context = rtype.gen_boxing(context)
+          end
+#=end
           valr = context.ret_reg
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg

@@ -37,23 +37,13 @@ module YTLJit
         end
       end
 
-      module SendUtil
-        def gen_eval_self(context)
-          # eval 1st arg(self)
-          slfnode = @arguments[2]
-          context = slfnode.compile(context)
-          
-          rtype = context.ret_node.type
-          rtype.gen_unboxing(context)
-        end
-      end
-
       # Send methodes
       class SendNode<BaseNode
         include HaveChildlenMixin
         include OptFlagOp
         include SendNodeCodeGen
         include NodeUtil
+        include SendUtil
 
         @@current_node = nil
         @@special_node_tab = {}
@@ -143,9 +133,21 @@ module YTLJit
         end
 
         def collect_candidate_type(context)
-          traverse_childlen {|rec|
-            context = rec.collect_candidate_type(context)
-          }
+          # prev env
+          context = @arguments[0].collect_candidate_type(context)
+
+          # block is after detect method
+          blknode = @arguments[1]
+
+          # other
+          @arguments[2.. -1].each do |arg|
+            context = arg.collect_candidate_type(context)
+          end
+
+          # function select
+          context = @func.collect_candidate_type(context)
+
+          signat = signature(context)
           mt = nil
           if is_fcall or is_vcall then
             mt = @class_top.method_tab[@func.name]
@@ -154,31 +156,39 @@ module YTLJit
             slf = @arguments[2].type
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
+
             else
               mt = @class_top.method_tab(slf.ruby_type)[@func.name]
             end
           end
           
           if mt then
-            signat = signature(context)
             same_type(self, mt, context.to_key, signat)
             same_type(mt, self, signat, context.to_key)
             context = mt.collect_candidate_type(context, @arguments, signat)
+
+            context.current_method_signature_node.push @arguments
+            mt.yield_node.map do |ynode|
+              yargs = ynode.arguments
+              ysignat = ynode.signature(context)
+              if blknode.is_a?(TopNode) then
+                # Have block
+                context = blknode.collect_candidate_type(context, 
+                                                         yargs, ysignat)
+              else
+                context = blknode.collect_candidate_type(context)
+              end
+              
+              same_type(blknode, ynode, ysignat, signat)
+              same_type(ynode, blknode, signat, ysignat)
+            end
+            context.current_method_signature_node.pop
+
           else
             context = collect_candidate_type_regident(context, slf)
           end
 
           @body.collect_candidate_type(context)
-        end
-
-        def signature(context)
-          res = []
-          @arguments.each do |ele|
-            ele.decide_type_once(context.to_key)
-            res.push ele.type
-          end
-
-          res
         end
 
         def compile(context)
@@ -225,8 +235,6 @@ module YTLJit
               context.ret_node = self
               
               decide_type_once(context.to_key)
-              p @type
-              p @type.to_box
               context = @type.to_box.gen_unboxing(context)
 
               context
@@ -295,9 +303,9 @@ module YTLJit
               context.start_using_reg(FUNC_ARG_YTL[i])
             end
             context.cpustack_pushn(numarg * 8)
-            casm = context.assembler
-            
+               
             # push prev env
+            casm = context.assembler
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], BPR)
             end
@@ -305,7 +313,12 @@ module YTLJit
             
             # block
             # eval block
-            context = @arguments[1].compile(context)
+            # local block
+
+            # compile block with other code space and context
+            tcontext = context.dup
+            @arguments[1].compile(tcontext)
+
             casm = context.assembler
             casm.with_retry do 
               entry = @arguments[1].code_space.var_base_address.to_immidiate
@@ -334,7 +347,7 @@ module YTLJit
               casm.mov(FUNC_ARG_YTL[2], TMPR3)
             end
             context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
-            
+
             context = gen_call(context, fnc, numarg)
             
             context.cpustack_popn(numarg * 8)
@@ -386,7 +399,7 @@ module YTLJit
           ocs = context.code_space
           # Allocate new code space in compiling @new_method
           context = @new_method.compile(context)
-          context.add_code_space(ocs)
+          context.set_code_space(ocs)
 
           context
         end
@@ -431,7 +444,7 @@ module YTLJit
           elsif rtype.ruby_type == Float then
             context = gen_arithmetic_operation(context, :addsd, XMM4, XMM0)
           else
-            raise "Unkown method #{rtype.ruby_type} #{@func.name}"
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
           context.current_method_signature.pop
           @body.compile(context)
@@ -523,7 +536,6 @@ module YTLJit
             ekey = epare[0]
             enode = epare[1]
             if enode != self then
-              p enode.class
               same_type(self, enode, key, ekey)
               same_type(enode, self, ekey, key)
             end

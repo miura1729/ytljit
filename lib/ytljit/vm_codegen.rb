@@ -78,11 +78,13 @@ LO        |                       |   |  |
         @top_node = tnode
         @modified_local_var = []
         @modified_instance_var = {}
+        @yield_node = []
       end
 
       attr          :top_node
       attr          :modified_local_var
       attr_accessor :modified_instance_var
+      attr_accessor :yield_node
 
       def merge_local_var(lvlist)
         res = nil
@@ -146,7 +148,6 @@ LO        |                       |   |  |
       def initialize(tnode)
         @top_node = tnode
         @code_space = nil
-        @assembler = nil
 
         # Signature of current compiling method
         # It is array, because method may be nest.
@@ -165,7 +166,6 @@ LO        |                       |   |  |
 
       attr          :top_node
       attr          :code_space
-      attr          :assembler
 
       attr          :current_method_signature
 
@@ -227,10 +227,20 @@ LO        |                       |   |  |
         end
       end
 
-      def add_code_space(cs)
-        @code_space = cs
-        @assembler = Assembler.new(cs)
+      def set_code_space(cs)
+        oldcs = @code_space
         @top_node.add_code_space(@code_space, cs)
+        @code_space = cs
+        asm = @top_node.asm_tab[cs]
+        if asm == nil then
+          @top_node.asm_tab[cs] = Assembler.new(cs)
+        end
+
+        oldcs
+      end
+
+      def assembler
+        @top_node.asm_tab[@code_space]
       end
 
       def reset_using_reg
@@ -239,8 +249,8 @@ LO        |                       |   |  |
 
       def start_using_reg_aux(reg)
         if @depth_reg[reg] then
-          @assembler.with_retry do
-            @assembler.push(reg)
+          assembler.with_retry do
+            assembler.push(reg)
             cpustack_push(reg)
           end
         else
@@ -279,8 +289,8 @@ LO        |                       |   |  |
           raise "Not saved reg #{reg}"
         end
         if @depth_reg[reg] != 0 then
-          @assembler.with_retry do
-            @assembler.pop(reg)
+          assembler.with_retry do
+            assembler.pop(reg)
             cpustack_pop(reg)
           end
         else

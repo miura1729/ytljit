@@ -96,7 +96,7 @@ module YTLJit
   class FuncArgInfo
     def initialize
       @maxargs = 0
-      @used_arg_tab = {}
+      @used_arg_tab = []
       @area_allocate_pos = []
     end
 

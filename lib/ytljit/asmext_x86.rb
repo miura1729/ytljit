@@ -32,9 +32,10 @@ module YTLJit
         offset = asm.offset
         code += asm.update_state(gen.sub(SPR, fainfo.maxargs * size))
         fainfo.area_allocate_pos.push offset
+        fainfo.used_arg_tab.push Hash.new
       end
 
-      fainfo.used_arg_tab[@no] = size
+      fainfo.used_arg_tab.last[@no] = size
       if src.is_a?(OpRegXMM) then
         code += asm.update_state(gen.movsd(argdst, src))
       else
@@ -87,8 +88,8 @@ module YTLJit
     def call_with_arg_get_argsize(addr, argnum)
       argsize = 0
       argnum.times do |i| 
-        if @funcarg_info.used_arg_tab[i] then
-          argsize += @funcarg_info.used_arg_tab[i]
+        if @funcarg_info.used_arg_tab.last[i] then
+          argsize += @funcarg_info.used_arg_tab.last[i]
         else
           STDERR.print "Wanrnning arg not initialized -- #{i}\n"
           argsize += 4
@@ -112,7 +113,7 @@ module YTLJit
       asm.after_patch_tab.push alloc_argument_area
 
       @funcarg_info.update_maxargs(argnum)
-      @funcarg_info.used_arg_tab = {}
+      @funcarg_info.used_arg_tab.pop
       @asm.current_address = orgaddress
       
       [code, callpos]

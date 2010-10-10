@@ -69,6 +69,7 @@ module YTLJit
 
       if @no == 0 then
         fainfo.area_allocate_pos.push nil
+        fainfo.used_arg_tab.push Hash.new
       end
 
       # It can be argpos2reg.size == 0, so this "if" isn't "elsif"
@@ -82,7 +83,7 @@ module YTLJit
         argreg = argpos2reg[@no]
         
         # for nested function call. need save previous reg.
-        if fainfo.used_arg_tab[@no] then
+        if fainfo.used_arg_tab.last[@no] then
           asm.update_state(gen.push(argreg))
           fainfo.push argreg
         end
@@ -104,7 +105,7 @@ module YTLJit
         end
       end
 
-      fainfo.used_arg_tab[@no] = @size
+      fainfo.used_arg_tab.last[@no] = @size
       code
     end
 
@@ -174,11 +175,11 @@ module YTLJit
       end
 
       @funcarg_info.update_maxargs(argnum)
-      @funcarg_info.used_arg_tab = {}
+      @funcarg_info.used_arg_tab.pop
 
 =begin
       # Save already stored restorer
-      uat = @funcarg_info.used_arg_tab
+      uat = @funcarg_info.used_arg_tab.last
       while !fainfo.empty? do
         nreg = fainfo.pop
         if argpos = ARGPOS2REG.index(nreg) then
