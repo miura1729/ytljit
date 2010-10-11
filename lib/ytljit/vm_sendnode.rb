@@ -150,7 +150,7 @@ module YTLJit
           signat = signature(context)
           mt = nil
           if is_fcall or is_vcall then
-            mt = @class_top.method_tab[@func.name]
+            mt = @func.method_top_node(@class_top, nil)
           else
             @arguments[2].decide_type_once(context.to_key)
             slf = @arguments[2].type
@@ -158,7 +158,7 @@ module YTLJit
               # Chaos
 
             else
-              mt = @class_top.method_tab(slf.ruby_type)[@func.name]
+              mt = @func.method_top_node(@class_top, slf)
             end
           end
           
@@ -196,10 +196,10 @@ module YTLJit
 
           context.start_using_reg(TMPR2)
           context.start_using_reg(TMPR3)
-          context = @func.set_calling_convention(context)
+          callconv = @func.calling_convention(context)
           fnc = nil
           
-          case @func.calling_convention
+          case callconv
           when :c_vararg
             context.start_using_reg(TMPR2)
             

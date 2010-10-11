@@ -379,9 +379,8 @@ module YTLJit
         arg = arg.reverse
 
         func = MethodSelectNode.new(curnode, ins[1])
-        cnode = context.current_node
         op_flag = ins[4]
-        sn = SendNode.make_send_node(cnode, func, arg, op_flag)
+        sn = SendNode.make_send_node(curnode, func, arg, op_flag)
         func.set_reciever(sn)
         context.expstack.push sn
 
@@ -393,8 +392,9 @@ module YTLJit
 
       def visit_invokeblock(code, ins, context)
         curnode = context.current_node
-        nnode = YieldNode.new(curnode)
+        func = YieldNode.new(curnode)
         numarg = ins[1]
+        op_flag = ins[2]
 
         # regular arguments
         args = []
@@ -403,7 +403,7 @@ module YTLJit
           args.push argele
         end
 
-        frameinfo = nnode.search_frame_info
+        frameinfo = func.frame_info
         roff = frameinfo.real_offset(0)  # offset of prevenv
         framelayout = frameinfo.frame_layout
 
@@ -418,7 +418,8 @@ module YTLJit
 
         args = args.reverse
 
-        nnode.arguments = args
+        nnode = SendNode.new(curnode, func, args, op_flag)
+        func.parent = nnode
         context.expstack.push nnode
 
         context

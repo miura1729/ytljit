@@ -875,6 +875,7 @@ LocalVarNode
         end
 
         def compile(context)
+          context = super(context)
           context.set_reg_content(TMPR, self)
           context.ret_node = self
           context.ret_reg = RETR
@@ -1179,23 +1180,40 @@ LocalVarNode
 
         def initialize(parent)
           super(parent)
-          @arguments = nil
+          @name = "block yield"
+          @frame_info = search_frame_info
         end
 
-        attr_accessor :arguments
+        attr :name
+        attr :frame_info
 
         def collect_info(context)
-          context.yield_node.last.push self
-          @arguments.each do |arg|
-            context = arg.collect_info(context)
-          end
+          context.yield_node.last.push @parent
           context
         end
 
         def collect_candidate_type(context)
-          @arguments.each do |arg|
-            context = arg.collect_candidate_type(context)
+          context
+        end
+
+        def calling_convention(context)
+          :ytl
+        end
+
+        def method_top_node(ctop, slf)
+          nil
+        end
+
+        def compile(context)
+          context = super(context)
+          asm = context.assembler
+          slfarg = @frame_info.offset_arg(2, BPR)
+          asm.with_retry do
+            asm.mov(TMPR3, slfarg)
           end
+          
+          context.ret_reg = @frame_info.offset_arg(1, BPR)
+          context.ret_node = self
           context
         end
       end
@@ -1227,7 +1245,15 @@ LocalVarNode
           context
         end
 
-        def set_calling_convention(context)
+        def method_top_node(ctop, slf)
+          if slf then
+            ctop.method_tab(slf.ruby_type)[@name]
+          else
+            ctop.method_tab[@name]
+          end
+        end
+
+        def calling_convention(context)
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.method_tab[@name]
             if mtop then
@@ -1263,7 +1289,7 @@ LocalVarNode
             end
           end
 
-          context
+          @calling_convention
         end
 
         def compile(context)
