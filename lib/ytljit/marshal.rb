@@ -1,10 +1,18 @@
 class Proc
+  @@iseq_cache = {}
+  
   def self._alloc
     Proc.new {}
   end
 
   def _dump_data
-    [patch_iseq(self.to_iseq.to_a), self.binding.to_a]
+    orgiseq = self.to_iseq
+    piseq = @@iseq_cache[orgiseq]
+    if !piseq then
+      piseq = @@iseq_cache[orgiseq] = patch_iseq(orgiseq.to_a)
+    end
+      
+    [piseq, self.binding.to_a]
   end
 
   def _load_data(obj)
