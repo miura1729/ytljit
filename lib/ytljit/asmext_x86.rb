@@ -35,7 +35,10 @@ module YTLJit
         fainfo.used_arg_tab.push Hash.new
       end
 
-      fainfo.used_arg_tab.last[@no] = size
+      if !asm.retry_mode then
+        # if retry mode fainfo.used_arg_tab is deleted
+        fainfo.used_arg_tab.last[@no] = size
+      end
       if src.is_a?(OpRegXMM) then
         code += asm.update_state(gen.movsd(argdst, src))
       else

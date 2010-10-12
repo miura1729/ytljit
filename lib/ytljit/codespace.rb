@@ -32,6 +32,15 @@ module YTLJit
       ovi32
     end
 
+    def var_base_immidiate_address(offset = 0)
+      func = lambda {
+        base_address + offset
+      }
+      ovi32 = OpVarImmidiateAddress.new(func)
+      @refer_operands.push ovi32
+      ovi32
+    end
+
     def update_refer
       @refer_operands.each do |refop|
         refop.refer.each do |stfn|

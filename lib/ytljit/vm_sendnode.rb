@@ -321,7 +321,7 @@ module YTLJit
 
             casm = context.assembler
             casm.with_retry do 
-              entry = @arguments[1].code_space.var_base_address.to_immidiate
+              entry = @arguments[1].code_space.var_base_immidiate_address
               casm.mov(FUNC_ARG_YTL[1], entry)
             end
             context.set_reg_content(FUNC_ARG_YTL[1], nil)

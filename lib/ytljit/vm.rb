@@ -276,7 +276,7 @@ LocalVarNode
 
         def inference_type
           cs = @type_inference_proc
-          cs.call(cs.base_address)
+          cs.call(cs.var_base_address)
         end
 
         def gen_type_inference_proc(code)

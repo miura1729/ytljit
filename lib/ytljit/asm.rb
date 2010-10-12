@@ -90,10 +90,13 @@ module YTLJit
     attr          :offset
     attr          :output_stream
     attr          :after_patch_tab
+    attr          :retry_mode
 
     def var_current_address
+      current_address = @current_address
+
       func = lambda {
-        @current_address
+        current_address
       }
       OpVarMemAddress.new(func)
     end
@@ -150,12 +153,15 @@ module YTLJit
         offset = @offset
         stfunc = lambda {
           with_current_address(@output_stream.base_address + offset) {
+            orgretry_mode = @retry_mode
+            @retry_mode = true
             out = @generator.send(mn, *args)
             if out.is_a?(Array)
               @output_stream[offset] = out[0]
             else
               @output_stream[offset] = out
             end
+            @retry_mode = orgretry_mode
           }
         }
         args.each do |e|

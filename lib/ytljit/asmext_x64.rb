@@ -83,7 +83,7 @@ module YTLJit
         argreg = argpos2reg[@no]
         
         # for nested function call. need save previous reg.
-        if fainfo.used_arg_tab.last[@no] then
+        if !asm.retry_mode and fainfo.used_arg_tab.last[@no] then
           asm.update_state(gen.push(argreg))
           fainfo.push argreg
         end
@@ -105,7 +105,10 @@ module YTLJit
         end
       end
 
-      fainfo.used_arg_tab.last[@no] = @size
+      if !asm.retry_mode then
+        # if retry mode fainfo.used_arg_tab is deleted
+        fainfo.used_arg_tab.last[@no] = @size
+      end
       code
     end
 
