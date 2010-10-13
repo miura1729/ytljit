@@ -24,30 +24,18 @@ iseq = VMLib::InstSeqTree.new(nil, is)
 pp iseq
 
 tr = VM::YARVTranslatorSimple.new([iseq])
-#tr.translate.compile(context)
 tnode = tr.translate
-tnode.inspect_by_graph
 context = VM::CollectInfoContext.new(tnode)
 tnode.collect_info(context)
 context = VM::TypeInferenceContext.new(tnode)
 tnode.collect_candidate_type(context, [], [])
-#tnode.collect_candidate_type(context, [], [])
-tnode = Marshal.load(Marshal.dump(tnode))
+tnode.collect_candidate_type(context, [], [])
+
 context = VM::CompileContext.new(tnode)
 tnode.compile(context)
-# context.code_space.disassemble
 p tnode.code_space
-# tnode.code_space.disassemble
-=begin
-asm = Assembler.new(tnode.code_space)
-asm.with_retry do
-end
-tnode.code_space.disassemble
-=end
-tnode.code_space_tab.each do |cs|
-  cs.fill_disasm_cache
-end
-tnode.code_space.disassemble
 
-tnode.code_space.call(tnode.code_space.base_address)
+File.open("out.marshal", "w") do |fp|
+  fp.print Marshal.dump(tnode)
+end
 

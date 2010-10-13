@@ -1306,9 +1306,12 @@ LocalVarNode
               context.ret_reg = cs.var_base_address
             else
               if @reciever.klass_object then
-                addr = @reciever.klass_object.method_address_of(@name)
-                if addr then
-                  context.ret_reg = OpMemAddress.new(addr)
+                addr = lambda {
+                  @reciever.klass_object.method_address_of(@name)
+                }
+                if addr.call then
+                  context.ret_reg = OpVarMemAddress.new(addr)
+                  context.code_space.refer_operands.push context.ret_reg 
                   context.ret_node = self
                 else
                   raise "Unkown method - #{@name}"
@@ -1363,9 +1366,12 @@ LocalVarNode
                 asm.mov(TMPR3, recval)
               end
 
-              addr = rtype.ruby_type.method_address_of(@name)
-              if addr then
-                context.ret_reg = OpMemAddress.new(addr)
+              addr = lambda {
+                rtype.ruby_type.method_address_of(@name)
+              }
+              if addr.call then
+                context.ret_reg = OpVarMemAddress.new(addr)
+                context.code_space.refer_operands.push context.ret_reg 
                 context.ret_node = self
               else
                 raise "Unkown method - #{@name}"

@@ -105,6 +105,9 @@ module YTLJit
       orgaddress = @asm.current_address
       code = @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
+      if @asm.retry_mode then
+        return [code, callpos]
+      end
 
       code += @asm.update_state(add(SPR, OpImmidiate8.new(argsize)))
       offset = @funcarg_info.area_allocate_pos.pop
