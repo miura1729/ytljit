@@ -168,27 +168,31 @@ module YTLJit
 
       def self.related_ruby_class(klass, base)
         baseslf = base.new(klass)
-        mixinname = klass.name + base.name.gsub(/.*::Ruby/, "") + "CodeGen"
-        begin
-          mixin = VM::TypeCodeGen.const_get(mixinname)
-          baseslf.extend mixin
-        rescue NameError
-        end
-
         boxslf = RubyTypeBoxed.new(klass)
-        mixinname = klass.name + "TypeBoxedCodeGen"
-        begin
-          mixin = VM::TypeCodeGen.const_get(mixinname)
-          boxslf.extend mixin
-        rescue NameError
-        end
-
         unboxslf = RubyTypeUnboxed.new(klass)
-        mixinname = klass.name + "TypeUnboxedCodeGen"
-        begin
-          mixin = VM::TypeCodeGen.const_get(mixinname)
-          unboxslf.extend mixin
-        rescue NameError
+
+        klass.ancestors.reverse.each do |curcls|
+          box_unbox = base.name.gsub(/.*::Ruby/, "")
+          mixinname = curcls.name + box_unbox + "CodeGen"
+          begin
+            mixin = VM::TypeCodeGen.const_get(mixinname)
+            baseslf.extend mixin
+          rescue NameError
+          end
+
+          mixinname = curcls.name + "TypeBoxedCodeGen"
+          begin
+            mixin = VM::TypeCodeGen.const_get(mixinname)
+            boxslf.extend mixin
+          rescue NameError
+          end
+
+          mixinname = curcls.name + "TypeUnboxedCodeGen"
+          begin
+            mixin = VM::TypeCodeGen.const_get(mixinname)
+            unboxslf.extend mixin
+          rescue NameError
+          end
         end
 
         @@base_type_tab[klass] = baseslf

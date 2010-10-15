@@ -124,6 +124,7 @@ LO        |                       |   |  |
       def initialize(tnode)
         @top_node = tnode
         @current_method_signature_node = []
+        @convergent = false
       end
 
       def to_key(offset = -1)
@@ -141,6 +142,7 @@ LO        |                       |   |  |
 
       attr          :top_node
       attr          :current_method_signature_node
+      attr_accessor :convergent
     end
 
     class CompileContext

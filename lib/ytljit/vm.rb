@@ -153,14 +153,24 @@ LocalVarNode
           context
         end
 
-        def ti_add_observer(dst, dkey, skey, upmethod = :ti_update)
-          prc = lambda { send(:ti_update, dst, self, dkey, skey) }
-          @ti_observer[dst] = prc
+        def ti_add_observer(dst, dkey, skey, context)
+          if @ti_observer[dst] == nil then
+            @ti_observer[dst] = []
+          end
+          
+          if @ti_observer[dst].all? {|edkey, eskey, eprc| 
+              (edkey != dkey) or (eskey != skey) 
+            } then
+            prc = lambda { send(:ti_update, dst, self, dkey, skey, context) }
+            @ti_observer[dst].push [dkey, skey, prc]
+          end
         end
 
         def ti_changed
-          @ti_observer.each do |rec, prc|
-            prc.call
+          @ti_observer.each do |rec, lst|
+            lst.each do |dkey, skey, prc|
+              prc.call
+            end
           end
         end
 
@@ -175,7 +185,7 @@ LocalVarNode
           res
         end
 
-        def ti_update(dst, src, dkey, skey)
+        def ti_update(dst, src, dkey, skey, context)
           dtlist = dst.type_list(dkey)
           stlist = src.type_list(skey)
 =begin
@@ -189,6 +199,7 @@ LocalVarNode
           if orgsize != dtlist.size then
             dst.type = nil
             dst.ti_changed
+            context.convergent = false
           end
 
           dtlist = dst.element_node_list
@@ -197,10 +208,11 @@ LocalVarNode
           dst.element_node_list = merge_type(dtlist, stlist)
           if orgsize != dtlist.size then
             dst.ti_changed
+            context.convergent = false
           end
         end
 
-        def same_type(dst, src, dkey, skey)
+        def same_type(dst, src, dkey, skey, context)
 =begin
           print "#{src.class} -> #{dst.class} \n"
           if dst.is_a?(LocalVarNode) then
@@ -212,22 +224,23 @@ LocalVarNode
 =end
 
           if dst.is_a?(BaseNode) then
-            src.ti_add_observer(dst, dkey, skey)
+            src.ti_add_observer(dst, dkey, skey, context)
           end
 
-          ti_update(dst, src, dkey, skey)
+          ti_update(dst, src, dkey, skey, context)
         end
 
-        def add_element_node(key, type)
+        def add_element_node(key, type, context)
           slfetnode = @element_node_list
           unless slfetnode.include?(type)
             @element_node_list.push [key, type]
             orgkey = @element_node_list[0][0]
             orgtype = @element_node_list[0][1]
             if orgtype != type then
-              same_type(orgtype, type, orgkey, key)
+              same_type(orgtype, type, orgkey, key, context)
             end
             ti_changed
+            context.convergent = false
           end
         end
 
@@ -258,7 +271,7 @@ LocalVarNode
         end
 
         def decide_type_once(key)
-          unless @type
+          if @type == nil # or @type.is_a?(RubyType::DefaultType0) then
             tlist = @type_list.type_list(key).value
             @type = decide_type_core(tlist)
           end
@@ -487,8 +500,8 @@ LocalVarNode
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
           @end_nodes.each do |enode|
-            same_type(self, enode, context.to_key, context.to_key)
-            same_type(enode, self, context.to_key, context.to_key)
+            same_type(self, enode, context.to_key, context.to_key, context)
+            same_type(enode, self, context.to_key, context.to_key, context)
           end
           context.current_method_signature_node.pop
           context
@@ -596,6 +609,11 @@ LocalVarNode
           if !@code_space_tab.include?(newcs) then
             @code_space_tab.push newcs
           end
+        end
+
+        def collect_candidate_type(context, signode, sig)
+          context.convergent = true
+          super
         end
 
         attr :code_space_tab
@@ -725,8 +743,10 @@ LocalVarNode
             argoff = @offset - fragstart
             tobj = context.current_method_signature_node.last[argoff]
             if tobj then
-              same_type(self, tobj, context.to_key, context.to_key(-2))
-              same_type(tobj, self, context.to_key(-2), context.to_key)
+              same_type(self, tobj, 
+                        context.to_key, context.to_key(-2), context)
+              same_type(tobj, self, 
+                        context.to_key(-2), context.to_key, context)
             end
           end
           context
@@ -784,8 +804,8 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          same_type(self, @parent, context.to_key, context.to_key)
-          same_type(@parent, self, context.to_key, context.to_key)
+          same_type(self, @parent, context.to_key, context.to_key, context)
+          same_type(@parent, self, context.to_key, context.to_key, context)
           context
         end
 
@@ -824,8 +844,10 @@ LocalVarNode
 
         def collect_candidate_type(context)
           context = @value_node.collect_candidate_type(context)
-          same_type(self, @value_node, context.to_key, context.to_key)
-          same_type(@value_node, self, context.to_key, context.to_key)
+          same_type(self, @value_node, 
+                    context.to_key, context.to_key, context)
+          same_type(@value_node, self, 
+                    context.to_key, context.to_key, context)
           context = @body.collect_candidate_type(context)
           context
         end
@@ -868,8 +890,10 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @local_label.come_from.values.each do |vnode|
-            same_type(self, vnode, context.to_key, context.to_key)
-            same_type(vnode, self, context.to_key, context.to_key)
+            same_type(self, vnode, 
+                      context.to_key, context.to_key, context)
+            same_type(vnode, self, 
+                      context.to_key, context.to_key, context)
           end
           context
         end
@@ -1430,7 +1454,8 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @var_type_info.each do |src|
-            same_type(self, src, context.to_key, context.to_key)
+            same_type(self, src, 
+                      context.to_key, context.to_key, context)
           end
           context
         end
@@ -1494,7 +1519,8 @@ LocalVarNode
           
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
-          same_type(self, @val, context.to_key, context.to_key)
+          same_type(self, @val, 
+                    context.to_key, context.to_key, context)
           @body.collect_candidate_type(context)
         end
 
@@ -1563,7 +1589,8 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @var_type_info.each do |src|
-            same_type(self, src, context.to_key, context.to_key)
+            same_type(self, src, 
+                      context.to_key, context.to_key, context)
           end
           context
         end
@@ -1599,7 +1626,8 @@ LocalVarNode
 
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
-          same_type(self, @val, context.to_key, context.to_key)
+          same_type(self, @val, 
+                    context.to_key, context.to_key, context)
           @body.collect_candidate_type(context)
         end
 

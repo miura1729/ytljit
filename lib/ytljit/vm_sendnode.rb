@@ -163,8 +163,18 @@ module YTLJit
           end
           
           if mt then
-            same_type(self, mt, context.to_key, signat)
-            same_type(mt, self, signat, context.to_key)
+            same_type(self, mt, context.to_key, signat, context)
+            same_type(mt, self, signat, context.to_key, context)
+
+            context.current_method_signature_node.push @arguments
+            mt.yield_node.map do |ynode|
+              yargs = ynode.arguments
+              ysignat = ynode.signature(context)
+              same_type(blknode, ynode, ysignat, signat, context)
+              same_type(ynode, blknode, signat, ysignat, context)
+            end
+            context.current_method_signature_node.pop
+
             context = mt.collect_candidate_type(context, @arguments, signat)
 
             context.current_method_signature_node.push @arguments
@@ -178,12 +188,8 @@ module YTLJit
               else
                 context = blknode.collect_candidate_type(context)
               end
-              
-              same_type(blknode, ynode, ysignat, signat)
-              same_type(ynode, blknode, signat, ysignat)
             end
             context.current_method_signature_node.pop
-
           else
             context = collect_candidate_type_regident(context, slf)
           end
@@ -418,11 +424,13 @@ module YTLJit
           case [slf.ruby_type]
           when [Fixnum], [Float], [String]
             same_type(@arguments[3], @arguments[2], 
-                      context.to_key, context.to_key)
+                      context.to_key, context.to_key, context)
             same_type(@arguments[2], @arguments[3], 
-                      context.to_key, context.to_key)
-            same_type(self, @arguments[2], context.to_key, context.to_key)
-            same_type(@arguments[2], self, context.to_key, context.to_key)
+                      context.to_key, context.to_key, context)
+            same_type(self, @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], self, 
+                      context.to_key, context.to_key, context)
           end
 
           context
@@ -432,7 +440,7 @@ module YTLJit
         def compile(context)
           @arguments[2].decide_type_once(context.to_key)
           rtype = @arguments[2].type
-          if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
+          if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.method_tab(rtype.ruby_type)[@func.name] then
             return super(context)
           end
@@ -456,9 +464,9 @@ module YTLJit
         include SendUtil
         def collect_candidate_type_regident(context, slf)
           same_type(@arguments[3], @arguments[2], 
-                    context.to_key, context.to_key)
+                    context.to_key, context.to_key, context)
           same_type(@arguments[2], @arguments[3], 
-                    context.to_key, context.to_key)
+                    context.to_key, context.to_key, context)
           tt = RubyType::BaseType.from_ruby_class(true)
           @type_list.add_type(context.to_key, tt)
           tt = RubyType::BaseType.from_ruby_class(false)
@@ -527,7 +535,7 @@ module YTLJit
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(context.to_key, fixtype)
-            @arguments[2].add_element_node(context.to_key, self)
+            @arguments[2].add_element_node(context.to_key, self, context)
             key = context.to_key
             decide_type_once(key)
 #            @arguments[2].type = nil
@@ -536,12 +544,12 @@ module YTLJit
             ekey = epare[0]
             enode = epare[1]
             if enode != self then
-              same_type(self, enode, key, ekey)
-              same_type(enode, self, ekey, key)
+              same_type(self, enode, key, ekey, context)
+              same_type(enode, self, ekey, key, context)
             end
 
           when [Hash]
-            @arguments[2].add_element_node(context.to_key, self)
+            @arguments[2].add_element_node(context.to_key, self, context)
           end
 
           context

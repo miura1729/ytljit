@@ -24,6 +24,10 @@ module YTLJit
         def gen_copy(context)
           context
         end
+
+        def inspect
+          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type}}"
+        end
       end
 
       module FixnumTypeUnboxedCodeGen

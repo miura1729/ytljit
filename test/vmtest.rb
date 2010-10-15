@@ -14,7 +14,7 @@ is = RubyVM::InstructionSequence.compile(
 #        "def foo; [1, 2, 3][0] + [1, 2, 3][1]  end; p foo", "", "", 0, 
 #        "def foo(x); if x then x = 1 else x = 2 end; x; end; p foo(1)", "", "", 0, 
 #        "def foo(x); if x then x = 2.0 else x = 1 end; x; end; p foo(1)", "", "", 0, 
-         "def foo(x); yield(x); end; p foo(1) {|a| a + 1}", "", "", 0, 
+         "def foo(x); yield(x) + 2; end; p foo(1) {|a| a + 1}", "", "", 0, 
 #        "1.1","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,
@@ -26,12 +26,17 @@ pp iseq
 tr = VM::YARVTranslatorSimple.new([iseq])
 #tr.translate.compile(context)
 tnode = tr.translate
-tnode.inspect_by_graph
+# tnode.inspect_by_graph
 context = VM::CollectInfoContext.new(tnode)
 tnode.collect_info(context)
 context = VM::TypeInferenceContext.new(tnode)
+begin
+  pp "do type inference"
+  tnode.collect_candidate_type(context, [], [])
+  pp context.convergent
+end until context.convergent
 tnode.collect_candidate_type(context, [], [])
-#tnode.collect_candidate_type(context, [], [])
+
 tnode = Marshal.load(Marshal.dump(tnode))
 context = VM::CompileContext.new(tnode)
 tnode.compile(context)
