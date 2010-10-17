@@ -243,6 +243,15 @@ module YTLJit
         self
       end
 
+      def ==(other)
+        if other then
+          self.ruby_type == other.ruby_type and 
+            boxed == other.boxed
+        else
+          nil
+        end
+      end
+
       include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 

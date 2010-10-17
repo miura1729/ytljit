@@ -35,7 +35,7 @@ module YTLJit
         fainfo.used_arg_tab.push Hash.new
       end
 
-      if !asm.retry_mode then
+      if asm.retry_mode != :change_op then
         # if retry mode fainfo.used_arg_tab is deleted
         fainfo.used_arg_tab.last[@no] = size
       end
@@ -105,7 +105,7 @@ module YTLJit
       orgaddress = @asm.current_address
       code = @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
-      if @asm.retry_mode then
+      if @asm.retry_mode == :change_op then
         return [code, callpos]
       end
 

@@ -103,7 +103,7 @@ module YTLJit
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], val)
-            asm.call(rbfloatnew)
+            asm.call_with_arg(rbfloatnew, 1)
           end
           context.end_using_reg(FUNC_FLOAT_ARG[0])
           context.ret_reg = RETR
@@ -142,7 +142,9 @@ module YTLJit
         end
 
         def ==(other)
-          other.is_a?(self.class)
+          other.is_a?(self.class) and
+          self.class == other.class and
+          @element_type == other.element_type
         end
       end
 

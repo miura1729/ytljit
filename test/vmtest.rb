@@ -15,6 +15,7 @@ is = RubyVM::InstructionSequence.compile(
 #        "def foo(x); if x then x = 1 else x = 2 end; x; end; p foo(1)", "", "", 0, 
 #        "def foo(x); if x then x = 2.0 else x = 1 end; x; end; p foo(1)", "", "", 0, 
          "def foo(x); yield(x) + 2; end; p foo(1) {|a| a + 1}", "", "", 0, 
+#         "def id(x); x; end; p id(1); p id(1.0)", "", "", 0, 
 #        "1.1","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,

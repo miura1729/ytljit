@@ -83,7 +83,8 @@ module YTLJit
         argreg = argpos2reg[@no]
         
         # for nested function call. need save previous reg.
-        if !asm.retry_mode and fainfo.used_arg_tab.last[@no] then
+        if asm.retry_mode != :change_op and 
+            fainfo.used_arg_tab.last[@no] then
           asm.update_state(gen.push(argreg))
           fainfo.push argreg
         end
@@ -105,7 +106,7 @@ module YTLJit
         end
       end
 
-      if !asm.retry_mode then
+      if asm.retry_mode != :change_op then
         # if retry mode fainfo.used_arg_tab is deleted
         fainfo.used_arg_tab.last[@no] = @size
       end
@@ -164,7 +165,7 @@ module YTLJit
       code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
       code += @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
-      if @asm.retry_mode then
+      if @asm.retry_mode != :change_op then
         return [code, callpos]
       end
 

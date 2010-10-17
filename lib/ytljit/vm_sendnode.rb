@@ -385,7 +385,8 @@ module YTLJit
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
-            @class_top.method_tab[arguments[4].value] = arguments[5]
+            @new_method.name = arguments[4].value
+            @class_top.method_tab[arguments[4].value] = @new_method
           end
         end
 

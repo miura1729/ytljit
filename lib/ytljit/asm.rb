@@ -119,7 +119,8 @@ module YTLJit
       org_base_address = @output_stream.base_address
       yield
 
-      @retry_mode = true
+      org_retry_mode = @retry_mode
+      @retry_mode = :change_org
       while org_base_address != @output_stream.base_address do
         org_base_address = @output_stream.base_address
         reset
@@ -133,7 +134,7 @@ module YTLJit
       @after_patch_tab.each do |patproc|
         patproc.call
       end
-      @retry_mode = false
+      @retry_mode = org_retry_mode
     end
 
     def add_value_entry(val)
@@ -149,12 +150,12 @@ module YTLJit
 
     def add_var_value_retry_func(mn, args)
       if args.any? {|e| e.is_a?(OpVarValueMixin) } and 
-         !@retry_mode then
+         @retry_mode == false then
         offset = @offset
         stfunc = lambda {
           with_current_address(@output_stream.base_address + offset) {
             orgretry_mode = @retry_mode
-            @retry_mode = true
+            @retry_mode = :change_op
             out = @generator.send(mn, *args)
             if out.is_a?(Array)
               @output_stream[offset] = out[0]

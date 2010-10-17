@@ -159,7 +159,7 @@ LocalVarNode
           end
           
           if @ti_observer[dst].all? {|edkey, eskey, eprc| 
-              (edkey != dkey) or (eskey != skey) 
+              (edkey != dkey) or (eskey != skey)
             } then
             prc = lambda { send(:ti_update, dst, self, dkey, skey, context) }
             @ti_observer[dst].push [dkey, skey, prc]
@@ -194,6 +194,7 @@ LocalVarNode
           print stlist.map(&:ruby_type), "\n"
 =end
           orgsize = dtlist.size
+#          p "#{dst.class} #{src.class} #{dtlist} #{stlist}"
           dst.set_type_list(dkey, merge_type(dtlist, stlist))
 
           if orgsize != dtlist.size then
@@ -240,7 +241,7 @@ LocalVarNode
               same_type(orgtype, type, orgkey, key, context)
             end
             ti_changed
-            context.convergent = false
+#            context.convergent = false
           end
         end
 
@@ -271,7 +272,7 @@ LocalVarNode
         end
 
         def decide_type_once(key)
-          if @type == nil # or @type.is_a?(RubyType::DefaultType0) then
+          if @type.equal?(nil) # or @type.is_a?(RubyType::DefaultType0) then
             tlist = @type_list.type_list(key).value
             @type = decide_type_core(tlist)
           end
@@ -495,7 +496,7 @@ LocalVarNode
 
         def collect_candidate_type(context, signode, sig)
           if add_cs_for_signature(sig) == nil then
-            return context
+#            return context
           end
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
@@ -509,12 +510,11 @@ LocalVarNode
 
         def disp_signature
           tcontext = CompileContext.new(self)
+          print "#{@classtop.klass_object}##{@name} "
           @code_spaces.each do |sig, cs|
-            tcontext.current_method_signature.push sig
             print sig, " -> "
-            tl = @type_list.type_list(tcontext.to_key).value
+            tl = @type_list.type_list(sig).value
             print decide_type_core(tl).inspect, "\n"
-            tcontext.current_method_signature.pop
           end
         end
 
