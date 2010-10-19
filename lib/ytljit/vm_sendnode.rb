@@ -129,7 +129,7 @@ module YTLJit
           @modified_local_var    = context.modified_local_var.dup
           @modified_instance_var = context.modified_instance_var.dup
 
-          context
+          @body.collect_info(context)
         end
 
         def collect_candidate_type(context)
@@ -393,6 +393,11 @@ module YTLJit
         def traverse_childlen
           yield @body
           yield @new_method
+        end
+
+        def collect_info(context)
+          context = @new_method.collect_info(context)
+          @body.collect_info(context)
         end
 
         def collect_candidate_type(context)

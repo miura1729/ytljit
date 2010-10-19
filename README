@@ -9,13 +9,19 @@ and refer to CPU flags (carry,zero,negative and so on).
 
 2. Install
 
-You must install iseq gem before installing ytljit
-  gem install iseq
+You can install by gem. Type
+  gem install ytljit
 
-GEM or install script doesn't exist yet.
-compile extend library writting in C (ext/*). 
-copy extend library and  main program writting in Ruby (lib/*) to
-your ruby library directory.
+If you want install manually, please do the following steps.
+
+   Install iseq gem before installing ytljit
+       gem install iseq
+
+   Compile extend library writting in C (ext/*). 
+
+   Copy extend library and  main program writting in Ruby (lib/*) to
+   your ruby library directory.
+
 
 3. License
 

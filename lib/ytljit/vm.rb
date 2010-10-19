@@ -383,6 +383,10 @@ LocalVarNode
       end
 
       class DummyNode
+        def collect_info(context)
+          context
+        end
+
         def collect_candidate_type(context)
           context
         end
@@ -495,9 +499,13 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, signode, sig)
-          if add_cs_for_signature(sig) == nil then
-#            return context
+          if add_cs_for_signature(sig) == nil and  
+              context.visited_top_node[self] then
+            return context
           end
+
+          context.visited_top_node[self] = true
+
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
           @end_nodes.each do |enode|
@@ -613,6 +621,7 @@ LocalVarNode
 
         def collect_candidate_type(context, signode, sig)
           context.convergent = true
+          context.visited_top_node = {}
           super
         end
 
@@ -716,7 +725,7 @@ LocalVarNode
             asm.with_retry do
               asm.sub(SPR, siz)
             end
-            cpustack_pushn(siz)
+            context.cpustack_pushn(siz)
           end
           context = @body.compile(context)
           context
