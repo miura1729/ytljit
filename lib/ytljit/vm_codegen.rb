@@ -160,12 +160,16 @@ LO        |                       |   |  |
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
         @ret_node = nil
-        @depth_reg = {}
+#        @depth_reg = {}
+        @depth_reg = Hash.new(0)
         @stack_content = []
         @reg_content = {}
 
         # Use only type inference compile mode
         @slf = nil
+
+        # Options from user
+        @options = {}
       end
 
       attr          :top_node
@@ -181,6 +185,8 @@ LO        |                       |   |  |
       attr          :stack_content
 
       attr_accessor :slf
+
+      attr          :options
 
       def set_reg_content(dst, val)
         if dst.is_a?(FunctionArgument) then
@@ -248,7 +254,8 @@ LO        |                       |   |  |
       end
 
       def reset_using_reg
-        @depth_reg = {}
+#        @depth_reg = {}
+        @depth_reg = Hash.new(0)
       end
 
       def start_using_reg_aux(reg)
@@ -485,7 +492,9 @@ LO        |                       |   |  |
           dmy, callpos = casm.call_with_arg(fnc, numarg)
         end
         @var_return_address = casm.output_stream.var_base_address(callpos)
-        dump_context(context)
+        if context.options[:dump_context] then
+          dump_context(context)
+        end
         context
       end
     end

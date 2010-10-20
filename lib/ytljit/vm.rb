@@ -541,7 +541,10 @@ LocalVarNode
           if oldcs then
             context.set_code_space(oldcs)
           end
-          disp_signature
+
+          if context.options[:disp_signature] then
+            disp_signature
+          end
           context
         end
       end
@@ -701,10 +704,16 @@ LocalVarNode
         end
 
         def offset_arg(n, basereg)
-          rc = @offset_cache[n]
-          unless rc
+          rc = nil
+          if basereg == BPR then
+            rc = @offset_cache[n]
+            unless rc
+              off = offset_by_byte(n)
+              rc = @offset_cache[n] = OpIndirect.new(basereg, off)
+            end
+          else
             off = offset_by_byte(n)
-            rc = @offset_cache[n] = OpIndirect.new(basereg, off)
+            rc = OpIndirect.new(basereg, off)
           end
 
           rc
@@ -899,10 +908,12 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @local_label.come_from.values.each do |vnode|
-            same_type(self, vnode, 
-                      context.to_key, context.to_key, context)
-            same_type(vnode, self, 
-                      context.to_key, context.to_key, context)
+            if vnode then
+              same_type(self, vnode, 
+                        context.to_key, context.to_key, context)
+              same_type(vnode, self, 
+                        context.to_key, context.to_key, context)
+            end
           end
           context
         end
@@ -1472,7 +1483,6 @@ LocalVarNode
         def compile(context)
           context = super(context)
           context = gen_pursue_parent_function(context, @depth)
-          asm = context.assembler
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
           context.ret_node = self
@@ -1488,9 +1498,7 @@ LocalVarNode
         end
 
         def compile_main(context)
-          context = gen_pursue_parent_function(context, @depth)
-          base = context.ret_reg
-          offarg = @current_frame_info.offset_arg(@offset, base)
+          offarg = @current_frame_info.offset_arg(@offset, BPR)
           context.ret_node = self
           context.ret_reg = offarg
         end
@@ -1536,14 +1544,14 @@ LocalVarNode
         def compile(context)
           context = super(context)
           context = @val.compile(context)
-#=begin
+
           decide_type_once(context.to_key)
           if @type.boxed then
             @val.decide_type_once(context.to_key)
             rtype = @val.type
             context = rtype.gen_boxing(context)
           end
-#=end
+
           valr = context.ret_reg
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg
@@ -1563,6 +1571,9 @@ LocalVarNode
           end
           
           context.ret_reg = nil
+          if base == TMPR2 then
+            context.end_using_reg(base)
+          end
           context = @body.compile(context)
           context
         end

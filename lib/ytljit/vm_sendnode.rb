@@ -105,7 +105,6 @@ module YTLJit
         end
 
         def collect_candidate_type_regident(context, slf)
-          p @func.name
           context
         end
 
@@ -452,7 +451,6 @@ module YTLJit
           end
 
           context.current_method_signature.push signature(context)
-          context = gen_eval_self(context)
           if rtype.ruby_type == Fixnum then
             context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
           elsif rtype.ruby_type == Float then

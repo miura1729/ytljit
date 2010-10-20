@@ -6,6 +6,9 @@ require 'singleton'
 module YTLJit
 
   class Operand
+    def using(reg)
+      false
+    end
   end
 
   class OpImmidiate<Operand
@@ -104,6 +107,10 @@ module YTLJit
     def value
       reg_no
     end
+    
+    def using(reg)
+      reg == self
+    end
   end
 
   class OpIndirect<Operand
@@ -118,6 +125,10 @@ module YTLJit
 
     def to_as
       "#{@disp}(#{@reg.to_as})"
+    end
+
+    def using(reg)
+       @reg == reg
     end
   end
 
