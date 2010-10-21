@@ -82,7 +82,6 @@ module YTLJit
         include AbsArch
 
         def gen_boxing(context)
-          p "boxingaaa"
           context
         end
 
@@ -111,7 +110,6 @@ module YTLJit
         end
 
         def gen_unboxing(context)
-          p "unboxing"
           context
         end
       end
