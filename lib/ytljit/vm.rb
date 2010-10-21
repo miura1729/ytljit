@@ -1307,7 +1307,8 @@ LocalVarNode
               if @reciever.klass_object then
                 addr = @reciever.klass_object.method_address_of(@name)
                 if addr then
-                  if variable_argument?(@eciever.method(@name).parameters) then
+                  recobj = @reciever.klass_object
+                  if variable_argument?(recobj.method(@name).parameters) then
                     @calling_convention = :c_vararg
                   else
                     @calling_convention = :c_fixarg

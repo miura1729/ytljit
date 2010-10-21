@@ -186,7 +186,7 @@ LO        |                       |   |  |
 
       attr_accessor :slf
 
-      attr          :options
+      attr_accessor :options
 
       def set_reg_content(dst, val)
         if dst.is_a?(FunctionArgument) then
