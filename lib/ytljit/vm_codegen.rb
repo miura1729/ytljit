@@ -299,7 +299,7 @@ LO        |                       |   |  |
         else
           raise "Not saved reg #{reg}"
         end
-        if @depth_reg[reg] != 0 then
+        if @depth_reg[reg] != -1 then
           assembler.with_retry do
             assembler.pop(reg)
             cpustack_pop(reg)
@@ -313,7 +313,7 @@ LO        |                       |   |  |
       def end_using_reg(reg)
         case reg
         when OpRegistor
-          if reg != TMPR then
+          if reg != TMPR and reg != XMM0 then
             end_using_reg_aux(reg)
           end
 

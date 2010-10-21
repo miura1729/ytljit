@@ -136,6 +136,26 @@ module YTLJit
           return [rcode, TypedData.new(rtype, dst)]
         end
 
+      when :push
+        case dst
+        when OpRegXMM
+          rcode = ""
+          rcode += sub(SPR, 8)
+          rcode += mov(INDIRECT_SPR, dst)
+
+          return rcode
+        end
+
+      when :pop
+        case dst
+        when OpRegXMM
+          rcode = ""
+          rcode += mov(dst, INDIRECT_SPR)
+          rcode += add(SPR, 8)
+
+          return rcode
+        end
+
       when :seta, :setae, :setb, :setbe, :setl, :setle, :setg, :setge,
            :setna, :setnae, :setnb, :setnbe, :setnc, :setnle,
            :setno, :seto, :setz, :setnz
