@@ -511,6 +511,12 @@ Init_ytljit_ext()
   rb_define_alloc_func(ytl_cValueSpace, ytl_value_space_allocate);
   rb_define_method(ytl_cValueSpace, "to_s", ytl_value_space_to_s, 0);
   
+  ytl_mRuntime = rb_define_module_under(ytl_mYTLJit, "Runtime");
+  ytl_cArena = rb_define_class_under(ytl_mRuntime, "Arena", rb_cObject);
+  rb_define_alloc_func(ytl_cArena, ytl_arena_allocate);
+  rb_define_method(ytl_cArena, "[]=", ytl_arena_emit, 2);
+  rb_define_method(ytl_cArena, "[]", ytl_arena_ref, 1);
+
   /* Open Handles */
 #ifdef __CYGWIN__
   OPEN_CHECK(dl_handles[used_dl_handles] = dlopen("cygwin1.dll", RTLD_LAZY));

@@ -2,6 +2,8 @@
 #define INIT_CODE_SPACE_SIZE 64
 #define VALUE_SPACE_SIZE (8 * 1024)
 
+#define ARENA_SIZE 256 * 1024 /* 256 Kbytes */
+
 #define OPEN_CHECK(COND)                                        \
 do {                                                            \
       if ((COND) == NULL) {	                                \
@@ -15,8 +17,18 @@ struct CodeSpace {
   char body[1];
 };
 
+struct Arena {
+  size_t size;
+  VALUE body[1];
+};
+
 VALUE ytl_address_of(VALUE, VALUE);
 VALUE ytl_code_space_allocate(VALUE);
+VALUE ytl_code_value_allocate(VALUE);
+
+VALUE ytl_arena_allocate(VALUE);
+VALUE ytl_arena_emit(VALUE, VALUE, VALUE);
+VALUE ytl_arena_ref(VALUE, VALUE);
 
 void init_csarena();
 void *csalloc(int);
@@ -27,6 +39,9 @@ extern VALUE ytl_cCodeSpace;
 extern VALUE ytl_cValueSpace;
 extern VALUE ytl_cStepHandler;
 extern VALUE ytl_eStepHandler;
+
+extern VALUE ytl_mRuntime;
+extern VALUE ytl_cArena;
 
 /* Copy from node.h */
 typedef struct RNode {
