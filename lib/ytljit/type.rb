@@ -25,7 +25,7 @@ module YTLJit
       def initialize(type, index, offset)
         @type = type
         @index = index
-        @offset = offset
+        @offset = offset + index * type.size
       end
 
       attr :index
@@ -73,7 +73,7 @@ module YTLJit
       end
       
       def [](n = 0, offset = 0)
-        PointedData.new(@reftype, n, offset)
+        PointedData.new(@type, n, offset)
       end
     end
     

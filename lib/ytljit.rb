@@ -46,3 +46,9 @@ require 'ytljit/vm_type'
 require 'ytljit/vm_typeinf'
 
 require 'ytljit/arena'
+
+
+# Runtime
+
+require 'runtime/object.rb'
+require 'runtime/gc.rb'

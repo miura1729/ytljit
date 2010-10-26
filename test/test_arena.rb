@@ -29,13 +29,32 @@ class ArenaTests < Test::Unit::TestCase
                 ), :ary
                ), :as
               )
+  ARR = AsmType::Array.new(VALUE, 100)
+
   def test_arena
     arena = Arena.new
     foo = TypedDataArena.new(RString, arena, 32)
     foo[:basic][:flags].ref = 10
     foo[:as][:heap][:aux][:capa].ref = 320
+    bar = TypedDataArena.new(ARR, arena, 256)
+    bar[0].ref = 1
+    bar[10].ref = 122
+    bar[99].ref = 230
     assert_equal(foo[:basic][:flags].ref, 10)
     assert_equal(foo[:as][:heap][:aux][:shared].ref, 320)
+    assert_equal(bar[0].ref, 1)
+    assert_equal(bar[10].ref, 122)
+    assert_equal(bar[99].ref, 230)
+  end
+
+  def test_malloc
+    gc = GCCopy.new
+    str = gc.malloc(RString) {|res|
+      res[:header].ref = 12234
+      res[:traverse_func].ref = 1233
+    }
+    p str[:as][:heap].address.to_s(16)
+    p str.address.to_s(16)
   end
 end
 

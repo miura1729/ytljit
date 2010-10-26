@@ -45,3 +45,28 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
   return src;
 }
 
+VALUE
+ytl_arena_size(VALUE self)
+{
+  struct Arena *raw_arena;
+
+  int raw_offset;
+
+  raw_arena = (struct Arena *)DATA_PTR(self);
+
+  return INT2FIX(raw_arena->size);
+}
+
+VALUE
+ytl_arena_address(VALUE self)
+{
+  struct Arena *raw_arena;
+
+  int raw_offset;
+
+  raw_arena = (struct Arena *)DATA_PTR(self);
+
+  return INT2FIX(raw_arena->body);
+}
+
+
