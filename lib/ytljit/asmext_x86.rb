@@ -7,7 +7,7 @@ module YTLJit
       when :c 
         AsmType::MACHINE_WORD.size
 
-      when :ytl
+      when :ytl, :cfloat
         8
       end
     end

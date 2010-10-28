@@ -18,17 +18,21 @@ module YTLJit
         end
         context.set_reg_content(tempreg, context.ret_node)
         
-        # @argunemnts[1] is block
-        # @argunemnts[2] is self
-        # eval 2nd, 3thr, ... arguments and added
-        @arguments[3..-1].each do |aele|
-          context = aele.compile(context)
-          context.ret_node.decide_type_once(context.to_key)
-          rtype = context.ret_node.type
-          context = rtype.gen_unboxing(context)
+        # @argunents[1] is block
+        # @argunents[2] is self
+        # @arguments[3] is other
+        aele = @arguments[3]
+        context = aele.compile(context)
+        context.ret_node.decide_type_once(context.to_key)
+        rtype = context.ret_node.type
+        context = rtype.gen_unboxing(context)
           
-          asm = context.assembler
+        asm = context.assembler
+        if block_given? then
+          yield(context)
+        else
           asm.with_retry do
+            # default code
             if context.ret_reg.using(tempreg) then
               asm.mov(TMPR, context.ret_reg)
               context.end_using_reg(context.ret_reg)
@@ -37,20 +41,19 @@ module YTLJit
               asm.send(inst, tempreg, context.ret_reg)
               context.end_using_reg(context.ret_reg)
             end
+            asm.mov(resreg, tempreg)
           end
         end
 
-        asm.with_retry do
-          asm.mov(resreg, tempreg)
-        end
         context.end_using_reg(tempreg)
-        
+
         context.ret_node = self
         context.ret_reg = resreg
         
         decide_type_once(context.to_key)
-        if type.boxed then
-          context = type.gen_boxing(context)
+
+        if @type.boxed then
+          context = @type.gen_boxing(context)
         end
         
         context
@@ -66,9 +69,9 @@ module YTLJit
         end
         context.set_reg_content(tempreg, context.ret_node)
         
-        # @argunemnts[1] is block
-        # @argunemnts[2] is self
-        # eval 2nd arguments and compare
+        # @arguments[1] is block
+        # @arguments[2] is self
+        # @arguments[3] is other arg
         aele = @arguments[3]
         context = aele.compile(context)
         context.ret_node.decide_type_once(context.to_key)

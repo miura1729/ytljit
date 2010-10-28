@@ -92,6 +92,8 @@ module YTLJit
       TMPR = OpEAX.instance
       TMPR2 = OpEDX.instance
       TMPR3 = OpECX.instance
+      DBLLOR = OpEAX.instance
+      DBLHIR = OpEDX.instance
       RETR = OpEAX.instance
       SPR = OpESP.instance
       BPR = OpEBP.instance
@@ -101,6 +103,8 @@ module YTLJit
 #      TMPR3 = OpRCX.instance
       TMPR2 = OpR10.instance
       TMPR3 = OpR11.instance
+      DBLLOR = OpRAX.instance
+      DBLHIR = OpRDX.instance
       RETR = OpRAX.instance
       SPR = OpRSP.instance
       BPR = OpRBP.instance
@@ -114,7 +118,7 @@ module YTLJit
       hash[key] = FunctionArgumentInt.new(key, :c)
     }
     FUNC_FLOAT_ARG = Hash.new {|hash, key| 
-      hash[key] = FunctionArgumentFloat.new(key, :c)
+      hash[key] = FunctionArgumentFloat.new(key, :cfloat)
     }
     FUNC_ARG_YTL = Hash.new {|hash, key| 
       hash[key] = FunctionArgumentInt.new(key, :ytl)

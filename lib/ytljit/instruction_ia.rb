@@ -1193,20 +1193,20 @@ module YTLJit
       case dst 
       when OpReg8, OpMem8
         if src == nil then
-          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
+          modseq, modfmt = modrm(:imul, 5, dst, dst, src)
           return ([0xF6] + modseq).pack("C#{modfmt}")
         end
 
       when OpIndirect, OpMem32
-        if src != nil then
-          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
-          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#(modfmt}")
+        if src == nil then
+          modseq, modfmt = modrm(:imul, 5, dst, dst, src)
+          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
         end
 
       when OpReg32, OpReg64
         case src
         when nil
-          modseq, modfmt = modrm(:imul, 5, dst, dst, 5)
+          modseq, modfmt = modrm(:imul, 5, dst, dst, src)
           return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#(modfmt}")
           
         when OpReg32, OpMem32, OpIndirect, OpReg64
@@ -1248,6 +1248,29 @@ module YTLJit
       end
 
       return nosupported_addressing_mode(:imul, dst, src, src2)
+    end
+
+    def idiv(src)
+      rexseq, rexfmt = rex(src, nil)
+      case src
+      when OpReg8, OpMem8
+        modseq, modfmt = modrm(:idiv, 7, src, src, nil)
+        return ([0xF6] + modseq).pack("C#{modfmt}")
+
+      when OpIndirect, OpMem32
+        modseq, modfmt = modrm(:idiv, 7, src, src, nil)
+        return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
+
+      when OpReg32, OpReg64
+          modseq, modfmt = modrm(:idiv, 7, src, src, nil)
+          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#(modfmt}")
+      end
+
+      return nosupported_addressing_mode(:idiv, dst, src, src2)
+    end
+
+    def cdq
+      [0x99].pack("C")
     end
 
     def movss(dst, src)

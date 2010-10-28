@@ -510,6 +510,126 @@ module YTLJit
         end
       end
 
+      class SendMultNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :*
+
+        def initialize(parent, func, arguments, op_flag)
+          super
+        end
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum], [Float]
+            same_type(@arguments[3], @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], @arguments[3], 
+                      context.to_key, context.to_key, context)
+            same_type(self, @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], self, 
+                      context.to_key, context.to_key, context)
+
+          when [String]
+            same_type(self, @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], self, 
+                      context.to_key, context.to_key, context)
+            @arguments[3].add_type(context.to_key, fixtype)
+          end
+
+          context
+        end
+
+        def compile(context)
+          @arguments[2].type = nil
+          @arguments[2].decide_type_once(context.to_key)
+          rtype = @arguments[2].type
+          if rtype.is_a?(RubyType::DefaultType0) or
+              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+            return super(context)
+          end
+
+          context.current_method_signature.push signature(context)
+          if rtype.ruby_type == Fixnum then
+            context = gen_arithmetic_operation(context, :imul, TMPR2, 
+                                               TMPR) do |context|
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(DBLLOR, TMPR2)
+                asm.imul(context.ret_reg)
+                context.end_using_reg(context.ret_reg)
+              end
+            end
+              
+          elsif rtype.ruby_type == Float then
+            context = gen_arithmetic_operation(context, :mulsd, XMM4, XMM0)
+          else
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
+          end
+          context.current_method_signature.pop
+          @body.compile(context)
+        end
+      end
+
+      class SendDivNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :/
+
+        def initialize(parent, func, arguments, op_flag)
+          super
+        end
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum], [Float]
+            same_type(@arguments[3], @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], @arguments[3], 
+                      context.to_key, context.to_key, context)
+            same_type(self, @arguments[2], 
+                      context.to_key, context.to_key, context)
+            same_type(@arguments[2], self, 
+                      context.to_key, context.to_key, context)
+          end
+
+          context
+        end
+
+        def compile(context)
+          @arguments[2].type = nil
+          @arguments[2].decide_type_once(context.to_key)
+          rtype = @arguments[2].type
+          if rtype.is_a?(RubyType::DefaultType0) or
+              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+            return super(context)
+          end
+
+          context.current_method_signature.push signature(context)
+          if rtype.ruby_type == Fixnum then
+            context = gen_arithmetic_operation(context, :imul, TMPR2, 
+                                               TMPR) do |context|
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(DBLLOR, TMPR2)
+                asm.cdq
+                asm.idiv(context.ret_reg)
+                context.end_using_reg(context.ret_reg)
+              end
+            end
+              
+          elsif rtype.ruby_type == Float then
+            context = gen_arithmetic_operation(context, :divsd, XMM4, XMM0)
+          else
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
+          end
+          context.current_method_signature.pop
+          @body.compile(context)
+        end
+      end
+
       class SendCompareNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
@@ -577,7 +697,7 @@ module YTLJit
         end
       end
 
-      class SendRefNode<SendNode
+      class SendElementRefNode<SendNode
         include SendUtil
         add_special_send_node :[]
         def collect_candidate_type_regident(context, slf)

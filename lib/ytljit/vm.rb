@@ -875,6 +875,7 @@ LocalVarNode
           context = @value_node.compile(context)
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
+              decide_type_once(context.to_key)
               context = @type.gen_boxing(context)
               if context.ret_reg != RETR then
                 curas = context.assembler
