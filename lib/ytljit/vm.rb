@@ -374,7 +374,7 @@ LocalVarNode
         def signature(context)
           res = []
           @arguments.each do |ele|
-            ele.decide_type_once(context.to_key)
+            ele.decide_type_once(context.to_signature)
             res.push ele.type
           end
 
@@ -509,8 +509,10 @@ LocalVarNode
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
           @end_nodes.each do |enode|
-            same_type(self, enode, context.to_key, context.to_key, context)
-            same_type(enode, self, context.to_key, context.to_key, context)
+            same_type(self, enode, 
+                      context.to_signature, context.to_signature, context)
+            same_type(enode, self, 
+                      context.to_signature, context.to_signature, context)
           end
           context.current_method_signature_node.pop
           context
@@ -762,9 +764,11 @@ LocalVarNode
             tobj = context.current_method_signature_node.last[argoff]
             if tobj then
               same_type(self, tobj, 
-                        context.to_key, context.to_key(-2), context)
+                        context.to_signature, context.to_signature(-2), 
+                        context)
               same_type(tobj, self, 
-                        context.to_key(-2), context.to_key, context)
+                        context.to_signature(-2), context.to_signature, 
+                        context)
             end
           end
           context
@@ -822,8 +826,10 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          same_type(self, @parent, context.to_key, context.to_key, context)
-          same_type(@parent, self, context.to_key, context.to_key, context)
+          same_type(self, @parent, 
+                    context.to_signature, context.to_signature, context)
+          same_type(@parent, self, 
+                    context.to_signature, context.to_signature, context)
           context
         end
 
@@ -863,9 +869,9 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @value_node.collect_candidate_type(context)
           same_type(self, @value_node, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           same_type(@value_node, self, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           context = @body.collect_candidate_type(context)
           context
         end
@@ -875,7 +881,7 @@ LocalVarNode
           context = @value_node.compile(context)
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
-              decide_type_once(context.to_key)
+              decide_type_once(context.to_signature)
               context = @type.gen_boxing(context)
               if context.ret_reg != RETR then
                 curas = context.assembler
@@ -911,9 +917,9 @@ LocalVarNode
           @local_label.come_from.values.each do |vnode|
             if vnode then
               same_type(self, vnode, 
-                        context.to_key, context.to_key, context)
+                        context.to_signature, context.to_signature, context)
               same_type(vnode, self, 
-                        context.to_key, context.to_key, context)
+                        context.to_signature, context.to_signature, context)
             end
           end
           context
@@ -1142,10 +1148,10 @@ LocalVarNode
         attr :value
 
         def collect_candidate_type(context)
-          @type_list.add_type(context.to_key, @type)
+          @type_list.add_type(context.to_signature, @type)
           case @value
           when Array
-            key = context.to_key
+            key = context.to_signature
             @element_node_list = [[key, BaseNode.new(self)]]
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
@@ -1158,7 +1164,7 @@ LocalVarNode
         def compile(context)
           context = super(context)
 
-          decide_type_once(context.to_key)
+          decide_type_once(context.to_signature)
           case @value
           when Fixnum
             val = @value
@@ -1324,7 +1330,7 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
-            context.ret_node.decide_type_once(context.to_key)
+            context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
             rklass = rtype.ruby_type
             mth = rklass.instance_method(@name)
@@ -1370,7 +1376,7 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
-            context.ret_node.decide_type_once(context.to_key)
+            context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
             context = rtype.gen_boxing(context)
             recval = context.ret_reg
@@ -1477,7 +1483,7 @@ LocalVarNode
         def collect_candidate_type(context)
           @var_type_info.each do |src|
             same_type(self, src, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
           context
         end
@@ -1507,7 +1513,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          @type_list.add_type(context.to_key, @type)
+          @type_list.add_type(context.to_signature, @type)
           context
         end
 
@@ -1539,7 +1545,7 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           same_type(self, @val, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           @body.collect_candidate_type(context)
         end
 
@@ -1547,9 +1553,9 @@ LocalVarNode
           context = super(context)
           context = @val.compile(context)
 
-          decide_type_once(context.to_key)
+          decide_type_once(context.to_signature)
           if @type.boxed then
-            @val.decide_type_once(context.to_key)
+            @val.decide_type_once(context.to_signature)
             rtype = @val.type
             context = rtype.gen_boxing(context)
           end
@@ -1612,7 +1618,7 @@ LocalVarNode
         def collect_candidate_type(context)
           @var_type_info.each do |src|
             same_type(self, src, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
           context
         end
@@ -1649,7 +1655,7 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           same_type(self, @val, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           @body.collect_candidate_type(context)
         end
 

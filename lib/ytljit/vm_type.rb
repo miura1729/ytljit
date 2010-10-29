@@ -85,7 +85,7 @@ module YTLJit
         @types_tree = KlassTree.new
       end
 
-      def to_key(context, offset = -1)
+      def to_signature(context, offset = -1)
         context.current_method_signature[offset]
       end
 

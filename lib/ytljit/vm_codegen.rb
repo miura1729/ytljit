@@ -128,11 +128,11 @@ LO        |                       |   |  |
         @visited_top_node = {}
       end
 
-      def to_key(offset = -1)
+      def to_signature(offset = -1)
         cursig = @current_method_signature_node[offset]
         res = cursig.map { |enode|
           if enode.is_a?(Node::BaseNode) then
-            enode.decide_type_once(to_key(offset - 1))
+            enode.decide_type_once(to_signature(offset - 1))
             enode.type
           else
             enode
@@ -333,7 +333,7 @@ LO        |                       |   |  |
         end
       end
 
-      def to_key(offset = -1)
+      def to_signature(offset = -1)
         @current_method_signature[offset]
       end
     end
@@ -441,7 +441,7 @@ LO        |                       |   |  |
 
         rarg.each_with_index do |arg, i|
           context = arg.compile(context)
-          context.ret_node.decide_type_once(context.to_key)
+          context.ret_node.decide_type_once(context.to_signature)
           rtype = context.ret_node.type
           context = rtype.gen_boxing(context)
           casm = context.assembler

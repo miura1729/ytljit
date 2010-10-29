@@ -23,7 +23,7 @@ module YTLJit
         # @arguments[3] is other
         aele = @arguments[3]
         context = aele.compile(context)
-        context.ret_node.decide_type_once(context.to_key)
+        context.ret_node.decide_type_once(context.to_signature)
         rtype = context.ret_node.type
         context = rtype.gen_unboxing(context)
           
@@ -50,7 +50,7 @@ module YTLJit
         context.ret_node = self
         context.ret_reg = resreg
         
-        decide_type_once(context.to_key)
+        decide_type_once(context.to_signature)
 
         if @type.boxed then
           context = @type.gen_boxing(context)
@@ -74,7 +74,7 @@ module YTLJit
         # @arguments[3] is other arg
         aele = @arguments[3]
         context = aele.compile(context)
-        context.ret_node.decide_type_once(context.to_key)
+        context.ret_node.decide_type_once(context.to_signature)
         rtype = context.ret_node.type
         context = rtype.gen_unboxing(context)
           
@@ -92,7 +92,7 @@ module YTLJit
         context.ret_node = self
         context.ret_reg = resreg
         
-        decide_type_once(context.to_key)
+        decide_type_once(context.to_signature)
         if type.boxed then
           context = type.gen_boxing(context)
         end
