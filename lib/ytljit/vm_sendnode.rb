@@ -616,6 +616,12 @@ module YTLJit
                 asm.mov(DBLLOR, TMPR2)
                 asm.cdq
                 asm.idiv(context.ret_reg)
+                asm.and(TMPR2, TMPR2)
+                asm.setnz(TMPR2)
+                asm.neg(TMPR2)
+                asm.and(TMPR2, DBLLOR)
+                asm.setl(TMPR2)
+                asm.sub(DBLLOR, TMPR2)
                 context.end_using_reg(context.ret_reg)
               end
             end

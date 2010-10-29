@@ -1262,11 +1262,30 @@ module YTLJit
         return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
 
       when OpReg32, OpReg64
-          modseq, modfmt = modrm(:idiv, 7, src, src, nil)
-          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#(modfmt}")
+        modseq, modfmt = modrm(:idiv, 7, src, src, nil)
+        return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
       end
 
-      return nosupported_addressing_mode(:idiv, dst, src, src2)
+      return nosupported_addressing_mode(:idiv, src, nil, nil)
+    end
+
+    def neg(src)
+      rexseq, rexfmt = rex(src, nil)
+      case src
+      when OpReg8, OpMem8
+        modseq, modfmt = modrm(:neg, 3, src, src, nil)
+        return ([0xF6] + modseq).pack("C#{modfmt}")
+
+      when OpIndirect, OpMem32
+        modseq, modfmt = modrm(:neg, 3, src, src, nil)
+        return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
+
+      when OpReg32, OpReg64
+        modseq, modfmt = modrm(:neg, 3, src, src, nil)
+        return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
+      end
+
+      return nosupported_addressing_mode(:neg, src, nil, nil)
     end
 
     def cdq

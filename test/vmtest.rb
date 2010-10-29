@@ -18,9 +18,9 @@ is = RubyVM::InstructionSequence.compile(
 #         "def foo(x); yield(x) + 2; end; p foo(1) {|a| a + 1}", "", "", 0, 
 #         "def id(x); x; end; p id(1); p id(1.0)", "", "", 0, 
 #         "def id(x); x; end; p id(1); p id(1.0); def id2(x) x end; id2(1)", "", "", 0, 
-#          "def mul(x); x * x; end; p mul(20);p mul(30.0)", "", "", 0,
+          "def mul(x); x * x; end; p mul(20);p mul(30.0)", "", "", 0,
 #          "def div(x, y); x / y; end; p div(20, 10);p div(30.0, -12.0)", "", "", 0,
-          "def div(x, y); x / y; end; p div(-20, 10);p div(30.0, -12.0)", "", "", 0,
+#          "def div(x, y); x / y; end; p div(-20, 10);p div(30.0, -12.0)", "", "", 0,
 #        "1.1","", "", 0,
               {  :peephole_optimization    => true,
                  :inline_const_cache       => false,
@@ -43,7 +43,7 @@ begin
 end until context.convergent
 tnode.collect_candidate_type(context, [], [])
 
-#tnode = Marshal.load(Marshal.dump(tnode))
+tnode = Marshal.load(Marshal.dump(tnode))
 context = VM::CompileContext.new(tnode)
 context.options = {:disp_signature => true}
 tnode.compile(context)
