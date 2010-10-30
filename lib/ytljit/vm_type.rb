@@ -291,5 +291,7 @@ module YTLJit
     define_wraped_class(String, RubyTypeBoxed)
     define_wraped_class(Array, RubyTypeBoxed)
     define_wraped_class(Hash, RubyTypeBoxed)
+    define_wraped_class(Object, RubyTypeBoxed)
+    define_wraped_class(Class, RubyTypeBoxed)
   end
 end
