@@ -1231,13 +1231,12 @@ LocalVarNode
         end
       end
 
-      class SpecialObjectNode<BaseNode
+      class ClassValueNode<BaseNode
         include HaveChildlenMixin
 
-        def initialize(parent, kind)
+        def initialize(parent, define)
           super(parent)
-          @kind = kind
-          @define = nil
+          @define = define
         end
 
         def traverse_childlen
@@ -1245,7 +1244,6 @@ LocalVarNode
           yield @body
         end
         
-        attr :kind
         attr_accessor :define
 
         def collect_candidate_type(context)
@@ -1259,6 +1257,26 @@ LocalVarNode
           context = super(context)
           context = @define.compile(context)
           context = @body.compile(context)
+          context
+        end
+      end
+
+      class SpecialObjectNode<BaseNode
+        def initialize(parent, kind)
+          super(parent)
+          @kind = kind
+        end
+
+        
+        attr :kind
+
+        def collect_candidate_type(context)
+          context
+        end
+
+        def compile(context)
+#          raise "Can't compile"
+          context = super(context)
           context
         end
       end

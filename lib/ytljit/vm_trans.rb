@@ -310,9 +310,11 @@ module YTLJit
       def visit_defineclass(code, ins, context)
         name = ins[1]
         supklsnode = context.expstack.pop
+        defat = context.expstack.pop
+        clsobj = context.current_class_node.klass_object
         klassobj = nil
         begin
-          klassobj = Object.const_get(name, true)
+          klassobj = clsobj.const_get(name, true)
         rescue NameError
         end
 
@@ -338,11 +340,11 @@ module YTLJit
               klassobj = Class.new(supklass)
               
             when 2
-              klassobj = Module.new(supklass)
+              klassobj = Module.new
             end
           end
+          clsobj.const_set(name, klassobj)
         end
-        context.current_class_node.klass_object.const_set(name, klassobj)
         RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
         cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
         
@@ -357,7 +359,10 @@ module YTLJit
         tr.translate(ncontext)
 
         context.current_class_node.constant_tab[name] = cnode
-        context.expstack.last.define = cnode
+        curnode = context.current_node
+        cvnode = ClassValueNode.new(curnode, cnode)
+        context.expstack.push cvnode
+
         context
       end
 
