@@ -14,6 +14,9 @@ module YTLJit
       when :c
         ARGPOS2REG
 
+      when :cfloat
+        ARGPOS2FREG
+
       when :ytl
         []
 

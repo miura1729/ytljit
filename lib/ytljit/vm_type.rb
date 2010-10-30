@@ -85,7 +85,7 @@ module YTLJit
         @types_tree = KlassTree.new
       end
 
-      def to_key(context, offset = -1)
+      def to_signature(context, offset = -1)
         context.current_method_signature[offset]
       end
 
@@ -142,19 +142,15 @@ module YTLJit
 
   module RubyType
     def self.define_wraped_class(klass, base = RubyTypeBoxed)
-      cn = nil
-
-      if klass then
-        cn = klass.name.to_sym
-        basett, boxtt, unboxtt = BaseType.type_tab
-        if boxtt[cn] == nil then
-          BaseType.related_ruby_class(klass, base)
-        end
-
-        boxobj = boxtt[cn]
-        unboxobj = unboxtt[cn]
-        [boxobj, unboxobj]
+      cn = klass.name.to_sym
+      basett, boxtt, unboxtt = BaseType.type_tab
+      if boxtt[cn] == nil then
+        BaseType.related_ruby_class(klass, base)
       end
+
+      boxobj = boxtt[cn]
+      unboxobj = unboxtt[cn]
+      [boxobj, unboxobj]
     end
           
     class BaseType
@@ -287,13 +283,15 @@ module YTLJit
       include VM::TypeCodeGen::DefaultTypeCodeGen
     end
 
-    YTLJit::RubyType::define_wraped_class(NilClass,  RubyTypeBoxed)
-    YTLJit::RubyType::define_wraped_class(Fixnum, RubyTypeUnboxed)
-    YTLJit::RubyType::define_wraped_class(Float, RubyTypeUnboxed)
-    YTLJit::RubyType::define_wraped_class(TrueClass, RubyTypeBoxed)
-    YTLJit::RubyType::define_wraped_class(FalseClass, RubyTypeBoxed)
-    YTLJit::RubyType::define_wraped_class(String, RubyTypeBoxed)
-    YTLJit::RubyType::define_wraped_class(Array, RubyTypeBoxed)
-    YTLJit::RubyType::define_wraped_class(Hash, RubyTypeBoxed)
+    define_wraped_class(NilClass,  RubyTypeBoxed)
+    define_wraped_class(Fixnum, RubyTypeUnboxed)
+    define_wraped_class(Float, RubyTypeUnboxed)
+    define_wraped_class(TrueClass, RubyTypeBoxed)
+    define_wraped_class(FalseClass, RubyTypeBoxed)
+    define_wraped_class(String, RubyTypeBoxed)
+    define_wraped_class(Array, RubyTypeBoxed)
+    define_wraped_class(Hash, RubyTypeBoxed)
+    define_wraped_class(Object, RubyTypeBoxed)
+    define_wraped_class(Class, RubyTypeBoxed)
   end
 end

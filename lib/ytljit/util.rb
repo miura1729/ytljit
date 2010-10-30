@@ -61,3 +61,4 @@ class Float
     [self].pack('d').unpack('q')[0]
   end
 end
+

@@ -131,16 +131,16 @@ LocalVarNode
         attr_accessor :type
         attr_accessor :element_node_list
 
-        def add_type(key, type)
-          @type_list.add_type(key, type)
+        def add_type(sig, type)
+          @type_list.add_type(sig, type)
         end
 
-        def type_list(key)
-          @type_list.type_list(key).value
+        def type_list(sig)
+          @type_list.type_list(sig).value
         end
 
-        def set_type_list(key, val)
-          @type_list.type_list(key).value = val
+        def set_type_list(sig, val)
+          @type_list.type_list(sig).value = val
         end
 
         def collect_info(context)
@@ -153,22 +153,22 @@ LocalVarNode
           context
         end
 
-        def ti_add_observer(dst, dkey, skey, context)
+        def ti_add_observer(dst, dsig, ssig, context)
           if @ti_observer[dst] == nil then
             @ti_observer[dst] = []
           end
           
-          if @ti_observer[dst].all? {|edkey, eskey, eprc| 
-              (edkey != dkey) or (eskey != skey)
+          if @ti_observer[dst].all? {|edsig, essig, eprc| 
+              (edsig != dsig) or (essig != ssig)
             } then
-            prc = lambda { send(:ti_update, dst, self, dkey, skey, context) }
-            @ti_observer[dst].push [dkey, skey, prc]
+            prc = lambda { send(:ti_update, dst, self, dsig, ssig, context) }
+            @ti_observer[dst].push [dsig, ssig, prc]
           end
         end
 
         def ti_changed
           @ti_observer.each do |rec, lst|
-            lst.each do |dkey, skey, prc|
+            lst.each do |dsig, ssig, prc|
               prc.call
             end
           end
@@ -185,17 +185,17 @@ LocalVarNode
           res
         end
 
-        def ti_update(dst, src, dkey, skey, context)
-          dtlist = dst.type_list(dkey)
-          stlist = src.type_list(skey)
+        def ti_update(dst, src, dsig, ssig, context)
+          dtlist = dst.type_list(dsig)
+          stlist = src.type_list(ssig)
 =begin
-          print dkey.map(&:ruby_type), "\n"
+          print dsig.map(&:ruby_type), "\n"
           print dtlist.map(&:ruby_type), "\n"
           print stlist.map(&:ruby_type), "\n"
 =end
           orgsize = dtlist.size
 #          p "#{dst.class} #{src.class} #{dtlist} #{stlist}"
-          dst.set_type_list(dkey, merge_type(dtlist, stlist))
+          dst.set_type_list(dsig, merge_type(dtlist, stlist))
 
           if orgsize != dtlist.size then
             dst.type = nil
@@ -213,7 +213,7 @@ LocalVarNode
           end
         end
 
-        def same_type(dst, src, dkey, skey, context)
+        def same_type(dst, src, dsig, ssig, context)
 =begin
           print "#{src.class} -> #{dst.class} \n"
           if dst.is_a?(LocalVarNode) then
@@ -225,20 +225,20 @@ LocalVarNode
 =end
 
           if dst.is_a?(BaseNode) then
-            src.ti_add_observer(dst, dkey, skey, context)
+            src.ti_add_observer(dst, dsig, ssig, context)
           end
 
-          ti_update(dst, src, dkey, skey, context)
+          ti_update(dst, src, dsig, ssig, context)
         end
 
-        def add_element_node(key, type, context)
+        def add_element_node(sig, type, context)
           slfetnode = @element_node_list
           unless slfetnode.include?(type)
-            @element_node_list.push [key, type]
-            orgkey = @element_node_list[0][0]
+            @element_node_list.push [sig, type]
+            orgsig = @element_node_list[0][0]
             orgtype = @element_node_list[0][1]
             if orgtype != type then
-              same_type(orgtype, type, orgkey, key, context)
+              same_type(orgtype, type, orgsig, sig, context)
             end
             ti_changed
 #            context.convergent = false
@@ -258,9 +258,9 @@ LocalVarNode
             
           when 1
             if tlist[0].have_element? then
-              key = @element_node_list[0][0]
+              sig = @element_node_list[0][0]
               node = @element_node_list[0][1]
-              node.decide_type_once(key)
+              node.decide_type_once(sig)
               tlist[0].element_type = node.type
             end
             tlist[0]
@@ -271,19 +271,19 @@ LocalVarNode
           end
         end
 
-        def decide_type_once(key)
+        def decide_type_once(sig)
           if @type.equal?(nil) # or @type.is_a?(RubyType::DefaultType0) then
-            tlist = @type_list.type_list(key).value
+            tlist = @type_list.type_list(sig).value
             @type = decide_type_core(tlist)
           end
         end
 
-        def decide_type(key)
-          decide_type_once(key)
+        def decide_type(sig)
+          decide_type_once(sig)
 
           if is_a?(HaveChildlenMixin) then
             traverse_childlen {|rec|
-              rec.decide_type(key)
+              rec.decide_type(sig)
             }
           end
         end
@@ -374,7 +374,7 @@ LocalVarNode
         def signature(context)
           res = []
           @arguments.each do |ele|
-            ele.decide_type_once(context.to_key)
+            ele.decide_type_once(context.to_signature)
             res.push ele.type
           end
 
@@ -427,8 +427,8 @@ LocalVarNode
         end
 
         def find_cs_by_signature(sig)
-          @code_spaces.each do |key, val|
-            if key == sig then
+          @code_spaces.each do |csig, val|
+            if csig == sig then
               return val
             end
           end
@@ -509,8 +509,10 @@ LocalVarNode
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
           @end_nodes.each do |enode|
-            same_type(self, enode, context.to_key, context.to_key, context)
-            same_type(enode, self, context.to_key, context.to_key, context)
+            same_type(self, enode, 
+                      context.to_signature, context.to_signature, context)
+            same_type(enode, self, 
+                      context.to_signature, context.to_signature, context)
           end
           context.current_method_signature_node.pop
           context
@@ -545,6 +547,8 @@ LocalVarNode
           if context.options[:disp_signature] then
             disp_signature
           end
+
+          context.ret_node = self
           context
         end
       end
@@ -570,9 +574,13 @@ LocalVarNode
         include MethodTopCodeGen
         @@class_top_tab = {}
 
+        def self.get_class_top_node(klass)
+          @@class_top_tab[klass]
+        end
+
         def initialize(parent, klassobj, name = nil)
           super(parent, name)
-          @nested_class_tab = {}
+          @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
           unless @@class_top_tab[klassobj]
@@ -593,7 +601,21 @@ LocalVarNode
           end
         end
 
-        attr :nested_class_tab
+        def search_method_with_super(name, klassobj = @klass_object)
+          clsnode = @@class_top_tab[klassobj]
+          if clsnode then
+            mtab = clsnode.method_tab
+            if val = mtab[name] then
+              return [val, clsnode]
+            end
+            
+            search_method_with_super(name, klassobj.superclass)
+          end
+
+          [nil, nil]
+        end
+
+        attr :constant_tab
         attr :klass_object
 
         def construct_frame_info(locals, argnum)
@@ -602,6 +624,12 @@ LocalVarNode
           locals.unshift :_prev_env
           argnum += 3
           super(locals, argnum)
+        end
+
+        def collect_candidate_type(context, signode, sig)
+          @type = RubyType::BaseType.from_ruby_class(@klass_object.class)
+          @type_list.add_type(sig, @type)
+          super
         end
       end
 
@@ -762,9 +790,11 @@ LocalVarNode
             tobj = context.current_method_signature_node.last[argoff]
             if tobj then
               same_type(self, tobj, 
-                        context.to_key, context.to_key(-2), context)
+                        context.to_signature, context.to_signature(-2), 
+                        context)
               same_type(tobj, self, 
-                        context.to_key(-2), context.to_key, context)
+                        context.to_signature(-2), context.to_signature, 
+                        context)
             end
           end
           context
@@ -822,8 +852,10 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          same_type(self, @parent, context.to_key, context.to_key, context)
-          same_type(@parent, self, context.to_key, context.to_key, context)
+          same_type(self, @parent, 
+                    context.to_signature, context.to_signature, context)
+          same_type(@parent, self, 
+                    context.to_signature, context.to_signature, context)
           context
         end
 
@@ -863,9 +895,9 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @value_node.collect_candidate_type(context)
           same_type(self, @value_node, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           same_type(@value_node, self, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           context = @body.collect_candidate_type(context)
           context
         end
@@ -875,6 +907,7 @@ LocalVarNode
           context = @value_node.compile(context)
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
+              decide_type_once(context.to_signature)
               context = @type.gen_boxing(context)
               if context.ret_reg != RETR then
                 curas = context.assembler
@@ -910,9 +943,9 @@ LocalVarNode
           @local_label.come_from.values.each do |vnode|
             if vnode then
               same_type(self, vnode, 
-                        context.to_key, context.to_key, context)
+                        context.to_signature, context.to_signature, context)
               same_type(vnode, self, 
-                        context.to_key, context.to_key, context)
+                        context.to_signature, context.to_signature, context)
             end
           end
           context
@@ -1141,14 +1174,14 @@ LocalVarNode
         attr :value
 
         def collect_candidate_type(context)
-          @type_list.add_type(context.to_key, @type)
+          @type_list.add_type(context.to_signature, @type)
           case @value
           when Array
-            key = context.to_key
-            @element_node_list = [[key, BaseNode.new(self)]]
+            sig = context.to_signature
+            @element_node_list = [[sig, BaseNode.new(self)]]
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
-              @element_node_list[0][1].add_type(key, etype)
+              @element_node_list[0][1].add_type(sig, etype)
             end
           end
           context
@@ -1157,7 +1190,7 @@ LocalVarNode
         def compile(context)
           context = super(context)
 
-          decide_type_once(context.to_key)
+          decide_type_once(context.to_signature)
           case @value
           when Fixnum
             val = @value
@@ -1199,20 +1232,33 @@ LocalVarNode
       end
 
       class SpecialObjectNode<BaseNode
+        include HaveChildlenMixin
+
         def initialize(parent, kind)
           super(parent)
           @kind = kind
+          @define = nil
+        end
+
+        def traverse_childlen
+          yield @define
+          yield @body
         end
         
         attr :kind
+        attr_accessor :define
 
         def collect_candidate_type(context)
+          context = @define.collect_candidate_type(context,[], [])
+          context = @body.collect_candidate_type(context)
           context
         end
 
         def compile(context)
 #          raise "Can't compile"
           context = super(context)
+          context = @define.compile(context)
+          context = @body.compile(context)
           context
         end
       end
@@ -1291,15 +1337,15 @@ LocalVarNode
 
         def method_top_node(ctop, slf)
           if slf then
-            ctop.method_tab(slf.ruby_type)[@name]
+            ctop.search_method_with_super(@name, slf.ruby_type)[0]
           else
-            ctop.method_tab[@name]
+            ctop.search_method_with_super(@name)[0]
           end
         end
 
         def calling_convention(context)
           if @send_node.is_fcall or @send_node.is_vcall then
-            mtop = @reciever.method_tab[@name]
+            mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then
               @calling_convention = :ytl
             else
@@ -1322,15 +1368,20 @@ LocalVarNode
               end
             end
           else
-            context = @reciever.compile(context)
-            context.ret_node.decide_type_once(context.to_key)
-            rtype = context.ret_node.type
+            @reciever.decide_type_once(context.to_signature)
+            rtype = @reciever.type
             rklass = rtype.ruby_type
-            mth = rklass.instance_method(@name)
-            if variable_argument?(mth.parameters) then
-              @calling_convention = :c_vararg
+            knode = ClassTopNode.get_class_top_node(rklass)
+            mtop = nil
+            if knode and mtop = knode.search_method_with_super(@name)[0] then
+              @calling_convention = :ytl
             else
-              @calling_convention = :c_fixarg
+              mth = rklass.instance_method(@name)
+              if variable_argument?(mth.parameters) then
+                @calling_convention = :c_vararg
+              else
+                @calling_convention = :c_fixarg
+              end
             end
           end
 
@@ -1344,7 +1395,7 @@ LocalVarNode
             asm.with_retry do
               asm.mov(TMPR3, 4)
             end
-            mtop = @reciever.method_tab[@name]
+            mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then
               sig = @parent.signature(context)
               cs = mtop.find_cs_by_signature(sig)
@@ -1369,10 +1420,12 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
-            context.ret_node.decide_type_once(context.to_key)
+            context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
             context = rtype.gen_boxing(context)
             recval = context.ret_reg
+            knode = ClassTopNode.get_class_top_node(rtype.ruby_type)
+            mtop = nil
 
             if rtype.is_a?(RubyType::DefaultType0) then
               # Can't type inference. Dynamic method search
@@ -1405,7 +1458,14 @@ LocalVarNode
               context.set_reg_content(TMPR2, self)
               context.set_reg_content(TMPR3, @reciever)
               context.ret_reg = TMPR2
+            elsif knode and mtop = knode.search_method_with_super(@name)[0] then
+              sig = @parent.signature(context)
+              cs = mtop.find_cs_by_signature(sig)
+              context.ret_reg = cs.var_base_address
+
             else
+              # regident type 
+
               asm = context.assembler
               asm.with_retry do
                 asm.mov(TMPR3, recval)
@@ -1476,7 +1536,7 @@ LocalVarNode
         def collect_candidate_type(context)
           @var_type_info.each do |src|
             same_type(self, src, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
           context
         end
@@ -1506,7 +1566,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          @type_list.add_type(context.to_key, @type)
+          @type_list.add_type(context.to_signature, @type)
           context
         end
 
@@ -1538,7 +1598,7 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           same_type(self, @val, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           @body.collect_candidate_type(context)
         end
 
@@ -1546,9 +1606,9 @@ LocalVarNode
           context = super(context)
           context = @val.compile(context)
 
-          decide_type_once(context.to_key)
+          decide_type_once(context.to_signature)
           if @type.boxed then
-            @val.decide_type_once(context.to_key)
+            @val.decide_type_once(context.to_signature)
             rtype = @val.type
             context = rtype.gen_boxing(context)
           end
@@ -1611,7 +1671,7 @@ LocalVarNode
         def collect_candidate_type(context)
           @var_type_info.each do |src|
             same_type(self, src, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
           context
         end
@@ -1648,7 +1708,7 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           same_type(self, @val, 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           @body.collect_candidate_type(context)
         end
 
@@ -1659,6 +1719,54 @@ LocalVarNode
         def compile(context)
           context = super(context)
           compile_main(context)
+        end
+      end
+
+      class ConstantRefNode<VariableRefCommonNode
+        include NodeUtil
+        
+        def initialize(parent, klass, name)
+          super(parent)
+          case klass
+          when ConstantRefNode
+            # do nothing
+            
+          when LiteralNode
+            klass = klass.value
+            if klass == nil then
+              klass = self
+            end
+
+          else
+            raise"Not Supported"
+          end
+
+          @name = name
+          @class_top = klass.search_class_top
+          @value_node = @class_top.constant_tab[@name]
+        end
+
+        attr :value_node
+
+        def collect_candidate_type(context)
+          same_type(self, @value_node,
+                    context.to_signature, context.to_signature, context)
+          context
+        end
+
+        def compile(context)
+          case @value_node
+          when ClassTopNode
+            obj = @value_node.klass_object
+            objadd = lambda { obj.address }
+            context.ret_reg  = OpVarImmidiateAddress.new(objadd)
+
+          else
+            context = @value_node.compile(context)
+          end
+          
+          context.ret_node = self
+          context 
         end
       end
 

@@ -151,7 +151,7 @@ module YTLJit
           if is_fcall or is_vcall then
             mt = @func.method_top_node(@class_top, nil)
           else
-            @arguments[2].decide_type_once(context.to_key)
+            @arguments[2].decide_type_once(context.to_signature)
             slf = @arguments[2].type
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
@@ -162,8 +162,8 @@ module YTLJit
           end
           
           if mt then
-            same_type(self, mt, context.to_key, signat, context)
-            same_type(mt, self, signat, context.to_key, context)
+            same_type(self, mt, context.to_signature, signat, context)
+            same_type(mt, self, signat, context.to_signature, context)
 
             context.current_method_signature_node.push @arguments
             mt.yield_node.map do |ynode|
@@ -239,7 +239,7 @@ module YTLJit
               context.ret_reg = RETR
               context.ret_node = self
               
-              decide_type_once(context.to_key)
+              decide_type_once(context.to_signature)
               context = @type.to_box.gen_unboxing(context)
 
               context
@@ -277,7 +277,7 @@ module YTLJit
               else
                 # other arg.
                 context = arg.compile(context)
-                context.ret_node.decide_type_once(context.to_key)
+                context.ret_node.decide_type_once(context.to_signature)
                 rtype = context.ret_node.type
                 context = rtype.gen_boxing(context)
                 casm = context.assembler
@@ -298,7 +298,7 @@ module YTLJit
             end
             context.end_using_reg(fnc)
 
-            decide_type_once(context.to_key)
+            decide_type_once(context.to_signature)
             context = @type.to_box.gen_unboxing(context)
 
           when :ytl
@@ -362,7 +362,7 @@ module YTLJit
             context.end_using_reg(fnc)
           end
           
-          decide_type_once(context.to_key)
+          decide_type_once(context.to_signature)
           if @type.is_a?(RubyType::RubyTypeUnboxed) and 
               @type.ruby_type == Float then
             context.ret_reg = XMM0
@@ -386,6 +386,8 @@ module YTLJit
           if arguments[4].is_a?(LiteralNode) then
             @new_method.name = arguments[4].value
             @class_top.method_tab[arguments[4].value] = @new_method
+          else
+            raise "Not supported not literal method name"
           end
         end
 
@@ -416,26 +418,49 @@ module YTLJit
         end
       end
 
+      class SendNewNode<SendNode
+        add_special_send_node :new
+
+        def collect_candidate_type_regident(context, slf)
+          slfnode = @arguments[2]
+          case [slf.ruby_type]
+          when [Class]
+            case slfnode
+            when ConstantRefNode
+              case slfnode.value_node
+              when ClassTopNode
+                clstop = slfnode.value_node
+                tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
+                @type_list.add_type(context.to_signature, tt)
+                
+              else
+                raise "Unkown node type in constant #{slfnode.value_node.class}"
+              end
+
+            else
+              raise "Unkonwn node type #{@arguments[2].class} "
+            end
+          end
+          context
+        end
+      end
+
       class SendPlusNode<SendNode
         include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :+
 
-        def initialize(parent, func, arguments, op_flag)
-          super
-        end
-
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Fixnum], [Float], [String], [Array]
             same_type(@arguments[3], @arguments[2], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(@arguments[2], @arguments[3], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(self, @arguments[2], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(@arguments[2], self, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
 
           context
@@ -443,17 +468,18 @@ module YTLJit
 
 #=begin
         def compile(context)
-          @arguments[2].decide_type_once(context.to_key)
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
-              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+             @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
 
           context.current_method_signature.push signature(context)
-          if rtype.ruby_type == Fixnum then
+          if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
-          elsif rtype.ruby_type == Float then
+          elsif rrtype == Float then
             context = gen_arithmetic_operation(context, :addsd, XMM4, XMM0)
           else
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
@@ -469,42 +495,162 @@ module YTLJit
         include SendUtil
         add_special_send_node :-
 
-        def initialize(parent, func, arguments, op_flag)
-          super
-        end
-
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Fixnum], [Float], [Array]
             same_type(@arguments[3], @arguments[2], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(@arguments[2], @arguments[3], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(self, @arguments[2], 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
             same_type(@arguments[2], self, 
-                      context.to_key, context.to_key, context)
+                      context.to_signature, context.to_signature, context)
           end
 
           context
         end
 
         def compile(context)
-          @arguments[2].decide_type_once(context.to_key)
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
-              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+              @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
 
           context.current_method_signature.push signature(context)
-          if rtype.ruby_type == Fixnum then
+          if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :sub, TMPR2, TMPR)
-          elsif rtype.ruby_type == Float then
+          elsif rrtype == Float then
             context = gen_arithmetic_operation(context, :subsd, XMM4, XMM0)
           else
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
+
+          context.current_method_signature.pop
+          @body.compile(context)
+        end
+      end
+
+      class SendMultNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :*
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum], [Float]
+            same_type(@arguments[3], @arguments[2], 
+                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[2], @arguments[3], 
+                      context.to_signature, context.to_signature, context)
+            same_type(self, @arguments[2], 
+                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[2], self, 
+                      context.to_signature, context.to_signature, context)
+
+          when [String]
+            same_type(self, @arguments[2], 
+                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[2], self, 
+                      context.to_signature, context.to_signature, context)
+            @arguments[3].add_type(context.to_signature, fixtype)
+          end
+
+          context
+        end
+
+        def compile(context)
+          @arguments[2].type = nil
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rtype.is_a?(RubyType::DefaultType0) or
+             @class_top.search_method_with_super(@func.name, rrtype)[0] then
+            return super(context)
+          end
+
+          context.current_method_signature.push signature(context)
+          if rrtype == Fixnum then
+            context = gen_arithmetic_operation(context, :imul, TMPR2, 
+                                               TMPR) do |context|
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(DBLLOR, TMPR2)
+                asm.imul(context.ret_reg)
+                context.end_using_reg(context.ret_reg)
+              end
+            end
+              
+          elsif rrtype == Float then
+            context = gen_arithmetic_operation(context, :mulsd, XMM4, XMM0)
+          else
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
+          end
+
+          context.current_method_signature.pop
+          @body.compile(context)
+        end
+      end
+
+      class SendDivNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :/
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum], [Float]
+            same_type(@arguments[3], @arguments[2], 
+                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[2], @arguments[3], 
+                      context.to_signature, context.to_signature, context)
+            same_type(self, @arguments[2], 
+                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[2], self, 
+                      context.to_signature, context.to_signature, context)
+          end
+
+          context
+        end
+
+        def compile(context)
+          @arguments[2].type = nil
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rtype.is_a?(RubyType::DefaultType0) or
+              @class_top.search_method_with_super(@func.name, rrtype)[0] then
+            return super(context)
+          end
+
+          context.current_method_signature.push signature(context)
+          if rrtype == Fixnum then
+            context = gen_arithmetic_operation(context, :imul, TMPR2, 
+                                               TMPR) do |context|
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(DBLLOR, TMPR2)
+                asm.cdq
+                asm.idiv(context.ret_reg)
+                asm.and(TMPR2, TMPR2)
+                asm.setnz(TMPR2)
+                asm.neg(TMPR2)
+                asm.and(TMPR2, DBLLOR)
+                asm.setl(TMPR2)
+                asm.sub(DBLLOR, TMPR2)
+                context.end_using_reg(context.ret_reg)
+              end
+            end
+              
+          elsif rrtype == Float then
+            context = gen_arithmetic_operation(context, :divsd, XMM4, XMM0)
+          else
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
+          end
+
           context.current_method_signature.pop
           @body.compile(context)
         end
@@ -514,28 +660,29 @@ module YTLJit
         include SendUtil
         def collect_candidate_type_regident(context, slf)
           same_type(@arguments[3], @arguments[2], 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           same_type(@arguments[2], @arguments[3], 
-                    context.to_key, context.to_key, context)
+                    context.to_signature, context.to_signature, context)
           tt = RubyType::BaseType.from_ruby_class(true)
-          @type_list.add_type(context.to_key, tt)
+          @type_list.add_type(context.to_signature, tt)
           tt = RubyType::BaseType.from_ruby_class(false)
-          @type_list.add_type(context.to_key, tt)
+          @type_list.add_type(context.to_signature, tt)
 
           context
         end
 
         def compile(context)
-          @arguments[2].decide_type_once(context.to_key)
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
           if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
-              @class_top.method_tab(rtype.ruby_type)[@func.name] then
+             @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
 
           context.current_method_signature.push signature(context)
           context = gen_eval_self(context)
-          if rtype.ruby_type == Fixnum then
+          if rrtype == Fixnum then
             context = compile_compare(context)
           else
             raise "Unkown method #{rtype.ruby_type} #{@func.name}"
@@ -577,29 +724,29 @@ module YTLJit
         end
       end
 
-      class SendRefNode<SendNode
+      class SendElementRefNode<SendNode
         include SendUtil
         add_special_send_node :[]
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
-            @arguments[3].add_type(context.to_key, fixtype)
-            @arguments[2].add_element_node(context.to_key, self, context)
-            key = context.to_key
-            decide_type_once(key)
+            @arguments[3].add_type(context.to_signature, fixtype)
+            @arguments[2].add_element_node(context.to_signature, self, context)
+            sig = context.to_signature
+            decide_type_once(sig)
 #            @arguments[2].type = nil
-#            @arguments[2].decide_type_once(context.to_key)
+#            @arguments[2].decide_type_once(context.to_signature)
             epare = @arguments[2].element_node_list[0]
-            ekey = epare[0]
+            esig = epare[0]
             enode = epare[1]
             if enode != self then
-              same_type(self, enode, key, ekey, context)
-              same_type(enode, self, ekey, key, context)
+              same_type(self, enode, sig, esig, context)
+              same_type(enode, self, esig, sig, context)
             end
 
           when [Hash]
-            @arguments[2].add_element_node(context.to_key, self, context)
+            @arguments[2].add_element_node(context.to_signature, self, context)
           end
 
           context
