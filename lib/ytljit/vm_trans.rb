@@ -190,6 +190,11 @@ module YTLJit
       # setclassvariable
       
       def visit_getconstant(code, ins, context)
+        klass = context.expstack.pop
+        name = ins[1]
+        curnode = context.current_node
+        node = ConstantRefNode.new(curnode, klass, name)
+        context.expstack.push node
       end
 
       def visit_setconstant(code, ins, context)
@@ -305,20 +310,31 @@ module YTLJit
       def visit_defineclass(code, ins, context)
         name = ins[1]
         supklsnode = context.expstack.pop
-        klassobj = Object.const_get(name, true)
+        klassobj = nil
+        begin
+          klassobj = Object.const_get(name, true)
+        rescue NameError
+        end
 
         if klassobj == nil then
-          klassnode = context.nested_class_tab[name]
+          klassnode = context.current_class_node.constant_tab[name]
           if klassnode then
             klassobj = klassnodne.klasss_object
             
           else
+            supklass = nil
+            case supklsnode
+            when LiteralNode
+              supklass = supklsnode.value
+              if supklass == nil then
+                supklass = Object
+              end
+            else
+              raise "Not support "
+            end
+
             case ins[3]
             when 0
-              supklass = nil
-              if supklsnode then
-                supklass = supklasnode.klasss_object
-              end
               klassobj = Class.new(supklass)
               
             when 2
@@ -326,6 +342,8 @@ module YTLJit
             end
           end
         end
+        context.current_class_node.klass_object.const_set(name, klassobj)
+        RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
         cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
         
         body = VMLib::InstSeqTree.new(code, ins[2])
@@ -333,12 +351,13 @@ module YTLJit
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
-        ncontext.top_nodes.push mtopnode
+        ncontext.top_nodes.push cnode
 
         tr = self.class.new([body])
         tr.translate(ncontext)
 
-        context.current_class_node.nested_class_tab[name] = cnode
+        context.current_class_node.constant_tab[name] = cnode
+        context.expstack.last.define = cnode
         context
       end
 

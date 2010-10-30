@@ -386,6 +386,8 @@ module YTLJit
           if arguments[4].is_a?(LiteralNode) then
             @new_method.name = arguments[4].value
             @class_top.method_tab[arguments[4].value] = @new_method
+          else
+            raise "Not supported not literal method name"
           end
         end
 

@@ -547,6 +547,8 @@ LocalVarNode
           if context.options[:disp_signature] then
             disp_signature
           end
+
+          context.ret_node = self
           context
         end
       end
@@ -572,9 +574,13 @@ LocalVarNode
         include MethodTopCodeGen
         @@class_top_tab = {}
 
+        def self.get_class_top_node(klass)
+          @@class_top_tab[klass]
+        end
+
         def initialize(parent, klassobj, name = nil)
           super(parent, name)
-          @nested_class_tab = {}
+          @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
           unless @@class_top_tab[klassobj]
@@ -595,7 +601,7 @@ LocalVarNode
           end
         end
 
-        attr :nested_class_tab
+        attr :constant_tab
         attr :klass_object
 
         def construct_frame_info(locals, argnum)
@@ -604,6 +610,12 @@ LocalVarNode
           locals.unshift :_prev_env
           argnum += 3
           super(locals, argnum)
+        end
+
+        def collect_candidate_type(context, signode, sig)
+          @type = RubyType::BaseType.from_ruby_class(@klass_object)
+          @type_list.add_type(sig, @type)
+          super
         end
       end
 
@@ -1206,20 +1218,32 @@ LocalVarNode
       end
 
       class SpecialObjectNode<BaseNode
+        include HaveChildlenMixin
+
         def initialize(parent, kind)
           super(parent)
           @kind = kind
+          @define = nil
+        end
+
+        def traverse_childlen
+          yield @body
         end
         
         attr :kind
+        attr_accessor :define
 
         def collect_candidate_type(context)
+          context = @define.collect_candidate_type(context,[], [])
+          context = @body.collect_candidate_type(context)
           context
         end
 
         def compile(context)
 #          raise "Can't compile"
           context = super(context)
+          context = @define.compile(context)
+          context = @body.compile(context)
           context
         end
       end
@@ -1333,11 +1357,17 @@ LocalVarNode
             context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
             rklass = rtype.ruby_type
-            mth = rklass.instance_method(@name)
-            if variable_argument?(mth.parameters) then
-              @calling_convention = :c_vararg
+            knode = ClassTopNode.get_class_top_node(rklass)
+            mtop = nil
+            if knode and mtop = knode.method_tab[@name] then
+              @calling_convention = :ytl
             else
-              @calling_convention = :c_fixarg
+              mth = rklass.instance_method(@name)
+              if variable_argument?(mth.parameters) then
+                @calling_convention = :c_vararg
+              else
+                @calling_convention = :c_fixarg
+              end
             end
           end
 
@@ -1666,6 +1696,40 @@ LocalVarNode
         def compile(context)
           context = super(context)
           compile_main(context)
+        end
+      end
+
+      class ConstantRefNode<VariableRefCommonNode
+        include NodeUtil
+        
+        def initialize(parent, klass, name)
+          super(parent)
+          case klass
+          when ConstantRefNode
+            # do nothing
+            
+          when LiteralNode
+            klass = klass.value
+            if klass == nil then
+              klass = self
+            end
+
+          else
+            raise"Not Supported"
+          end
+
+          @name = name
+          @class_top = klass.search_class_top
+        end
+
+        def collect_candidate_type(context)
+          same_type(self, @class_top.constant_tab[@name],
+                    context.to_signature, context.to_signature, context)
+          context
+        end
+
+        def compile(context)
+          @class_top.constant_tab[@name].compile(context)
         end
       end
 
