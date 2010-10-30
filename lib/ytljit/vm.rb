@@ -609,7 +609,7 @@ LocalVarNode
               return [val, clsnode]
             end
             
-            search_method_with_super(name, klassobj.superclass)
+            return search_method_with_super(name, klassobj.superclass)
           end
 
           [nil, nil]
@@ -1390,8 +1390,7 @@ LocalVarNode
             rtype = @reciever.type
             rklass = rtype.ruby_type
             knode = ClassTopNode.get_class_top_node(rklass)
-            mtop = nil
-            if knode and mtop = knode.search_method_with_super(@name)[0] then
+            if knode and knode.search_method_with_super(@name)[0] then
               @calling_convention = :ytl
             else
               mth = rklass.instance_method(@name)
