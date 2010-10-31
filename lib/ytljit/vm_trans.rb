@@ -191,6 +191,20 @@ module YTLJit
       
       def visit_getconstant(code, ins, context)
         klass = context.expstack.pop
+        case klass
+        when ConstantRefNode
+          klass = klass.value_node
+
+
+        when LiteralNode
+          klass = klass.value
+          if klass == nil then
+            klass = context.current_class_node
+          end
+
+        else
+          raise "Umkonwn node #{klass.class}"
+        end
         name = ins[1]
         curnode = context.current_node
         node = ConstantRefNode.new(curnode, klass, name)
