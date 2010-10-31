@@ -367,6 +367,7 @@ LocalVarNode
           slfnode = @arguments[2]
           context = slfnode.compile(context)
           
+          context.ret_node.decide_type_once(context.to_signature)
           rtype = context.ret_node.type
           rtype.gen_unboxing(context)
         end
@@ -583,6 +584,8 @@ LocalVarNode
           @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
+          @klassclass = class << @klass_object; self; end
+          RubyType::define_wraped_class(@klassclass, RubyType::RubyTypeBoxed)
           unless @@class_top_tab[klassobj]
             @@class_top_tab[klassobj] = self
           end
@@ -627,7 +630,7 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, signode, sig)
-          @type = RubyType::BaseType.from_ruby_class(@klass_object.class)
+          @type = RubyType::BaseType.from_ruby_class(@klassclass)
           @type_list.add_type(sig, @type)
 
           if add_cs_for_signature(sig) == nil and  
