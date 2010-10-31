@@ -53,7 +53,12 @@ module YTLJit
         end
 
         def self.add_special_send_node(name)
-          @@special_node_tab[name] = self
+          oldcls = @@special_node_tab[name]
+          if oldcls == nil or self < oldcls then
+            @@special_node_tab[name] = self
+          else
+            raise "Illigal SendNode #{self} #{name}"
+          end
         end
 
         def self.make_send_node(parent, func, arguments, op_flag)

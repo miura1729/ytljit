@@ -629,7 +629,18 @@ LocalVarNode
         def collect_candidate_type(context, signode, sig)
           @type = RubyType::BaseType.from_ruby_class(@klass_object.class)
           @type_list.add_type(sig, @type)
-          super
+
+          if add_cs_for_signature(sig) == nil and  
+              context.visited_top_node[self] then
+            return context
+          end
+
+          context.visited_top_node[self] = true
+          
+          context.current_method_signature_node.push signode
+          context = @body.collect_candidate_type(context)
+          context.current_method_signature_node.pop
+          context
         end
       end
 
@@ -1744,23 +1755,9 @@ LocalVarNode
         
         def initialize(parent, klass, name)
           super(parent)
-          case klass
-          when ConstantRefNode
-            # do nothing
-            
-          when LiteralNode
-            klass = klass.value
-            if klass == nil then
-              klass = self
-            end
-
-          else
-            raise"Not Supported"
-          end
-
           @name = name
-          @class_top = klass.search_class_top
-          @value_node = @class_top.constant_tab[@name]
+          @class_top = klass # .search_class_top
+          @value_node = klass.constant_tab[@name]
         end
 
         attr :value_node
