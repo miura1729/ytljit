@@ -142,7 +142,17 @@ module YTLJit
 
   module RubyType
     def self.define_wraped_class(klass, base = RubyTypeBoxed)
-      cn = klass.name.to_sym
+      cn = nil
+      if klass.name then
+        cn = klass.name.to_sym
+      else
+        cns = klass.inspect
+        if /([a-zA-Z:]+)/ =~ cns then
+          cn = $1.to_sym
+        else
+          raise "Unexcepcted class format #{cns}"
+        end
+      end
       basett, boxtt, unboxtt = BaseType.type_tab
       if boxtt[cn] == nil then
         BaseType.related_ruby_class(klass, base)

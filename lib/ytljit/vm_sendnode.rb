@@ -56,6 +56,7 @@ module YTLJit
           oldcls = @@special_node_tab[name]
           if oldcls == nil or self < oldcls then
             @@special_node_tab[name] = self
+
           else
             raise "Illigal SendNode #{self} #{name}"
           end
@@ -428,8 +429,7 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
-          case [slf.ruby_type]
-          when [Class]
+          if slf.ruby_type.is_a?(Class) then
             case slfnode
             when ConstantRefNode
               case slfnode.value_node
