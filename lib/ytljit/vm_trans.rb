@@ -321,7 +321,7 @@ module YTLJit
         if klassobj == nil then
           klassnode = context.current_class_node.constant_tab[name]
           if klassnode then
-            klassobj = klassnodne.klasss_object
+            klassobj = klassnodne.klass_object
             
           else
             supklass = nil
@@ -331,8 +331,17 @@ module YTLJit
               if supklass == nil then
                 supklass = Object
               end
+
+            when ConstantRefNode
+              supnode = supklsnode.value_node
+              if supnode.is_a?(ClassTopNode) then
+                supklass = supnode.klass_object
+              else
+                raise "Not class #{supnode.class}"
+              end
+
             else
-              raise "Not support "
+              raise "Not support #{supklsnode.class}"
             end
 
             case ins[3]
