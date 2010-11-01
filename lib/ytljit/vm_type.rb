@@ -298,6 +298,7 @@ module YTLJit
     define_wraped_class(Float, RubyTypeUnboxed)
     define_wraped_class(TrueClass, RubyTypeBoxed)
     define_wraped_class(FalseClass, RubyTypeBoxed)
+    define_wraped_class(Symbol, RubyTypeBoxed)
     define_wraped_class(String, RubyTypeBoxed)
     define_wraped_class(Array, RubyTypeBoxed)
     define_wraped_class(Hash, RubyTypeBoxed)

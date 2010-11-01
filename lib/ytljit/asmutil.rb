@@ -95,6 +95,7 @@ module YTLJit
       DBLLOR = OpEAX.instance
       DBLHIR = OpEDX.instance
       RETR = OpEAX.instance
+      RETFR = XMM0
       SPR = OpESP.instance
       BPR = OpEBP.instance
     when /x86_64/
@@ -106,6 +107,7 @@ module YTLJit
       DBLLOR = OpRAX.instance
       DBLHIR = OpRDX.instance
       RETR = OpRAX.instance
+      RETFR = XMM0
       SPR = OpRSP.instance
       BPR = OpRBP.instance
     end
