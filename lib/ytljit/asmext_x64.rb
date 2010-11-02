@@ -32,6 +32,9 @@ module YTLJit
     def argpos2reg
       case @abi_kind
       when :c
+        ARGPOS2REG
+
+      when :cfloat
         ARGPOS2FREG
 
       when :ytl
@@ -168,7 +171,7 @@ module YTLJit
       code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
       code += @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
-      if @asm.retry_mode != :change_op then
+      if @asm.retry_mode == :change_op then
         return [code, callpos]
       end
 

@@ -1674,7 +1674,8 @@ LocalVarNode
           offarg = @current_frame_info.offset_arg(@offset, base)
 
           asm = context.assembler
-          if valr.is_a?(OpRegistor) or valr.is_a?(OpImmidiate) then
+          if valr.is_a?(OpRegistor) or 
+              (valr.is_a?(OpImmidiate) and !valr.is_a?(OpImmidiate64)) then
             asm.with_retry do
               asm.mov(offarg, valr)
             end
