@@ -446,10 +446,9 @@ LO        |                       |   |  |
           context = rtype.gen_boxing(context)
           casm = context.assembler
           dst = OpIndirect.new(SPR, i * AsmType::MACHINE_WORD.size)
-          if  context.ret_reg.is_a?(OpRegistor) or 
+          if context.ret_reg.is_a?(OpRegistor) or 
               context.ret_reg.is_a?(OpImmidiate32) or 
               context.ret_reg.is_a?(OpImmidiate8) then
-
             casm.with_retry do
               casm.mov(dst, context.ret_reg)
             end
@@ -460,7 +459,7 @@ LO        |                       |   |  |
               casm.mov(dst, TMPR)
             end
           end
-          context.cpustack_setn(i * AsmType::MACHINE_WORD.size, context.ret_node)
+          context.cpustack_setn(i, context.ret_node)
         end
 
         # Copy Stack Pointer
