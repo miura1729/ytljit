@@ -231,14 +231,14 @@ LocalVarNode
           ti_update(dst, src, dsig, ssig, context)
         end
 
-        def add_element_node(sig, type, context)
+        def add_element_node(sig, enode, context)
           slfetnode = @element_node_list
-          unless slfetnode.include?(type)
-            @element_node_list.push [sig, type]
+          unless slfetnode.include?(enode)
+            @element_node_list.push [sig, enode]
             orgsig = @element_node_list[0][0]
-            orgtype = @element_node_list[0][1]
-            if orgtype != type then
-              same_type(orgtype, type, orgsig, sig, context)
+            orgnode = @element_node_list[0][1]
+            if orgnode != enode then
+              same_type(orgnode, enode, orgsig, sig, context)
             end
             ti_changed
 #            context.convergent = false
@@ -491,8 +491,6 @@ LocalVarNode
         end
 
         def collect_info(context)
-          context.modified_local_var.push Hash.new
-          context.modified_instance_var = {}
           context.yield_node.push []
           @body.collect_info(context)
           @yield_node = context.yield_node.pop
@@ -558,6 +556,13 @@ LocalVarNode
       class MethodTopNode<TopNode
         include MethodTopCodeGen
 
+        def collect_info(context)
+          context.modified_local_var.push [{}]
+          context = super
+          context.modified_local_var.pop
+          context
+        end
+
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
           locals.unshift :_block
@@ -568,6 +573,13 @@ LocalVarNode
       end
 
       class BlockTopNode<MethodTopNode
+        def collect_info(context)
+          context.modified_local_var.last.push Hash.new
+          context = super
+          context.modified_local_var.last.pop
+          context
+        end
+
         include MethodTopCodeGen
       end
 
@@ -577,6 +589,14 @@ LocalVarNode
 
         def self.get_class_top_node(klass)
           @@class_top_tab[klass]
+        end
+
+        def collect_info(context)
+          context.modified_local_var.push [{}]
+          context.modified_instance_var = {}
+          context = super
+          context.modified_local_var.pop
+          context
         end
 
         def initialize(parent, klassobj, name = nil)
@@ -860,7 +880,6 @@ LocalVarNode
         attr :modified_instance_var
 
         def collect_info(context)
-          context.modified_local_var.pop
           @modified_instance_var = context.modified_instance_var
           context
         end
@@ -997,7 +1016,7 @@ LocalVarNode
         end
 
         def collect_info(context)
-          modlocvar = context.modified_local_var.map {|ele| ele.dup}
+          modlocvar = context.modified_local_var.last.map {|ele| ele.dup}
           @modified_local_var_list.push modlocvar
           modinsvar = context.modified_instance_var.dup
           @modified_instance_var_list.push modinsvar
@@ -1183,6 +1202,7 @@ LocalVarNode
           super(parent)
           @value = val
           @type = RubyType::BaseType.from_object(val)
+          @my_element_node = BaseNode.new(self)
         end
         
         attr :value
@@ -1192,7 +1212,7 @@ LocalVarNode
           case @value
           when Array
             sig = context.to_signature
-            @element_node_list = [[sig, BaseNode.new(self)]]
+            @element_node_list = [[sig, @my_element_node]]
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
               @element_node_list[0][1].add_type(sig, etype)
@@ -1553,7 +1573,11 @@ LocalVarNode
         end
 
         def collect_info(context)
-          vti = context.modified_local_var[@depth][@offset]
+          vti = nil
+          if context.modified_local_var.last[@depth] then
+            vti = context.modified_local_var.last[@depth][@offset]
+          end
+
           if vti then
             @var_type_info = vti.dup
           else
@@ -1622,7 +1646,7 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_local_var[@depth][@offset] = [self]
+          context.modified_local_var.last[@depth][@offset] = [self]
           @body.collect_info(context)
         end
           
