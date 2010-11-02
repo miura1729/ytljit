@@ -82,7 +82,7 @@ LO        |                       |   |  |
       end
 
       attr          :top_node
-      attr          :modified_local_var
+      attr_accessor :modified_local_var
       attr_accessor :modified_instance_var
       attr_accessor :yield_node
 
@@ -101,7 +101,7 @@ LO        |                       |   |  |
           end
         end
 
-        @modified_local_var = res
+        @modified_local_var[-1] = res
       end
 
       def merge_instance_var(lvlist)
@@ -416,7 +416,7 @@ LO        |                       |   |  |
         print "---- Stack map ----\n"
         @frame_info.frame_layout.each_with_index do |vinf, i|
           ro = @frame_info.real_offset(i)
-          if mlv = @modified_local_var[0][ro] then
+          if mlv = @modified_local_var.last[0][ro] then
             print "    #{mlv.class} \n"
           else
             print "    #{vinf.class} \n"

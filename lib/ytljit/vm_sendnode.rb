@@ -736,12 +736,42 @@ module YTLJit
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
-            @arguments[3].add_type(context.to_signature, fixtype)
-            @arguments[2].add_element_node(context.to_signature, self, context)
             sig = context.to_signature
+            @arguments[3].add_type(sig, fixtype)
+            @arguments[2].add_element_node(sig, self, context)
             decide_type_once(sig)
-#            @arguments[2].type = nil
-#            @arguments[2].decide_type_once(context.to_signature)
+            @arguments[2].type = nil
+            @arguments[2].decide_type_once(sig)
+            epare = @arguments[2].element_node_list[0]
+            esig = epare[0]
+            enode = epare[1]
+            if enode != self then
+              same_type(self, enode, sig, esig, context)
+              same_type(enode, self, esig, sig, context)
+            end
+
+          when [Hash]
+            @arguments[2].add_element_node(context.to_signature, self, context)
+          end
+
+          context
+        end
+      end
+
+      class SendElementAssignNode<SendNode
+        include SendUtil
+        add_special_send_node :[]=
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Array]
+            fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
+            sig = context.to_signature
+            val = @arguments[4]
+            @arguments[3].add_type(sig, fixtype)
+            @arguments[2].add_element_node(sig, val, context)
+            decide_type_once(sig)
+            @arguments[2].type = nil
+            @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
             esig = epare[0]
             enode = epare[1]
