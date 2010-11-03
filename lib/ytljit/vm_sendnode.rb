@@ -208,164 +208,16 @@ module YTLJit
           context.start_using_reg(TMPR2)
           context.start_using_reg(TMPR3)
           callconv = @func.calling_convention(context)
-          fnc = nil
           
           case callconv
           when :c_vararg
-            context.start_using_reg(TMPR2)
-            
-            context = gen_make_argv(context) do |context, rarg|
-              context.start_using_reg(FUNC_ARG[0])
-              context.start_using_reg(FUNC_ARG[1])
-              context.start_using_reg(FUNC_ARG[2])
-              
-              context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
-              casm = context.assembler
-              # Method Select
-              # it is legal. use TMPR2 for method select
-              # use TMPR3 for store self
-              context = @func.compile(context)
-              fnc = context.ret_reg
-              casm.with_retry do 
-                casm.mov(FUNC_ARG[0], rarg.size) # argc
-                casm.mov(FUNC_ARG[1], TMPR2)     # argv
-                casm.mov(FUNC_ARG[2], TMPR3)     # self
-              end
-              context.set_reg_content(FUNC_ARG[0], nil)
-              context.set_reg_content(FUNC_ARG[1], TMPR2)
-              context.set_reg_content(FUNC_ARG[2], context.ret_node)
-              
-              context = gen_call(context, fnc, 3)
-              context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
-              
-              context.end_using_reg(FUNC_ARG[2])
-              context.end_using_reg(FUNC_ARG[1])
-              context.end_using_reg(FUNC_ARG[0])
-              context.end_using_reg(TMPR2)
-              context.ret_reg = RETR
-              context.ret_node = self
-              
-              decide_type_once(context.to_signature)
-              context = @type.to_box.gen_unboxing(context)
-
-              context
-            end
+            context = compile_c_vararg(context)
             
           when :c_fixarg
-            numarg = @arguments.size - 2
-            
-            numarg.times do |i|
-              context.start_using_reg(FUNC_ARG[i])
-            end
-            context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
-            
-            argpos = 0
-            cursrc = 0
-            @arguments.each do |arg|
-              # skip prevenv and block_argument
-              if cursrc < 2 then
-                cursrc = cursrc + 1
-                next
-              end
-
-              if cursrc == 2 then
-                # Self
-                # Method Select
-                # it is legal. use TMPR2 for method select
-                # use TMPR3 for store self
-                context = @func.compile(context)
-                fnc = context.ret_reg
-                casm = context.assembler
-                casm.with_retry do 
-                  casm.mov(FUNC_ARG[0], TMPR3)
-                end
-                context.set_reg_content(FUNC_ARG[0], context.ret_node)
-              else
-                # other arg.
-                context = arg.compile(context)
-                context.ret_node.decide_type_once(context.to_signature)
-                rtype = context.ret_node.type
-                context = rtype.gen_boxing(context)
-                casm = context.assembler
-                casm.with_retry do 
-                  casm.mov(FUNC_ARG[argpos], context.ret_reg)
-                end
-                context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
-              end
-              argpos = argpos + 1
-              cursrc = cursrc + 1
-            end
-            
-            context = gen_call(context, fnc, numarg)
-            
-            context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
-            numarg.times do |i|
-              context.end_using_reg(FUNC_ARG[numarg - i - 1])
-            end
-            context.end_using_reg(fnc)
-
-            decide_type_once(context.to_signature)
-            context = @type.to_box.gen_unboxing(context)
+            context = compile_c_fixarg(context)
 
           when :ytl
-            numarg = @arguments.size
-            
-            numarg.times do |i|
-              context.start_using_reg(FUNC_ARG_YTL[i])
-            end
-            context.cpustack_pushn(numarg * 8)
-               
-            # push prev env
-            casm = context.assembler
-            casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[0], BPR)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[0], BPR)
-            
-            # block
-            # eval block
-            # local block
-
-            # compile block with other code space and context
-            tcontext = context.dup
-            @arguments[1].compile(tcontext)
-
-            casm = context.assembler
-            casm.with_retry do 
-              entry = @arguments[1].code_space.var_base_immidiate_address
-              casm.mov(FUNC_ARG_YTL[1], entry)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[1], nil)
-            
-            # other arguments
-            @arguments[3..-1].each_with_index do |arg, i|
-              context = arg.compile(context)
-              casm = context.assembler
-              casm.with_retry do 
-                casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
-              end
-              context.set_reg_content(FUNC_ARG_YTL[i + 3], context.ret_node)
-            end
-            
-            # self
-            # Method Select
-            # it is legal. use TMPR2 for method select
-            # use TMPR3 for store self
-            context = @func.compile(context)
-            fnc = context.ret_reg
-            casm = context.assembler
-            casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[2], TMPR3)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
-
-            context = gen_call(context, fnc, numarg)
-            
-            context.cpustack_popn(numarg * 8)
-            numarg.size.times do |i|
-              context.end_using_reg(FUNC_ARG_YTL[numarg - i])
-            end
-            context.end_using_reg(fnc)
+            context = compile_ytl(context)
           end
           
           decide_type_once(context.to_signature)
@@ -424,8 +276,8 @@ module YTLJit
         end
       end
 
-      class SendNewNode<SendNode
-        add_special_send_node :new
+      class SendAllocateNode<SendNode
+        add_special_send_node :allocate
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
@@ -447,6 +299,100 @@ module YTLJit
             end
           end
           context
+        end
+      end
+
+      class SendInitializeNode<SendNode
+        add_special_send_node :initialize
+
+        def compile(context)
+          context.start_using_reg(TMPR2)
+          context.start_using_reg(TMPR3)
+          callconv = @func.calling_convention(context)
+          
+          case callconv
+          when :c_vararg
+            context = compile_c_vararg(context)
+            
+          when :c_fixarg
+            context = compile_c_fixarg(context)
+
+          when :ytl
+            context = compile_ytl(context)
+          end
+
+          decide_type_once(context.to_signature)
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(RETR, TMPR3)
+          end
+          context.ret_reg = RETR
+          context.ret_node = self
+          context.end_using_reg(TMPR3)
+          context.end_using_reg(TMPR2)
+          
+          context = @body.compile(context)
+          context
+        end
+      end
+
+      class SendNewNode<SendNode
+        add_special_send_node :new
+
+        def initialize(parent, func, arguments, op_flag)
+          super
+          allocfunc = MethodSelectNode.new(self, :allocate)
+          alloc = SendNode.make_send_node(self, allocfunc, arguments[0, 3], 0)
+          allocfunc.set_reciever(alloc)
+          initfunc = MethodSelectNode.new(self, :initialize)
+          initarg = arguments.dup
+          initarg[2] = alloc
+          init = SendNode.make_send_node(self, initfunc, initarg, op_flag)
+          initfunc.set_reciever(init)
+          alloc.parent = init
+          @initmethod = init
+        end
+
+        def traverse_childlen
+          @arguments.each do |arg|
+            yield arg
+          end
+          yield @func
+          yield @initmethod
+        end
+
+        def collect_candidate_type_regident(context, slf)
+          slfnode = @arguments[2]
+          if slf.ruby_type.is_a?(Class) then
+            case slfnode
+            when ConstantRefNode
+              context = @initmethod.collect_candidate_type(context)
+              case slfnode.value_node
+              when ClassTopNode
+                clstop = slfnode.value_node
+                tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
+                @type_list.add_type(context.to_signature, tt)
+                
+              else
+                raise "Unkown node type in constant #{slfnode.value_node.class}"
+              end
+
+            else
+              raise "Unkonwn node type #{@arguments[2].class} "
+            end
+          end
+          context
+        end
+        
+        def compile(context)
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rrtype.is_a?(Class) then
+            @initmethod.compile(context)
+          else
+            super
+          end
         end
       end
 

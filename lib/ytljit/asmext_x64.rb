@@ -87,13 +87,15 @@ module YTLJit
 
       if @no < argpos2reg.size then
         argreg = argpos2reg[@no]
-        
+
+=begin        
         # for nested function call. need save previous reg.
         if asm.retry_mode != :change_op and 
             fainfo.used_arg_tab.last[@no] then
           asm.update_state(gen.push(argreg))
           fainfo.push argreg
         end
+=end
         code += asm.update_state(gen.mov(argreg, src))
       else
         # spilled reg 
