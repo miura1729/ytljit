@@ -362,6 +362,8 @@ LocalVarNode
       end
 
       module SendUtil
+        include AbsArch
+
         def gen_eval_self(context)
           # eval 1st arg(self)
           slfnode = @arguments[2]
@@ -380,6 +382,169 @@ LocalVarNode
           end
 
           res
+        end
+
+        def compile_c_vararg(context)
+          fnc = nil
+          context.start_using_reg(TMPR2)
+          
+          context = gen_make_argv(context) do |context, rarg|
+            context.start_using_reg(FUNC_ARG[0])
+            context.start_using_reg(FUNC_ARG[1])
+            context.start_using_reg(FUNC_ARG[2])
+            
+            context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
+            casm = context.assembler
+            # Method Select
+            # it is legal. use TMPR2 for method select
+            # use TMPR3 for store self
+            context = @func.compile(context)
+            fnc = context.ret_reg
+            casm.with_retry do 
+              casm.mov(FUNC_ARG[0], rarg.size) # argc
+              casm.mov(FUNC_ARG[1], TMPR2)     # argv
+              casm.mov(FUNC_ARG[2], TMPR3)     # self
+            end
+            context.set_reg_content(FUNC_ARG[0], nil)
+            context.set_reg_content(FUNC_ARG[1], TMPR2)
+            context.set_reg_content(FUNC_ARG[2], context.ret_node)
+            
+            context = gen_call(context, fnc, 3)
+            context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
+            
+            context.end_using_reg(FUNC_ARG[2])
+            context.end_using_reg(FUNC_ARG[1])
+            context.end_using_reg(FUNC_ARG[0])
+            context.end_using_reg(TMPR2)
+            context.ret_reg = RETR
+            context.ret_node = self
+            
+            decide_type_once(context.to_signature)
+            context = @type.to_box.gen_unboxing(context)
+            
+            context
+          end
+        end
+
+        def compile_c_fixarg(context)
+          fnc = nil
+          numarg = @arguments.size - 2
+          
+          numarg.times do |i|
+            context.start_using_reg(FUNC_ARG[i])
+          end
+          context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
+          
+          argpos = 0
+          cursrc = 0
+          @arguments.each do |arg|
+            # skip prevenv and block_argument
+            if cursrc < 2 then
+              cursrc = cursrc + 1
+              next
+            end
+            
+            if cursrc == 2 then
+              # Self
+              # Method Select
+              # it is legal. use TMPR2 for method select
+              # use TMPR3 for store self
+              context = @func.compile(context)
+              fnc = context.ret_reg
+              casm = context.assembler
+              casm.with_retry do 
+                casm.mov(FUNC_ARG[0], TMPR3)
+              end
+              context.set_reg_content(FUNC_ARG[0], context.ret_node)
+            else
+              # other arg.
+              context = arg.compile(context)
+              context.ret_node.decide_type_once(context.to_signature)
+              rtype = context.ret_node.type
+              context = rtype.gen_boxing(context)
+              casm = context.assembler
+              casm.with_retry do 
+                casm.mov(FUNC_ARG[argpos], context.ret_reg)
+              end
+              context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
+            end
+            argpos = argpos + 1
+            cursrc = cursrc + 1
+          end
+          
+          context = gen_call(context, fnc, numarg)
+          
+          context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
+          numarg.times do |i|
+            context.end_using_reg(FUNC_ARG[numarg - i - 1])
+          end
+          context.end_using_reg(fnc)
+          
+          decide_type_once(context.to_signature)
+          @type.to_box.gen_unboxing(context)
+        end
+
+        def compile_ytl(context)
+          fnc = nil
+          numarg = @arguments.size
+          
+          numarg.times do |i|
+            context.start_using_reg(FUNC_ARG_YTL[i])
+          end
+          context.cpustack_pushn(numarg * 8)
+          
+          # push prev env
+          casm = context.assembler
+          casm.with_retry do 
+            casm.mov(FUNC_ARG_YTL[0], BPR)
+          end
+          context.set_reg_content(FUNC_ARG_YTL[0], BPR)
+          
+          # block
+          # eval block
+          # local block
+          
+          # compile block with other code space and context
+          tcontext = context.dup
+          @arguments[1].compile(tcontext)
+          
+          casm = context.assembler
+          casm.with_retry do 
+            entry = @arguments[1].code_space.var_base_immidiate_address
+            casm.mov(FUNC_ARG_YTL[1], entry)
+          end
+          context.set_reg_content(FUNC_ARG_YTL[1], nil)
+          
+          # other arguments
+          @arguments[3..-1].each_with_index do |arg, i|
+            context = arg.compile(context)
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[i + 3], context.ret_node)
+          end
+          
+          # self
+          # Method Select
+          # it is legal. use TMPR2 for method select
+          # use TMPR3 for store self
+          context = @func.compile(context)
+          fnc = context.ret_reg
+          casm = context.assembler
+          casm.with_retry do 
+            casm.mov(FUNC_ARG_YTL[2], TMPR3)
+          end
+          context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
+          
+          context = gen_call(context, fnc, numarg)
+          
+          context.cpustack_popn(numarg * 8)
+          numarg.size.times do |i|
+            context.end_using_reg(FUNC_ARG_YTL[numarg - i])
+          end
+          context.end_using_reg(fnc)
+          context
         end
       end
 
@@ -1509,7 +1674,13 @@ LocalVarNode
               context.set_reg_content(TMPR2, self)
               context.set_reg_content(TMPR3, @reciever)
               context.ret_reg = TMPR2
+
             elsif knode and mtop = knode.search_method_with_super(@name)[0] then
+              asm = context.assembler
+              asm.with_retry do
+                asm.mov(TMPR3, recval)
+              end
+
               sig = @parent.signature(context)
               cs = mtop.find_cs_by_signature(sig)
               context.ret_reg = cs.var_base_address
@@ -1617,6 +1788,7 @@ LocalVarNode
           offarg = @current_frame_info.offset_arg(@offset, BPR)
           context.ret_node = self
           context.ret_reg = offarg
+          context
         end
 
         def collect_candidate_type(context)
@@ -1627,7 +1799,7 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          comile_main(context)
+          compile_main(context)
         end
       end
 
