@@ -276,6 +276,55 @@ module YTLJit
         end
       end
 
+      class SendCoreDefineSigletonMethodNode<SendNode
+        add_special_send_node :"core#define_singleton_method"
+
+        def initialize(parent, func, arguments, op_flag)
+          super
+          @new_method = arguments[5]
+          if arguments[4].is_a?(LiteralNode) then
+            @new_method.name = arguments[4].value
+            @class_top.make_klassclass_node
+          else
+            raise "Not supported not literal method name"
+          end
+        end
+
+        def traverse_childlen
+          yield @arguments[3]
+          yield @body
+          yield @new_method
+        end
+
+        def collect_info(context)
+          context = @arguments[3].collect_info(context)
+          context = @new_method.collect_info(context)
+          @body.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          # type inference of @new method execute when "send" instruction.
+          context = @arguments[3].collect_candidate_type(context)
+          @arguments[3].decide_type_once(context.to_signature)
+          rrtype = class << @arguments[3].type.ruby_type; self; end
+          clsnode = ClassTopNode.get_class_top_node(rrtype)
+          clsnode.method_tab[@new_method.name] = @new_method
+
+          @body.collect_candidate_type(context)
+          context
+        end
+
+        def compile(context)
+          context = @body.compile(context)
+          ocs = context.code_space
+          # Allocate new code space in compiling @new_method
+          context = @new_method.compile(context)
+          context.set_code_space(ocs)
+
+          context
+        end
+      end
+
       class SendAllocateNode<SendNode
         add_special_send_node :allocate
 
@@ -363,6 +412,7 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
+
           if slf.ruby_type.is_a?(Class) then
             case slfnode
             when ConstantRefNode
