@@ -123,7 +123,7 @@ LO        |                       |   |  |
     class TypeInferenceContext
       def initialize(tnode)
         @top_node = tnode
-        @current_method_signature_node = []
+        @current_method_signature_node = [[]]
         @convergent = false
         @visited_top_node = {}
       end

@@ -749,19 +749,12 @@ LocalVarNode
       end
 
       class ClassTopNode<TopNode
+        include SendNodeCodeGen
         include MethodTopCodeGen
         @@class_top_tab = {}
 
         def self.get_class_top_node(klass)
           @@class_top_tab[klass]
-        end
-
-        def collect_info(context)
-          context.modified_local_var.push [{}]
-          context.modified_instance_var = {}
-          context = super
-          context.modified_local_var.pop
-          context
         end
 
         def initialize(parent, klassobj, name = nil)
@@ -770,10 +763,37 @@ LocalVarNode
           @method_tab = {}
           @klass_object = klassobj
           @klassclass = class << @klass_object; self; end
+          @klassclass_node = nil # Lazy
           RubyType::define_wraped_class(@klassclass, RubyType::RubyTypeBoxed)
           unless @@class_top_tab[klassobj]
             @@class_top_tab[klassobj] = self
           end
+        end
+
+        def collect_info(context)
+          context.modified_local_var.push [{}]
+          context.modified_instance_var = {}
+          context = super
+          context.modified_local_var.pop
+          if @klassclass_node then
+            @klassclass_node.collect_info(context)
+          end
+          context
+        end
+
+        def collect_candidate_type(context, signode, sig)
+          super
+          if @klassclass_node then
+            context = @klassclass_node.collect_candidate_type(context, 
+                                                              signode, sig)
+          end
+          context
+        end
+
+        def make_klassclass_node
+          clsclsnode = ClassTopNode.new(self, @klassclass, @klassclass.name)
+          clsclsnode.body = DummyNode.new
+          @klassclass_node = clsclsnode
         end
 
         def method_tab(klassobj = nil)
@@ -828,6 +848,26 @@ LocalVarNode
           context.current_method_signature_node.push signode
           context = @body.collect_candidate_type(context)
           context.current_method_signature_node.pop
+          context
+        end
+
+        def compile(context)
+          context = super(context)
+
+          cs = self.find_cs_by_signature(context.to_signature)
+          if cs then
+            asm = context.assembler
+            add = lambda { @klassclass.address }
+            var_klassclass = OpVarImmidiateAddress.new(add)
+            asm.with_retry do
+              asm.mov(FUNC_ARG_YTL[0], BPR)
+              asm.mov(FUNC_ARG_YTL[1], 4)
+              asm.mov(FUNC_ARG_YTL[2], var_klassclass)
+            end
+            add = cs.var_base_address
+            context = gen_call(context, add, 3)
+          end
+          
           context
         end
       end
@@ -1446,7 +1486,15 @@ LocalVarNode
         attr_accessor :define
 
         def collect_candidate_type(context)
-          context = @define.collect_candidate_type(context,[], [])
+          dmylit = LiteralNode.new(self, nil)
+          arg = [dmylit, dmylit, @define]
+          sig = []
+          arg.each do |ele|
+            ele.decide_type_once(context.to_signature)
+            sig.push ele.type
+          end
+          context = @define.collect_candidate_type(context, arg, sig)
+
           context = @body.collect_candidate_type(context)
           context
         end
@@ -1780,7 +1828,7 @@ LocalVarNode
 
       class SelfRefNode<LocalVarRefNode
         def initialize(parent)
-          super(parent, 0, 2)
+          super(parent, 2, 0)
           @classtop = search_class_top
         end
 
@@ -1963,8 +2011,12 @@ LocalVarNode
         attr :value_node
 
         def collect_candidate_type(context)
-          same_type(self, @value_node,
-                    context.to_signature, context.to_signature, context)
+          if @value_node.is_a?(ClassTopNode) then
+            @type_list.add_type(context.to_signature, @value_node.type)
+          else
+            same_type(self, @value_node,
+                      context.to_signature, context.to_signature, context)
+          end
           context
         end
 
