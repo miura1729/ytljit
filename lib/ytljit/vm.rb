@@ -990,7 +990,6 @@ LocalVarNode
           traverse_childlen {|rec|
             context = rec.collect_candidate_type(context)
           }
-          @body.collect_candidate_type(context)
         end
 
         def compile(context)
@@ -1216,8 +1215,8 @@ LocalVarNode
         attr :value_node
 
         def traverse_childlen
-          yield @body
           yield @value_node
+          yield @body
         end
 
         def collect_info(context)

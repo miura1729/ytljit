@@ -108,6 +108,7 @@ module YTLJit
             yield arg
           end
           yield @func
+          yield @body
         end
 
         def collect_candidate_type_regident(context, slf)
@@ -115,9 +116,10 @@ module YTLJit
         end
 
         def collect_info(context)
-          traverse_childlen {|rec|
-            context = rec.collect_info(context)
-          }
+          @arguments.each do |arg|
+            context = arg.collect_info(context)
+          end
+          context = @func.collect_info(context)
           if is_fcall or is_vcall then
             # Call method of same class
             mt = @class_top.method_tab[@func.name]
@@ -333,9 +335,9 @@ module YTLJit
           if slf.ruby_type.is_a?(Class) then
             case slfnode
             when ConstantRefNode
-              case slfnode.value_node
+              clstop = slfnode.value_node
+              case clstop
               when ClassTopNode
-                clstop = slfnode.value_node
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
                 @type_list.add_type(context.to_signature, tt)
                 
@@ -408,6 +410,7 @@ module YTLJit
           end
           yield @func
           yield @initmethod
+          yield @body
         end
 
         def collect_candidate_type_regident(context, slf)
@@ -748,6 +751,10 @@ module YTLJit
 
           when [Hash]
             @arguments[2].add_element_node(context.to_signature, self, context)
+
+
+          else
+            raise "Unkown type #{slf.ruby_type} in :[]"
           end
 
           context
