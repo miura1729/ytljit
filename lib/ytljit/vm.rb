@@ -2024,6 +2024,10 @@ LocalVarNode
           end
           context
         end
+        
+        def type
+          @value_node.type
+        end
 
         def compile(context)
           case @value_node
