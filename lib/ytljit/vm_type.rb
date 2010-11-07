@@ -215,7 +215,9 @@ module YTLJit
       def self.from_ruby_class(rcls)
         tobj =  @@base_type_tab[rcls]
         if tobj == nil then
-          DefaultType0.new
+          RubyType::define_wraped_class(rcls, RubyTypeBoxed)
+          tobj =  @@base_type_tab[rcls]
+          tobj.instance
         else
           tobj.instance
         end

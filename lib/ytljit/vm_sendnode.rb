@@ -752,7 +752,6 @@ module YTLJit
           when [Hash]
             @arguments[2].add_element_node(context.to_signature, self, context)
 
-
           else
             raise "Unkown type #{slf.ruby_type} in :[]"
           end
