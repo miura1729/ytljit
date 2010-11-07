@@ -667,9 +667,9 @@ module YTLJit
                     context.to_signature, context.to_signature, context)
           same_type(@arguments[2], @arguments[3], 
                     context.to_signature, context.to_signature, context)
-          tt = RubyType::BaseType.from_ruby_class(true)
+          tt = RubyType::BaseType.from_object(true)
           @type_list.add_type(context.to_signature, tt)
-          tt = RubyType::BaseType.from_ruby_class(false)
+          tt = RubyType::BaseType.from_object(false)
           @type_list.add_type(context.to_signature, tt)
 
           context
