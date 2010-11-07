@@ -122,7 +122,7 @@ module YTLJit
           context = @func.collect_info(context)
           if is_fcall or is_vcall then
             # Call method of same class
-            mt = @class_top.method_tab[@func.name]
+            mt = @class_top.get_method_tab[@func.name]
             if mt then
               miv = mt.modified_instance_var
               if miv then
@@ -245,7 +245,7 @@ module YTLJit
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
             @new_method.name = arguments[4].value
-            @class_top.method_tab[arguments[4].value] = @new_method
+            @class_top.get_method_tab[arguments[4].value] = @new_method
           else
             raise "Not supported not literal method name"
           end
@@ -310,7 +310,7 @@ module YTLJit
           @arguments[3].decide_type_once(context.to_signature)
           rrtype = class << @arguments[3].type.ruby_type; self; end
           clsnode = ClassTopNode.get_class_top_node(rrtype)
-          clsnode.method_tab[@new_method.name] = @new_method
+          clsnode.get_method_tab[@new_method.name] = @new_method
 
           @body.collect_candidate_type(context)
           context

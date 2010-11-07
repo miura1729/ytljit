@@ -796,23 +796,28 @@ LocalVarNode
           @klassclass_node = clsclsnode
         end
 
-        def method_tab(klassobj = nil)
-          if klassobj then
-            ktop =  @@class_top_tab[klassobj]
-            if ktop then
-              ktop.method_tab
-            else
-              {}
-            end
+        def get_method_tab(klassobj = @klass_object)
+          ktop =  @@class_top_tab[klassobj]
+          if ktop then
+            ktop.method_tab
           else
-            @method_tab
+            {}
+          end
+        end
+
+        def get_constant_tab(klassobj = @klass_object)
+          ktop =  @@class_top_tab[klassobj]
+          if ktop then
+            ktop.constant_tab
+          else
+            {}
           end
         end
 
         def search_method_with_super(name, klassobj = @klass_object)
           clsnode = @@class_top_tab[klassobj]
           if clsnode then
-            mtab = clsnode.method_tab
+            mtab = clsnode.get_method_tab
             if val = mtab[name] then
               return [val, clsnode]
             end
@@ -823,8 +828,9 @@ LocalVarNode
           [nil, nil]
         end
 
-        attr :constant_tab
         attr :klass_object
+        attr :constant_tab
+        attr :method_tab
 
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
@@ -2004,7 +2010,7 @@ LocalVarNode
           super(parent)
           @name = name
           @class_top = klass # .search_class_top
-          @value_node = klass.constant_tab[@name]
+          @value_node = klass.get_constant_tab[@name]
         end
 
         attr :value_node

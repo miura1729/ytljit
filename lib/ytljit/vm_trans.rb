@@ -43,6 +43,15 @@ module YTLJit
       attr          :local_label_tab
 
       attr_accessor :not_reached_pos
+
+      def import_object(klass, name, value)
+        ctn = ClassTopNode.get_class_top_node(klass)
+        if ctn == nil then
+          ctn = ClassTopNode.new(@the_top, klass, klass.name)
+        end
+        valnode = LiteralNode.new(ctn, value)
+        ctn.get_constant_tab[name] = valnode
+      end
     end
 
     class YARVTranslatorBase
