@@ -19,6 +19,8 @@ module YTLJit
         @alignment = align
         @kind = kind
       end
+
+      attr :kind
     end
 
     class PointedData<TypeCommon

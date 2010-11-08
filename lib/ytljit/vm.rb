@@ -300,6 +300,10 @@ LocalVarNode
           @code_space = context.code_space
           context
         end
+
+        def get_constant_value
+          nil
+        end
       end
       
       module HaveChildlenMixin
@@ -1473,6 +1477,10 @@ LocalVarNode
 
           context
         end
+
+        def get_constant_value
+          [@value]
+        end
       end
 
       class ClassValueNode<BaseNode
@@ -2042,6 +2050,14 @@ LocalVarNode
           
           context.ret_node = self
           context 
+        end
+
+        def get_constant_value
+          if @value_node.is_a?(LiteralNode) then
+            [@value_node.value]
+          else
+            nil
+          end
         end
       end
 

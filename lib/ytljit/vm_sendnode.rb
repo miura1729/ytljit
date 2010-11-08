@@ -92,6 +92,8 @@ module YTLJit
 
           @modified_instance_var = nil
           @modified_local_var = [{}]
+
+          @result_cache = nil
         end
 
         attr_accessor :func
@@ -102,6 +104,7 @@ module YTLJit
         attr          :class_top
         attr          :modified_local_var
         attr          :modified_instance_var
+        attr_accessor :result_cache
 
         def traverse_childlen
           @arguments.each do |arg|
@@ -112,6 +115,13 @@ module YTLJit
         end
 
         def collect_candidate_type_regident(context, slf)
+          context
+        end
+
+        # This is for reduce method call whose all arguments is constant.
+        # But all methods can't apply because the method may have side
+        # effect.
+        def fill_result_cache(context)
           context
         end
 
@@ -135,6 +145,8 @@ module YTLJit
 
           @modified_local_var    = context.modified_local_var.dup
           @modified_instance_var = context.modified_instance_var.dup
+
+          context = fill_result_cache(context)
 
           @body.collect_info(context)
         end
@@ -235,6 +247,14 @@ module YTLJit
           
           context = @body.compile(context)
           context
+        end
+
+        def get_constant_value
+          if @result_cache then
+            [@result_cache]
+          else
+            nil
+          end
         end
       end
 
