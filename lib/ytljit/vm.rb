@@ -1209,7 +1209,6 @@ LocalVarNode
           super(parent)
           @name = name
           @come_from = {}
-          @come_from_forward = {}
           @come_from_val = []
           @code_space = CodeSpace.new
           @value_node = PhiNode.new(self)
@@ -1219,7 +1218,6 @@ LocalVarNode
 
         attr          :name
         attr          :come_from
-        attr_accessor :come_from_forward
         attr          :value_node
 
         def traverse_childlen
@@ -1243,23 +1241,6 @@ LocalVarNode
           return false
         end
 
-        def forward_node(node)
-          while !node.is_a?(TopNode) 
-            if node.is_a?(LocalLabel) then
-              if node.come_from.size != 0 and 
-                  node.come_from.size == node.come_from_forward.size then
-                return true
-              else
-                return false
-              end
-            end
-
-            node = node.parent
-          end
-
-          return false
-        end
-
         def collect_info(context)
           if @modified_instance_var_list.size == 0 then
             # first visit
@@ -1269,16 +1250,9 @@ LocalVarNode
               if lonly_node(ele) then
                 delnode.push ele
               end
-
-              if forward_node(ele) then
-                fornode.push ele
-              end
             end
             delnode.each do |ele|
               @come_from.delete(ele)
-            end
-            fornode.each do |ele|
-              @come_from_forward[ele] =  @come_from[ele]
             end
           end
             
@@ -1286,12 +1260,7 @@ LocalVarNode
           @modified_local_var_list.push modlocvar
           modinsvar = context.modified_instance_var.dup
           @modified_instance_var_list.push modinsvar
-          tp = @come_from.size - @come_from_forward.size
-          if tp == 0 then
-            tp = 1
-          end
-
-          if @modified_instance_var_list.size == tp then
+          if @modified_instance_var_list.size == 1 then
             @body.collect_info(context)
           elsif @modified_instance_var_list.size == @come_from.size then
             context.merge_local_var(@modified_local_var_list)
@@ -1342,12 +1311,7 @@ LocalVarNode
           context = super(context)
           @come_from_val.push context.ret_reg
           
-          tp = @come_from.size - @come_from_forward.size
-          if tp == 0 then
-            tp = 1
-          end
-          # When all node finish to compile, next node compile
-          if @come_from_val.size == tp then
+          if @come_from_val.size == 1 then
             @body.compile(context)
           else
             context
