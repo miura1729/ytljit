@@ -77,12 +77,15 @@ module YTLJit
       # Instruction pach table for forwarding reference
       # This is array of proc object.
       @after_patch_tab = []
+      @patched_num = 0
+
       reset
     end
 
     def reset
       @current_address = @output_stream.base_address
       @offset = 0
+      @patched_num = 0
     end
 
     attr_accessor :current_address
@@ -131,9 +134,10 @@ module YTLJit
         @output_stream.update_refer
       end
 
-      @after_patch_tab.each do |patproc|
+      @after_patch_tab[@patched_num..-1].each do |patproc|
         patproc.call
       end
+      @patched_num = @after_patch_tab.size
       @retry_mode = org_retry_mode
     end
 
