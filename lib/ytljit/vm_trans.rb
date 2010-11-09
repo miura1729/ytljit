@@ -119,7 +119,6 @@ module YTLJit
 
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins)
-        nllab.come_from_forward = {}
         
         unless curnode.is_a?(JumpNode)
           jmpnode = JumpNode.new(curnode, nllab)
@@ -524,7 +523,6 @@ module YTLJit
 
         val = context.expstack.pop
         nllab.come_from[jpnode] = val
-        nllab.come_from_forward[jpnode] = val
 
         curnode.body = jpnode
         context.current_node = jpnode
@@ -539,7 +537,6 @@ module YTLJit
        
         node = BranchIfNode.new(curnode, cond, nllab)
         nllab.come_from[node] = nil
-        nllab.come_from_forward[node] = nil
 
         curnode.body = node
         context.current_node = node
