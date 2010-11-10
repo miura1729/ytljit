@@ -1269,7 +1269,7 @@ LocalVarNode
           elsif @modified_instance_var_list.size == @come_from.size then
             context.merge_local_var(@modified_local_var_list)
             context.merge_instance_var(@modified_instance_var_list)
-            context
+            @body.collect_info(context)
           else
             context
           end
