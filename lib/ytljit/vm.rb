@@ -616,9 +616,10 @@ LocalVarNode
 
         def construct_frame_info(locals, argnum)
           finfo = LocalFrameInfoNode.new(self)
+          finfo.system_num = 4         # BP ON Stack, BP, RET
           
           # 3 means BP, BP and SP
-          lsize = locals.size + 3
+          lsize = locals.size + finfo.system_num
           
           # construct frame
           frame_layout = Array.new(lsize)
@@ -630,18 +631,22 @@ LocalVarNode
             i += 1
           end
           
-          frame_layout[fargstart - 1] = SystemValueNode.new(finfo, 
-                                                            :RET_ADDR, 
-                                                            fargstart - 1)
-          frame_layout[fargstart - 2] = SystemValueNode.new(finfo, 
-                                                            :OLD_BP,
-                                                            fargstart - 2)
-          frame_layout[fargstart - 3] = SystemValueNode.new(finfo, 
-                                                            :OLD_BPSTACK,
-                                                            fargstart - 3)
+          curpos = fargstart - 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :RET_ADDR, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :OLD_BP, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :FAME_INFO, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :OLD_BPSTACK, curpos)
 
           j = 0
-          while i < lsize - 3 do
+          lvarnum = lsize - finfo.system_num 
+          while i < lvarnum do
             lnode = LocalVarNode.new(finfo, locals[i], j)
             frame_layout[j] = lnode
             i += 1
@@ -649,7 +654,6 @@ LocalVarNode
           end
           finfo.frame_layout = frame_layout
           finfo.argument_num = argnum
-          finfo.system_num = 3         # BP ON Stack, BP, RET
           
           @body = finfo
           finfo

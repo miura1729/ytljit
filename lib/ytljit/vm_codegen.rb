@@ -349,6 +349,7 @@ LO        |                       |   |  |
             # Make linkage of frame pointer
             asm.push(BPR)
             asm.mov(BPR, SPR)
+            asm.push(TMPR)
             asm.push(BPR)
             asm.mov(BPR, SPR)
           end

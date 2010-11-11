@@ -62,13 +62,13 @@ module YTLJit
           end
         end
 
-        def self.make_send_node(parent, func, arguments, op_flag)
+        def self.make_send_node(parent, func, arguments, op_flag, seqno)
           spcl = @@special_node_tab[func.name]
           newobj = nil
           if spcl then
-            newobj = spcl.new(parent, func, arguments, op_flag)
+            newobj = spcl.new(parent, func, arguments, op_flag, seqno)
           else
-            newobj = self.new(parent, func, arguments, op_flag)
+            newobj = self.new(parent, func, arguments, op_flag, seqno)
           end
           func.parent = newobj
           arguments.each do |ele|
@@ -78,11 +78,12 @@ module YTLJit
           newobj
         end
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super(parent)
           @func = func
           @arguments = arguments
           @opt_flag = op_flag
+          @seq_no = seqno
           @var_return_address = nil
           @next_node = @@current_node
           @@current_node = self
@@ -240,7 +241,7 @@ module YTLJit
 
       class SendCoreDefineMethodNode<SendNode
         add_special_send_node :"core#define_method"
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
@@ -281,7 +282,7 @@ module YTLJit
       class SendCoreDefineSigletonMethodNode<SendNode
         add_special_send_node :"core#define_singleton_method"
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
@@ -390,15 +391,17 @@ module YTLJit
       class SendNewNode<SendNode
         add_special_send_node :new
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           allocfunc = MethodSelectNode.new(self, :allocate)
-          alloc = SendNode.make_send_node(self, allocfunc, arguments[0, 3], 0)
+          alloc = SendNode.make_send_node(self, allocfunc, 
+                                          arguments[0, 3], 0, seqno)
           allocfunc.set_reciever(alloc)
           initfunc = MethodSelectNode.new(self, :initialize)
           initarg = arguments.dup
           initarg[2] = alloc
-          init = SendNode.make_send_node(self, initfunc, initarg, op_flag)
+          init = SendNode.make_send_node(self, initfunc, initarg,
+                                         op_flag, seqno)
           initfunc.set_reciever(init)
           alloc.parent = init
           @initmethod = init

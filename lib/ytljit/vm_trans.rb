@@ -409,6 +409,7 @@ module YTLJit
         blk_iseq = ins[3]
         curnode = context.current_node
         numarg = ins[2]
+        seqno = ins[5]
 
         # regular arguments
         arg = []
@@ -443,7 +444,7 @@ module YTLJit
 
         func = MethodSelectNode.new(curnode, ins[1])
         op_flag = ins[4]
-        sn = SendNode.make_send_node(curnode, func, arg, op_flag)
+        sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
         func.set_reciever(sn)
         context.expstack.push sn
 
@@ -458,6 +459,7 @@ module YTLJit
         func = YieldNode.new(curnode)
         numarg = ins[1]
         op_flag = ins[2]
+        seqno = ins[3]
 
         # regular arguments
         args = []
@@ -481,7 +483,7 @@ module YTLJit
 
         args = args.reverse
 
-        nnode = SendNode.new(curnode, func, args, op_flag)
+        nnode = SendNode.new(curnode, func, args, op_flag, seqno)
         func.parent = nnode
         context.expstack.push nnode
 
@@ -520,6 +522,7 @@ module YTLJit
         nllab = get_vmnode_from_label(context, ins[1])
 
         jpnode = JumpNode.new(curnode, nllab) 
+        jpnode.body = nllab
 
         val = context.expstack.pop
         nllab.come_from[jpnode] = val
