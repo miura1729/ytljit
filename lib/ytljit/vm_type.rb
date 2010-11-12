@@ -7,7 +7,6 @@ module YTLJit
 
       def add(key, value)
         cnode = @node
-        snode = @node
         ocnode = nil
         while cnode
           ocnode = cnode
@@ -15,13 +14,11 @@ module YTLJit
             return cnode
           end
           
-          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)}  then
+          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)} and false then
             cnode = cnode.same_klass
             if cnode == nil then
               ocnode.same_klass = KlassTreeNode.new(key, value)
               return ocnode.same_klass
-            else
-              snode = cnode
             end
           else
             cnode = cnode.next_klass
@@ -35,13 +32,13 @@ module YTLJit
 
       def search(key)
         cnode = @node
-
+        
         while cnode
           if key == cnode.key then
             return cnode
           end
 
-          if key.zip(cnode.key).all? {|a, b| 
+          if key.zip(cnode.key).all? {|a, b|
               if a then
                 atype = a.ruby_type
 
@@ -52,9 +49,10 @@ module YTLJit
                   nil
                 end
               else
+                raise "foo"
                 return !b
               end
-            } then
+            } and false then
             cnode = cnode.same_klass
           else
             cnode = cnode.next_klass
@@ -102,7 +100,7 @@ module YTLJit
           end
         else
           # inherit types of most similar signature 
-          ival = []
+          ival = Array.new
           simnode = @types_tree.add(key, ival)
 =begin
           simnode.value.each do |ele|
@@ -118,7 +116,7 @@ module YTLJit
 
       def add_node(key)
         # inherit types of most similar signature 
-        ival = []
+        ival = Array.new
         simnode = @types_tree.add(key, ival)
 =begin
         simnode.value.each do |ele|
@@ -134,7 +132,7 @@ module YTLJit
         if res == nil then
           res = add_node(key)
         end
-        
+
         res
       end
     end

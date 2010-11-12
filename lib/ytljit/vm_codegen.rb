@@ -141,6 +141,14 @@ LO        |                       |   |  |
         res
       end
 
+      def push_signature(signode)
+        @current_method_signature_node.push signode
+      end
+
+      def pop_signature
+        @current_method_signature_node.pop
+      end
+
       attr          :top_node
       attr          :current_method_signature_node
       attr_accessor :convergent
@@ -335,6 +343,22 @@ LO        |                       |   |  |
 
       def to_signature(offset = -1)
         @current_method_signature[offset]
+      end
+
+      def push_signature(signode)
+        sig = signode.map { |enode|
+          if enode.is_a?(Node::BaseNode) then
+            enode.decide_type_once(to_signature)
+            enode.type
+          else
+            enode
+          end
+        }
+        @current_method_signature.push sig
+      end
+
+      def pop_signature
+        @current_method_signature.pop
       end
     end
 
