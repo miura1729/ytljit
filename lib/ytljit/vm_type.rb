@@ -1,7 +1,7 @@
 module YTLJit
   module TypeUtil
     class KlassTree
-      def initialize(defkey = [], defval = [])
+      def initialize(defkey = [], defval = [[], []])
         @node = KlassTreeNode.new(defkey, defval)
       end
 
@@ -75,7 +75,7 @@ module YTLJit
       attr_accessor :same_klass
       attr_accessor :next_klass
       attr          :key
-      attr_accessor :value
+      attr          :value
     end
 
     class TypeContainer
@@ -91,16 +91,16 @@ module YTLJit
         @types_tree.search(key)
       end
 
-      def add_type(key, type)
+      def add_type(key, type, pos)
         tvs = @types_tree.search(key)
         if tvs then
-          tvsv = tvs.value
+          tvsv = tvs.value[pos]
           if !tvsv.include? type then
             tvsv.push type
           end
         else
           # inherit types of most similar signature 
-          ival = Array.new
+          ival = [[], []]
           simnode = @types_tree.add(key, ival)
 =begin
           simnode.value.each do |ele|
@@ -109,14 +109,14 @@ module YTLJit
 =end
 
           if !ival.include? type then
-            ival.push type
+            ival[pos].push type
           end
         end
       end
 
       def add_node(key)
         # inherit types of most similar signature 
-        ival = Array.new
+        ival = [[], []]
         simnode = @types_tree.add(key, ival)
 =begin
         simnode.value.each do |ele|

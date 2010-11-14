@@ -131,16 +131,16 @@ LocalVarNode
         attr_accessor :type
         attr_accessor :element_node_list
 
-        def add_type(sig, type)
-          @type_list.add_type(sig, type)
+        def add_type(sig, type, pos = 0)
+          @type_list.add_type(sig, type, pos)
         end
 
         def type_list(sig)
           @type_list.type_list(sig).value
         end
 
-        def set_type_list(sig, val)
-          @type_list.type_list(sig).value = val
+        def set_type_list(sig, val, pos = 1)
+          @type_list.type_list(sig).value[pos] = val
         end
 
         def collect_info(context)
@@ -161,6 +161,13 @@ LocalVarNode
           if @ti_observer[dst].all? {|edsig, essig, eprc| 
               (edsig != dsig) or (essig != ssig)
             } then
+=begin
+            pp "add observer"
+            pp dsig
+            pp ssig
+            pp dst.class
+            pp self.class
+=end
             prc = lambda { send(:ti_update, dst, self, dsig, ssig, context) }
             @ti_observer[dst].push [dsig, ssig, prc]
           end
@@ -174,10 +181,26 @@ LocalVarNode
           end
         end
 
+        def ti_reset(delsig)
+          @ti_observer.each do |rec, lst|
+            lst.each do |dsig, ssig, prc|
+              if rec.type_list(dsig)[1] != [] and
+                  dsig == delsig then
+#                pp rec.type_list(dsig)[1]
+#                pp dsig
+#                pp rec.class
+                rec.type_list(dsig)[1] = []
+                
+                rec.ti_reset(delsig)
+              end
+            end
+          end
+        end
+
         def merge_type(dst, src)
           res = dst
           src.each do |sele|
-            if ! dst.include? sele then
+            if !res.include? sele then
               res.push sele
             end
           end
@@ -186,18 +209,21 @@ LocalVarNode
         end
 
         def ti_update(dst, src, dsig, ssig, context)
-          dtlist = dst.type_list(dsig)
-          stlist = src.type_list(ssig)
+          dtlistorg = dst.type_list(dsig)
+          dtlist = dtlistorg.flatten
+          stlist = src.type_list(ssig).flatten
 =begin
           print dsig.map(&:ruby_type), "\n"
           print dtlist.map(&:ruby_type), "\n"
           print stlist.map(&:ruby_type), "\n"
 =end
           orgsize = dtlist.size
-#          p "#{dst.class} #{src.class} #{dtlist} #{stlist}"
-          dst.set_type_list(dsig, merge_type(dtlist, stlist))
+#          pp "#{dst.class} #{src.class} #{dtlist} #{stlist}"
+          newdt = merge_type(dtlistorg[1], stlist)
+          dst.set_type_list(dsig, newdt)
+          dtsize = dtlistorg[0].size + newdt.size
 
-          if orgsize != dtlist.size then
+          if orgsize != dtsize then
             dst.type = nil
             dst.ti_changed
             context.convergent = false
@@ -275,8 +301,8 @@ LocalVarNode
         end
 
         def decide_type_once(sig)
-          if @type.equal?(nil) or false # or @type.is_a?(RubyType::DefaultType0) then
-            tlist = @type_list.type_list(sig).value
+          if @type.equal?(nil) or true # or @type.is_a?(RubyType::DefaultType0) then
+            tlist = type_list(sig).flatten.uniq
             @type = decide_type_core(tlist)
           end
         end
@@ -377,32 +403,28 @@ LocalVarNode
           rtype.gen_unboxing(context)
         end
 
-        def signature(context)
+        def signature(context, args = @arguments)
           res = []
           cursig = context.to_signature
-          @arguments[0].decide_type_once(cursig)
-          res.push @arguments[0].type
-          @arguments[2].decide_type_once(cursig)
-          mt = nil
-          if is_fcall or is_vcall then
-            mt = @func.method_top_node(@class_top, nil)
-          else
-            mt = @func.method_top_node(@class_top, @arguments[2].type)
-          end
+          args[0].decide_type_once(cursig)
+          res.push args[0].type
 
+          mt, slf = get_send_method_node(cursig)
           if mt and (ynode = mt.yield_node[0]) then
-            context.push_signature @arguments
-            @arguments[1].type = nil
-            @arguments[1].decide_type_once(ynode.signature(context))
-            res.push @arguments[1].type
+            context.push_signature(args, self)
+            args[1].type = nil
+            args[1].decide_type_once(ynode.signature(context))
+            res.push args[1].type
             context.pop_signature
           else
-            @arguments[1].decide_type_once(cursig)
-            res.push @arguments[1].type
+            args[1].decide_type_once(cursig)
+            res.push args[1].type
+            args[2].decide_type_once(cursig)
+            slf = args[2].type
           end
-          res.push @arguments[2].type
+          res.push slf
 
-          @arguments[3..-1].each do |ele|
+          args[3..-1].each do |ele|
             ele.decide_type_once(cursig)
             res.push ele.type
           end
@@ -597,7 +619,7 @@ LocalVarNode
           super(parent)
           @name = name
           @code_spaces = [] # [[nil, CodeSpace.new]]
-          @yield_node = nil
+          @yield_node = []
           if @parent then
             @classtop = search_class_top
           else
@@ -700,14 +722,16 @@ LocalVarNode
 
           context.visited_top_node[self] = true
 
-          context.current_method_signature_node.push signode
-          context = @body.collect_candidate_type(context)
+          context.push_signature(signode, self)
           cursig = context.to_signature
+          context = @body.collect_candidate_type(context)
+          pp "visit"
+          pp cursig
           @end_nodes.each do |enode|
             same_type(self, enode, cursig, cursig, context)
             same_type(enode, self, cursig, cursig, context)
           end
-          context.current_method_signature_node.pop
+          context.pop_signature
           context
         end
 
@@ -716,9 +740,9 @@ LocalVarNode
           print "#{@classtop.klass_object}##{@name} "
           @code_spaces.each do |sig, cs|
             print sig, " -> "
-            tl = @type_list.type_list(sig).value
+            tl = type_list(sig).flatten.uniq
             print decide_type_core(tl).inspect, "\n"
-            p tl
+            pp tl
           end
         end
 
@@ -872,7 +896,7 @@ LocalVarNode
 
         def collect_candidate_type(context, signode, sig)
           @type = RubyType::BaseType.from_ruby_class(@klassclass)
-          @type_list.add_type(sig, @type)
+          add_type(sig, @type)
 
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self] then
@@ -881,9 +905,9 @@ LocalVarNode
 
           context.visited_top_node[self] = true
           
-          context.current_method_signature_node.push signode
+          context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
-          context.current_method_signature_node.pop
+          context.pop_signature
           context
         end
 
@@ -1142,6 +1166,13 @@ LocalVarNode
 
         def collect_candidate_type(context)
           cursig = context.to_signature
+=begin
+          pp "EndEND"
+          pp @parent.value_node.class if @parent.is_a?(SetResultNode)
+          pp @parent.value_node.func.name if @parent.value_node.is_a?(SendNode)
+          pp cursig
+          pp type_list(cursig)
+=end
           same_type(self, @parent, cursig, cursig, context)
           same_type(@parent, self, cursig, cursig, context)
           context
@@ -1174,6 +1205,8 @@ LocalVarNode
           super(parent)
           @value_node = valnode
         end
+
+        attr :value_node
 
         def traverse_childlen
           yield @value_node
@@ -1492,7 +1525,12 @@ LocalVarNode
         attr :value
 
         def collect_candidate_type(context)
-          @type_list.add_type(context.to_signature, @type)
+          # ??? 
+          if @type == nil then 
+            @type = RubyType::BaseType.from_object(@value) 
+          end
+
+          add_type(context.to_signature, @type)
           case @value
           when Array
             sig = context.to_signature
@@ -1920,7 +1958,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          @type_list.add_type(context.to_signature, @type)
+          add_type(context.to_signature, @type)
           context
         end
 
@@ -2091,7 +2129,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           if @value_node.is_a?(ClassTopNode) then
-            @type_list.add_type(context.to_signature, @value_node.type)
+            add_type(context.to_signature, @value_node.type)
           else
             cursig = context.to_signature
             same_type(self, @value_node, cursig, cursig, context)

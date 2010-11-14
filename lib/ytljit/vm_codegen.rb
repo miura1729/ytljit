@@ -124,28 +124,86 @@ LO        |                       |   |  |
       def initialize(tnode)
         @top_node = tnode
         @current_method_signature_node = [[]]
+        @current_method = [tnode]
         @convergent = false
         @visited_top_node = {}
       end
 
       def to_signature(offset = -1)
-        cursig = @current_method_signature_node[offset]
-        res = cursig.map { |enode|
+        cursignode = @current_method_signature_node[offset]
+        curmethod = @current_method[offset]
+        if curmethod.is_a?(Node::ClassTopNode) then
+          to_signature_aux(cursignode, offset)
+
+        elsif curmethod.is_a?(Node::TopNode) then
+          prevsig = to_signature(offset - 1)
+          to_signature_aux2(curmethod, cursignode, prevsig, offset)
+          
+        else
+          prevsig = to_signature(offset - 1)
+#          pp curmethod.class
+          top = curmethod.class_top
+          if curmethod.is_fcall or curmethod.is_vcall then
+            mt = curmethod.func.method_top_node(top, nil)
+          else
+            mt = curmethod.func.method_top_node(top, args[2].type)
+          end
+
+          to_signature_aux2(mt, cursignode, prevsig, offset)
+        end
+      end
+
+      def to_signature_aux(cursignode, offset)
+        res = cursignode.map { |enode|
           if enode.is_a?(Node::BaseNode) then
             enode.decide_type_once(to_signature(offset - 1))
-            enode.type
           else
             enode
           end
         }
+        
         res
       end
 
-      def push_signature(signode)
+      def to_signature_aux3(cursignode, offset)
+        res = cursignode.map { |enode|
+          if enode.is_a?(Node::BaseNode) then
+            cursignode = @current_method_signature_node[offset]
+            enode.decide_type_once(to_signature_aux3(cursignode, offset - 1))
+          else
+            enode
+          end
+        }
+        
+        res
+      end
+
+      def to_signature_aux2(mt, args, cursig, offset)
+        res = []
+        args.each do |ele|
+          ele.decide_type_once(cursig)
+          res.push ele.type
+        end
+
+        if mt and (ynode = mt.yield_node[0]) then
+          yargs = ynode.arguments
+          ysig = to_signature_aux3(yargs, offset + 1)
+          ymt, slf = ynode.get_send_method_node(cursig)
+          args[1].type = nil
+          args[1].decide_type_once(res)
+          res[1] = args[1].type
+        end
+        
+        res
+      end
+
+      def push_signature(signode, method)
         @current_method_signature_node.push signode
+        @current_method.push method
       end
 
       def pop_signature
+        @current_method.pop
         @current_method_signature_node.pop
       end
 
@@ -214,8 +272,8 @@ LO        |                       |   |  |
             cpustack_setn(dst.disp.value / wsiz, val)
           end
         else
-          p "foo"
-          p dst
+          pp "foo"
+          pp dst
         end
       end
 
@@ -345,7 +403,7 @@ LO        |                       |   |  |
         @current_method_signature[offset]
       end
 
-      def push_signature(signode)
+      def push_signature(signode, method)
         sig = signode.map { |enode|
           if enode.is_a?(Node::BaseNode) then
             enode.decide_type_once(to_signature)

@@ -93,6 +93,8 @@ module YTLJit
 
           @modified_instance_var = nil
           @modified_local_var = [{}]
+
+          @method_signature = []
         end
 
         attr_accessor :func
@@ -111,6 +113,24 @@ module YTLJit
           end
           yield @func
           yield @body
+        end
+
+        def get_send_method_node(cursig)
+          mt = nil
+          @arguments[2].decide_type_once(cursig)
+          slf = @arguments[2].type
+          if slf.instance_of?(RubyType::DefaultType0) then
+            # Chaos
+          end
+
+          if is_fcall or is_vcall then
+            mt = @func.method_top_node(@class_top, nil)
+
+          else
+            mt = @func.method_top_node(@class_top, slf)
+          end
+
+          [mt, slf]
         end
 
         def collect_candidate_type_regident(context, slf)
@@ -142,6 +162,16 @@ module YTLJit
         end
 
         def collect_candidate_type(context)
+          cursig = context.to_signature
+
+          # get saved original signature
+          metsigent = nil
+          @method_signature.each do |tabent|
+            if cursig == tabent[0] then
+              metsigent = tabent
+            end
+          end
+
           # prev env
           context = @arguments[0].collect_candidate_type(context)
 
@@ -157,29 +187,41 @@ module YTLJit
           context = @func.collect_candidate_type(context)
 
           signat = signature(context)
-
-          cursig = context.to_signature
-          mt = nil
-          if is_fcall or is_vcall then
-            mt = @func.method_top_node(@class_top, nil)
-          else
-            @arguments[2].decide_type_once(cursig)
-            slf = @arguments[2].type
-            if slf.instance_of?(RubyType::DefaultType0) then
-              # Chaos
-
-            else
-              mt = @func.method_top_node(@class_top, slf)
+          if metsigent then
+            if metsigent[1] != signat then
+#=begin
+              p "diff diff"
+              p metsigent[1]
+              p signat
+              p @type_list
+              p @func.name
+#=end
+              type_list(cursig)[1] = []
+              ti_reset(cursig)
+              context.convergent = false
+              metsigent[1] = signat
             end
+          else
+            # Why not push, because it excepted type inference about
+            # this signature after. So reduce search loop.
+            @method_signature.unshift [cursig, signat]
           end
-          
-          if mt then
+
+          mt, slf = get_send_method_node(cursig)
+
+          if @func.name == "block yield" then
+            pp "yield"
+            pp cursig
+            pp signat
+            add_type(cursig, cursig[1])
+
+          elsif mt then
             same_type(self, mt, cursig, signat, context)
             same_type(mt, self, signat, cursig, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
-            context.current_method_signature_node.push @arguments
+            context.push_signature(@arguments, self)
             mt.yield_node.map do |ynode|
               yargs = ynode.arguments
               ysignat = ynode.signature(context)
@@ -201,7 +243,7 @@ module YTLJit
                 context = blknode.collect_candidate_type(context)
               end
             end
-            context.current_method_signature_node.pop
+            context.pop_signature
 
           else
             context = collect_candidate_type_regident(context, slf)
@@ -345,7 +387,7 @@ module YTLJit
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                @type_list.add_type(context.to_signature, tt)
+                add_type(context.to_signature, tt)
                 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
@@ -432,7 +474,7 @@ module YTLJit
               when ClassTopNode
                 clstop = slfnode.value_node
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                @type_list.add_type(context.to_signature, tt)
+                add_type(context.to_signature, tt)
                 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
@@ -661,9 +703,9 @@ module YTLJit
           same_type(@arguments[3], @arguments[2], cursig, cursig, context)
           same_type(@arguments[2], @arguments[3], cursig, cursig, context)
           tt = RubyType::BaseType.from_object(true)
-          @type_list.add_type(cursig, tt)
+          add_type(cursig, tt)
           tt = RubyType::BaseType.from_object(false)
-          @type_list.add_type(cursig, tt)
+          add_type(cursig, tt)
 
           context
         end
