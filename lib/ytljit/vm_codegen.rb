@@ -187,11 +187,16 @@ LO        |                       |   |  |
 
         if mt and (ynode = mt.yield_node[0]) then
           yargs = ynode.arguments
-          ysig = to_signature_aux3(yargs, offset + 1)
-          ymt, slf = ynode.get_send_method_node(cursig)
+          push_signature(args, mt)
+          ysig = to_signature_aux3(yargs, -1)
+          pp "signa"
+          pp ysig
+          pp cursig
           args[1].type = nil
-          args[1].decide_type_once(res)
+          args[1].decide_type_once(ysig)
           res[1] = args[1].type
+          pop_signature
+          pp res
         end
         
         res

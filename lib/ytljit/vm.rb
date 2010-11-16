@@ -122,6 +122,7 @@ LocalVarNode
           @type_cache = nil
 
           @ti_observer = {}
+          @ti_observee = []
         end
 
         attr_accessor :parent
@@ -130,6 +131,9 @@ LocalVarNode
 
         attr_accessor :type
         attr_accessor :element_node_list
+
+        attr          :ti_observer
+        attr          :ti_observee
 
         def add_type(sig, type, pos = 0)
           @type_list.add_type(sig, type, pos)
@@ -156,6 +160,7 @@ LocalVarNode
         def ti_add_observer(dst, dsig, ssig, context)
           if @ti_observer[dst] == nil then
             @ti_observer[dst] = []
+            dst.ti_observee.push self
           end
           
           if @ti_observer[dst].all? {|edsig, essig, eprc| 
@@ -186,9 +191,12 @@ LocalVarNode
             lst.each do |dsig, ssig, prc|
               if rec.type_list(dsig)[1] != [] and
                   dsig == delsig then
-#                pp rec.type_list(dsig)[1]
-#                pp dsig
-#                pp rec.class
+=begin
+                pp "ti_reset"
+                pp rec.type_list(dsig)
+                pp dsig
+                pp rec.class
+=end
                 rec.type_list(dsig)[1] = []
                 
                 rec.ti_reset(delsig)
@@ -212,11 +220,12 @@ LocalVarNode
           dtlistorg = dst.type_list(dsig)
           dtlist = dtlistorg.flatten
           stlist = src.type_list(ssig).flatten
-=begin
-          print dsig.map(&:ruby_type), "\n"
+#=begin
+          print "UPDATE TYPE\n"
+          print "#{src.class} #{ssig.inspect} -> #{dst.class} #{dsig.inspect}\n"
           print dtlist.map(&:ruby_type), "\n"
           print stlist.map(&:ruby_type), "\n"
-=end
+#=end
           orgsize = dtlist.size
 #          pp "#{dst.class} #{src.class} #{dtlist} #{stlist}"
           newdt = merge_type(dtlistorg[1], stlist)
@@ -725,8 +734,10 @@ LocalVarNode
           context.push_signature(signode, self)
           cursig = context.to_signature
           context = @body.collect_candidate_type(context)
+=begin
           pp "visit"
           pp cursig
+=end
           @end_nodes.each do |enode|
             same_type(self, enode, cursig, cursig, context)
             same_type(enode, self, cursig, cursig, context)

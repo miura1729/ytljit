@@ -127,6 +127,7 @@ module YTLJit
             mt = @func.method_top_node(@class_top, nil)
 
           else
+
             mt = @func.method_top_node(@class_top, slf)
           end
 
@@ -161,15 +162,65 @@ module YTLJit
           @body.collect_info(context)
         end
 
-        def collect_candidate_type(context)
-          cursig = context.to_signature
-
-          # get saved original signature
+        def search_signature(cursig)
           metsigent = nil
           @method_signature.each do |tabent|
             if cursig == tabent[0] then
               metsigent = tabent
             end
+          end
+          metsigent
+        end
+
+        def check_signature_changed(context, signat, metsigent, cursig)
+          if metsigent then
+            if metsigent[1] != signat then
+              type_list(cursig)[1] = []
+              ti_reset(cursig)
+              oldsignat = metsigent[1]
+              @ti_observee.each do |onode|
+                onode.ti_observer.each do |dst, val|
+                  val.each do |ele| 
+                    if ele[0] == cursig and
+                       ele[1] == oldsignat then
+                      ele[1] = signat
+                    end
+                  end
+                end
+              end
+
+=begin
+              pp "diff diff"
+              pp metsigent[1]
+              pp signat
+              pp type_list(cursig)
+              pp @func.name
+              pp @ti_observer.keys.map {|e| e.class}
+              pp @ti_observer.keys.map {|e| e.type_list(cursig)}
+              pp @ti_observer.keys.map {|e| e.type_list(signat)}
+=end
+              context.convergent = false
+              metsigent[1] = signat
+              true
+            else
+              false
+            end
+          else
+            # Why not push, because it excepted type inference about
+            # this signature after. So reduce search loop.
+            @method_signature.unshift [cursig, signat]
+            false
+          end
+        end
+
+        def collect_candidate_type(context)
+          cursig = context.to_signature
+
+          # get saved original signature
+          metsigent = search_signature(cursig)
+          oldsignat = nil
+          if metsigent then
+            oldsignat = metsigent[1]
           end
 
           # prev env
@@ -186,65 +237,69 @@ module YTLJit
           # function select
           context = @func.collect_candidate_type(context)
 
+
           signat = signature(context)
-          if metsigent then
-            if metsigent[1] != signat then
-#=begin
-              p "diff diff"
-              p metsigent[1]
-              p signat
-              p @type_list
-              p @func.name
-#=end
-              type_list(cursig)[1] = []
-              ti_reset(cursig)
-              context.convergent = false
-              metsigent[1] = signat
-            end
-          else
-            # Why not push, because it excepted type inference about
-            # this signature after. So reduce search loop.
-            @method_signature.unshift [cursig, signat]
-          end
+          needrst = check_signature_changed(context, signat, metsigent, cursig)
 
           mt, slf = get_send_method_node(cursig)
-
-          if @func.name == "block yield" then
-            pp "yield"
-            pp cursig
-            pp signat
-            add_type(cursig, cursig[1])
-
-          elsif mt then
+          if mt then
             same_type(self, mt, cursig, signat, context)
             same_type(mt, self, signat, cursig, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
             context.push_signature(@arguments, self)
-            mt.yield_node.map do |ynode|
-              yargs = ynode.arguments
-              ysignat = ynode.signature(context)
-              if blknode.is_a?(TopNode) then
-                # Have block
+            if blknode.is_a?(TopNode) then
+              # Have block
+              mt.yield_node.map do |ynode|
+                yargs = ynode.arguments
+=begin
+                pp "block arg[1]"
+                pp yargs[1].class
+                pp yargs[1].type_list(signat)
+                pp @func.name
+=end
+
+                ysignat = ynode.signature(context)
+                if needrst then
+                  ynode.type_list(oldsignat)[1] = []
+                  ynode.ti_reset(oldsignat)
+                  ynode.ti_observee.each do |onode|
+                    onode.ti_observer.each do |edst, vals|
+                      vals.each do |ele|
+                        if ele[0] == oldsignat and
+                            ele[1] == ysignat then
+                          p "bar"
+                          p signat
+                          p blknode.type_list(ysignat)
+                          p ynode.type_list(signat)
+                          p ynode.type_list(oldsignat)
+                          ele[0] = signat
+                        end
+                      end
+                    end
+                  end
+                end
+
                 same_type(ynode, blknode, signat, ysignat, context)
                 context = blknode.collect_candidate_type(context, 
                                                          yargs, ysignat)
 
 =begin
-                p signat
-                p ysignat
-              p blknode.decide_type_once(ysignat)
-              p ynode.decide_type_once(signat)
-              p ynode.type_list(signat)
-                p blknode.class
+                pp "block"
+                pp signat
+                pp ysignat
+                pp blknode.decide_type_once(ysignat)
+                pp ynode.decide_type_once(signat)
+                pp ynode.type_list(signat)
+                pp blknode.class
 =end
-              else
-                context = blknode.collect_candidate_type(context)
               end
+            else
+              context = blknode.collect_candidate_type(context)
             end
             context.pop_signature
-
+            
           else
             context = collect_candidate_type_regident(context, slf)
           end

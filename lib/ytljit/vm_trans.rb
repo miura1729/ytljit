@@ -473,13 +473,13 @@ module YTLJit
         framelayout = frameinfo.frame_layout
 
         # self
-        args.push framelayout[roff + 2]
+        args.push LiteralNode.new(curnode, nil)
 
         # block
-        args.push framelayout[roff + 1]
+        args.push LiteralNode.new(curnode, nil)
         
         # perv env
-        args.push framelayout[roff]
+        args.push LiteralNode.new(curnode, nil)
 
         args = args.reverse
 
