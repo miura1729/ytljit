@@ -177,28 +177,9 @@ module YTLJit
             if metsigent[1] != signat then
               type_list(cursig)[1] = []
               ti_reset(cursig)
-              oldsignat = metsigent[1]
-              @ti_observee.each do |onode|
-                onode.ti_observer.each do |dst, val|
-                  val.each do |ele| 
-                    if ele[0] == cursig and
-                       ele[1] == oldsignat then
-                      ele[1] = signat
-                    end
-                  end
-                end
-              end
-
-=begin
-              pp "diff diff"
-              pp metsigent[1]
-              pp signat
-              pp type_list(cursig)
-              pp @func.name
-              pp @ti_observer.keys.map {|e| e.class}
-              pp @ti_observer.keys.map {|e| e.type_list(cursig)}
-              pp @ti_observer.keys.map {|e| e.type_list(signat)}
-=end
+#              ti_reset(signat)
+#              ti_reset(metsigent[1])
+              ti_del_link(cursig, metsigent[1])
               context.convergent = false
               metsigent[1] = signat
               true
@@ -214,6 +195,10 @@ module YTLJit
         end
 
         def collect_candidate_type(context)
+          if @func.name == "block yield" then
+            return context
+          end
+
           cursig = context.to_signature
 
           # get saved original signature
@@ -253,47 +238,12 @@ module YTLJit
               # Have block
               mt.yield_node.map do |ynode|
                 yargs = ynode.arguments
-=begin
-                pp "block arg[1]"
-                pp yargs[1].class
-                pp yargs[1].type_list(signat)
-                pp @func.name
-=end
-
                 ysignat = ynode.signature(context)
-                if needrst then
-                  ynode.type_list(oldsignat)[1] = []
-                  ynode.ti_reset(oldsignat)
-                  ynode.ti_observee.each do |onode|
-                    onode.ti_observer.each do |edst, vals|
-                      vals.each do |ele|
-                        if ele[0] == oldsignat and
-                            ele[1] == ysignat then
-                          p "bar"
-                          p signat
-                          p blknode.type_list(ysignat)
-                          p ynode.type_list(signat)
-                          p ynode.type_list(oldsignat)
-                          ele[0] = signat
-                        end
-                      end
-                    end
-                  end
-                end
 
                 same_type(ynode, blknode, signat, ysignat, context)
                 context = blknode.collect_candidate_type(context, 
                                                          yargs, ysignat)
 
-=begin
-                pp "block"
-                pp signat
-                pp ysignat
-                pp blknode.decide_type_once(ysignat)
-                pp ynode.decide_type_once(signat)
-                pp ynode.type_list(signat)
-                pp blknode.class
-=end
               end
             else
               context = blknode.collect_candidate_type(context)

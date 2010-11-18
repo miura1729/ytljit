@@ -141,7 +141,6 @@ LO        |                       |   |  |
           
         else
           prevsig = to_signature(offset - 1)
-#          pp curmethod.class
           top = curmethod.class_top
           if curmethod.is_fcall or curmethod.is_vcall then
             mt = curmethod.func.method_top_node(top, nil)
@@ -165,19 +164,6 @@ LO        |                       |   |  |
         res
       end
 
-      def to_signature_aux3(cursignode, offset)
-        res = cursignode.map { |enode|
-          if enode.is_a?(Node::BaseNode) then
-            cursignode = @current_method_signature_node[offset]
-            enode.decide_type_once(to_signature_aux3(cursignode, offset - 1))
-          else
-            enode
-          end
-        }
-        
-        res
-      end
-
       def to_signature_aux2(mt, args, cursig, offset)
         res = []
         args.each do |ele|
@@ -189,15 +175,24 @@ LO        |                       |   |  |
           yargs = ynode.arguments
           push_signature(args, mt)
           ysig = to_signature_aux3(yargs, -1)
-          pp "signa"
-          pp ysig
-          pp cursig
           args[1].type = nil
           args[1].decide_type_once(ysig)
           res[1] = args[1].type
           pop_signature
-          pp res
         end
+        
+        res
+      end
+
+      def to_signature_aux3(cursignode, offset)
+        res = cursignode.map { |enode|
+          if enode.is_a?(Node::BaseNode) then
+            cursignode = @current_method_signature_node[offset]
+            enode.decide_type_once(to_signature_aux3(cursignode, offset - 1))
+          else
+            enode
+          end
+        }
         
         res
       end

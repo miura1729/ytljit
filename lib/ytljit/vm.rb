@@ -166,13 +166,6 @@ LocalVarNode
           if @ti_observer[dst].all? {|edsig, essig, eprc| 
               (edsig != dsig) or (essig != ssig)
             } then
-=begin
-            pp "add observer"
-            pp dsig
-            pp ssig
-            pp dst.class
-            pp self.class
-=end
             prc = lambda { send(:ti_update, dst, self, dsig, ssig, context) }
             @ti_observer[dst].push [dsig, ssig, prc]
           end
@@ -186,21 +179,43 @@ LocalVarNode
           end
         end
 
-        def ti_reset(delsig)
+        def ti_reset(delsig, visitnode = {})
+          if visitnode[self] then
+            return
+          end
+
+          visitnode[self] = true
           @ti_observer.each do |rec, lst|
             lst.each do |dsig, ssig, prc|
               if rec.type_list(dsig)[1] != [] and
                   dsig == delsig then
-=begin
-                pp "ti_reset"
-                pp rec.type_list(dsig)
-                pp dsig
-                pp rec.class
-=end
                 rec.type_list(dsig)[1] = []
-                
-                rec.ti_reset(delsig)
               end
+                
+              rec.ti_reset(delsig, visitnode)
+            end
+          end
+        end
+
+        def ti_del_link(dsig, ssig, visitnode = {})
+          if visitnode[self] then
+            return
+          end
+
+          visitnode[self] = true
+          @ti_observer.each do |rec, lst|
+            delent = []
+            lst.each do |ent|
+              if dsig == ent[0] and
+                  ssig == ent[1] then
+                delent.push ent
+              end
+                
+              rec.ti_del_link(dsig, ssig, visitnode)
+            end
+
+            delent.each do |ent|
+              lst.delete(ent)
             end
           end
         end
@@ -220,12 +235,12 @@ LocalVarNode
           dtlistorg = dst.type_list(dsig)
           dtlist = dtlistorg.flatten
           stlist = src.type_list(ssig).flatten
-#=begin
+=begin
           print "UPDATE TYPE\n"
           print "#{src.class} #{ssig.inspect} -> #{dst.class} #{dsig.inspect}\n"
           print dtlist.map(&:ruby_type), "\n"
           print stlist.map(&:ruby_type), "\n"
-#=end
+=end
           orgsize = dtlist.size
 #          pp "#{dst.class} #{src.class} #{dtlist} #{stlist}"
           newdt = merge_type(dtlistorg[1], stlist)
@@ -732,17 +747,14 @@ LocalVarNode
           context.visited_top_node[self] = true
 
           context.push_signature(signode, self)
-          cursig = context.to_signature
+#          cursig = context.to_signature
           context = @body.collect_candidate_type(context)
-=begin
-          pp "visit"
-          pp cursig
-=end
-          @end_nodes.each do |enode|
-            same_type(self, enode, cursig, cursig, context)
-            same_type(enode, self, cursig, cursig, context)
-          end
           context.pop_signature
+
+          @end_nodes.each do |enode|
+            same_type(self, enode, sig, sig, context)
+            same_type(enode, self, sig, sig, context)
+          end
           context
         end
 
@@ -1177,13 +1189,6 @@ LocalVarNode
 
         def collect_candidate_type(context)
           cursig = context.to_signature
-=begin
-          pp "EndEND"
-          pp @parent.value_node.class if @parent.is_a?(SetResultNode)
-          pp @parent.value_node.func.name if @parent.value_node.is_a?(SendNode)
-          pp cursig
-          pp type_list(cursig)
-=end
           same_type(self, @parent, cursig, cursig, context)
           same_type(@parent, self, cursig, cursig, context)
           context
