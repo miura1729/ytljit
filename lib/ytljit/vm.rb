@@ -325,9 +325,11 @@ LocalVarNode
         end
 
         def decide_type_once(sig)
-          if @type.equal?(nil) or true # or @type.is_a?(RubyType::DefaultType0) then
+          if @type.equal?(nil) or @type.is_a?(RubyType::DefaultType0) then
             tlist = type_list(sig).flatten.uniq
             @type = decide_type_core(tlist)
+          else
+            @type
           end
         end
 
