@@ -1,7 +1,7 @@
 spec = Gem::Specification.new do |s|
      s.platform     = Gem::Platform::RUBY
      s.name         = "ytljit"
-     s.version      = "0.0.3"
+     s.version      = "0.0.4"
      s.summary      = "native code generator for ruby compiler"
      s.authors      = ["Hideki Miura"]
      s.files        = [*Dir.glob("{lib}/*.rb"),
@@ -16,9 +16,3 @@ spec = Gem::Specification.new do |s|
      s.test_files   =	Dir.glob("{test}/*.rb")
      s.add_dependency('iseq')
 end
-		       
- 
-		      
-		       
-
-       

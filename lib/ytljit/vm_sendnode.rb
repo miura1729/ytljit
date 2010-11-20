@@ -62,13 +62,13 @@ module YTLJit
           end
         end
 
-        def self.make_send_node(parent, func, arguments, op_flag)
+        def self.make_send_node(parent, func, arguments, op_flag, seqno)
           spcl = @@special_node_tab[func.name]
           newobj = nil
           if spcl then
-            newobj = spcl.new(parent, func, arguments, op_flag)
+            newobj = spcl.new(parent, func, arguments, op_flag, seqno)
           else
-            newobj = self.new(parent, func, arguments, op_flag)
+            newobj = self.new(parent, func, arguments, op_flag, seqno)
           end
           func.parent = newobj
           arguments.each do |ele|
@@ -78,11 +78,12 @@ module YTLJit
           newobj
         end
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super(parent)
           @func = func
           @arguments = arguments
           @opt_flag = op_flag
+          @seq_no = seqno
           @var_return_address = nil
           @next_node = @@current_node
           @@current_node = self
@@ -94,6 +95,7 @@ module YTLJit
           @modified_local_var = [{}]
 
           @result_cache = nil
+          @method_signature = []
         end
 
         attr_accessor :func
@@ -105,6 +107,7 @@ module YTLJit
         attr          :modified_local_var
         attr          :modified_instance_var
         attr_accessor :result_cache
+        attr          :seq_no
 
         def traverse_childlen
           @arguments.each do |arg|
@@ -112,6 +115,25 @@ module YTLJit
           end
           yield @func
           yield @body
+        end
+
+        def get_send_method_node(cursig)
+          mt = nil
+          @arguments[2].decide_type_once(cursig)
+          slf = @arguments[2].type
+          if slf.instance_of?(RubyType::DefaultType0) then
+            # Chaos
+          end
+
+          if is_fcall or is_vcall then
+            mt = @func.method_top_node(@class_top, nil)
+
+          else
+
+            mt = @func.method_top_node(@class_top, slf)
+          end
+
+          [mt, slf]
         end
 
         def collect_candidate_type_regident(context, slf)
@@ -151,7 +173,48 @@ module YTLJit
           @body.collect_info(context)
         end
 
+        def search_signature(cursig)
+          metsigent = nil
+          @method_signature.each do |tabent|
+            if cursig == tabent[0] then
+              metsigent = tabent
+            end
+          end
+          metsigent
+        end
+
+        def check_signature_changed(context, signat, metsigent, cursig)
+          if metsigent then
+            if metsigent[1][1] != signat[1] then
+              type_list(cursig)[1] = []
+              ti_reset
+#              ti_reset(signat)
+#              ti_reset(metsigent[1])
+              ti_del_link
+              context.convergent = false
+              metsigent[1] = signat
+              true
+            else
+              false
+            end
+          else
+            # Why not push, because it excepted type inference about
+            # this signature after. So reduce search loop.
+            @method_signature.unshift [cursig, signat]
+            false
+          end
+        end
+
         def collect_candidate_type(context)
+          cursig = context.to_signature
+
+          # get saved original signature
+          metsigent = search_signature(cursig)
+          oldsignat = nil
+          if metsigent then
+            oldsignat = metsigent[1]
+          end
+
           # prev env
           context = @arguments[0].collect_candidate_type(context)
 
@@ -166,49 +229,34 @@ module YTLJit
           # function select
           context = @func.collect_candidate_type(context)
 
+
           signat = signature(context)
-          mt = nil
-          if is_fcall or is_vcall then
-            mt = @func.method_top_node(@class_top, nil)
-          else
-            @arguments[2].decide_type_once(context.to_signature)
-            slf = @arguments[2].type
-            if slf.instance_of?(RubyType::DefaultType0) then
-              # Chaos
+          check_signature_changed(context, signat, metsigent, cursig)
 
-            else
-              mt = @func.method_top_node(@class_top, slf)
-            end
-          end
-          
+          mt, slf = get_send_method_node(cursig)
           if mt then
-            same_type(self, mt, context.to_signature, signat, context)
-            same_type(mt, self, signat, context.to_signature, context)
-
-            context.current_method_signature_node.push @arguments
-            mt.yield_node.map do |ynode|
-              yargs = ynode.arguments
-              ysignat = ynode.signature(context)
-              same_type(blknode, ynode, ysignat, signat, context)
-              same_type(ynode, blknode, signat, ysignat, context)
-            end
-            context.current_method_signature_node.pop
+            same_type(self, mt, cursig, signat, context)
+            same_type(mt, self, signat, cursig, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
-            context.current_method_signature_node.push @arguments
-            mt.yield_node.map do |ynode|
-              yargs = ynode.arguments
-              ysignat = ynode.signature(context)
-              if blknode.is_a?(TopNode) then
-                # Have block
+            context.push_signature(@arguments, self)
+            if blknode.is_a?(TopNode) then
+              # Have block
+              mt.yield_node.map do |ynode|
+                yargs = ynode.arguments
+                ysignat = ynode.signature(context)
+
+                same_type(ynode, blknode, signat, ysignat, context)
                 context = blknode.collect_candidate_type(context, 
                                                          yargs, ysignat)
-              else
-                context = blknode.collect_candidate_type(context)
+
               end
+            else
+              context = blknode.collect_candidate_type(context)
             end
-            context.current_method_signature_node.pop
+            context.pop_signature
+            
           else
             context = collect_candidate_type_regident(context, slf)
           end
@@ -260,7 +308,7 @@ module YTLJit
 
       class SendCoreDefineMethodNode<SendNode
         add_special_send_node :"core#define_method"
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
@@ -301,7 +349,7 @@ module YTLJit
       class SendCoreDefineSigletonMethodNode<SendNode
         add_special_send_node :"core#define_singleton_method"
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
@@ -359,8 +407,7 @@ module YTLJit
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                @type_list.add_type(context.to_signature, tt)
-                
+                add_type(context.to_signature, tt)
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
               end
@@ -410,15 +457,17 @@ module YTLJit
       class SendNewNode<SendNode
         add_special_send_node :new
 
-        def initialize(parent, func, arguments, op_flag)
+        def initialize(parent, func, arguments, op_flag, seqno)
           super
           allocfunc = MethodSelectNode.new(self, :allocate)
-          alloc = SendNode.make_send_node(self, allocfunc, arguments[0, 3], 0)
+          alloc = SendNode.make_send_node(self, allocfunc, 
+                                          arguments[0, 3], 0, seqno)
           allocfunc.set_reciever(alloc)
           initfunc = MethodSelectNode.new(self, :initialize)
           initarg = arguments.dup
           initarg[2] = alloc
-          init = SendNode.make_send_node(self, initfunc, initarg, op_flag)
+          init = SendNode.make_send_node(self, initfunc, initarg,
+                                         op_flag, seqno)
           initfunc.set_reciever(init)
           alloc.parent = init
           @initmethod = init
@@ -444,7 +493,7 @@ module YTLJit
               when ClassTopNode
                 clstop = slfnode.value_node
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                @type_list.add_type(context.to_signature, tt)
+                add_type(context.to_signature, tt)
                 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
@@ -477,14 +526,11 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Fixnum], [Float], [String], [Array]
-            same_type(@arguments[3], @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], @arguments[3], 
-                      context.to_signature, context.to_signature, context)
-            same_type(self, @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], self, 
-                      context.to_signature, context.to_signature, context)
+            cursig = context.to_signature
+            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -522,14 +568,11 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Fixnum], [Float], [Array]
-            same_type(@arguments[3], @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], @arguments[3], 
-                      context.to_signature, context.to_signature, context)
-            same_type(self, @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], self, 
-                      context.to_signature, context.to_signature, context)
+            cursig = context.to_signature
+            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -564,22 +607,17 @@ module YTLJit
         add_special_send_node :*
 
         def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
           case [slf.ruby_type]
           when [Fixnum], [Float]
-            same_type(@arguments[3], @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], @arguments[3], 
-                      context.to_signature, context.to_signature, context)
-            same_type(self, @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], self, 
-                      context.to_signature, context.to_signature, context)
+            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], self, cursig, cursig, context)
 
           when [String]
-            same_type(self, @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], self, 
-                      context.to_signature, context.to_signature, context)
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], self, cursig, cursig, context)
             @arguments[3].add_type(context.to_signature, fixtype)
           end
 
@@ -627,14 +665,11 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
           when [Fixnum], [Float]
-            same_type(@arguments[3], @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], @arguments[3], 
-                      context.to_signature, context.to_signature, context)
-            same_type(self, @arguments[2], 
-                      context.to_signature, context.to_signature, context)
-            same_type(@arguments[2], self, 
-                      context.to_signature, context.to_signature, context)
+            cursig = context.to_signature
+            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -683,14 +718,13 @@ module YTLJit
       class SendCompareNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
-          same_type(@arguments[3], @arguments[2], 
-                    context.to_signature, context.to_signature, context)
-          same_type(@arguments[2], @arguments[3], 
-                    context.to_signature, context.to_signature, context)
+          cursig = context.to_signature
+          same_type(@arguments[3], @arguments[2], cursig, cursig, context)
+          same_type(@arguments[2], @arguments[3], cursig, cursig, context)
           tt = RubyType::BaseType.from_object(true)
-          @type_list.add_type(context.to_signature, tt)
+          add_type(cursig, tt)
           tt = RubyType::BaseType.from_object(false)
-          @type_list.add_type(context.to_signature, tt)
+          add_type(cursig, tt)
 
           context
         end

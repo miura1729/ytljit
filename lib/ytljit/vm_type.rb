@@ -1,13 +1,12 @@
 module YTLJit
   module TypeUtil
     class KlassTree
-      def initialize(defkey = [], defval = [])
+      def initialize(defkey = [], defval = [[], []])
         @node = KlassTreeNode.new(defkey, defval)
       end
 
       def add(key, value)
         cnode = @node
-        snode = @node
         ocnode = nil
         while cnode
           ocnode = cnode
@@ -15,13 +14,11 @@ module YTLJit
             return cnode
           end
           
-          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)}  then
+          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)} and false then
             cnode = cnode.same_klass
             if cnode == nil then
               ocnode.same_klass = KlassTreeNode.new(key, value)
               return ocnode.same_klass
-            else
-              snode = cnode
             end
           else
             cnode = cnode.next_klass
@@ -35,13 +32,13 @@ module YTLJit
 
       def search(key)
         cnode = @node
-
+        
         while cnode
           if key == cnode.key then
             return cnode
           end
 
-          if key.zip(cnode.key).all? {|a, b| 
+          if key.zip(cnode.key).all? {|a, b|
               if a then
                 atype = a.ruby_type
 
@@ -52,9 +49,10 @@ module YTLJit
                   nil
                 end
               else
+                raise "foo"
                 return !b
               end
-            } then
+            } and false then
             cnode = cnode.same_klass
           else
             cnode = cnode.next_klass
@@ -77,7 +75,7 @@ module YTLJit
       attr_accessor :same_klass
       attr_accessor :next_klass
       attr          :key
-      attr_accessor :value
+      attr          :value
     end
 
     class TypeContainer
@@ -93,16 +91,16 @@ module YTLJit
         @types_tree.search(key)
       end
 
-      def add_type(key, type)
+      def add_type(key, type, pos)
         tvs = @types_tree.search(key)
         if tvs then
-          tvsv = tvs.value
+          tvsv = tvs.value[pos]
           if !tvsv.include? type then
             tvsv.push type
           end
         else
           # inherit types of most similar signature 
-          ival = []
+          ival = [[], []]
           simnode = @types_tree.add(key, ival)
 =begin
           simnode.value.each do |ele|
@@ -111,14 +109,14 @@ module YTLJit
 =end
 
           if !ival.include? type then
-            ival.push type
+            ival[pos].push type
           end
         end
       end
 
       def add_node(key)
         # inherit types of most similar signature 
-        ival = []
+        ival = [[], []]
         simnode = @types_tree.add(key, ival)
 =begin
         simnode.value.each do |ele|
@@ -134,7 +132,7 @@ module YTLJit
         if res == nil then
           res = add_node(key)
         end
-        
+
         res
       end
     end
