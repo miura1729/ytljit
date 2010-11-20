@@ -179,7 +179,7 @@ LocalVarNode
           end
         end
 
-        def ti_reset(delsig, visitnode = {})
+        def ti_reset(visitnode = {})
           if visitnode[self] then
             return
           end
@@ -187,17 +187,14 @@ LocalVarNode
           visitnode[self] = true
           @ti_observer.each do |rec, lst|
             lst.each do |dsig, ssig, prc|
-              if rec.type_list(dsig)[1] != [] and
-                  dsig == delsig then
-                rec.type_list(dsig)[1] = []
-              end
-                
-              rec.ti_reset(delsig, visitnode)
+              rec.type_list(dsig)[1] = []
+
+              rec.ti_reset(visitnode)
             end
           end
         end
 
-        def ti_del_link(dsig, ssig, visitnode = {})
+        def ti_del_link(visitnode = {})
           if visitnode[self] then
             return
           end
@@ -206,12 +203,9 @@ LocalVarNode
           @ti_observer.each do |rec, lst|
             delent = []
             lst.each do |ent|
-              if dsig == ent[0] and
-                  ssig == ent[1] then
-                delent.push ent
-              end
+              delent.push ent
                 
-              rec.ti_del_link(dsig, ssig, visitnode)
+              rec.ti_del_link(visitnode)
             end
 
             delent.each do |ent|
@@ -583,12 +577,7 @@ LocalVarNode
           @arguments[1].compile(tcontext)
           
           casm = context.assembler
-          casm.with_retry do 
-            entry = @arguments[1].code_space.var_base_immidiate_address
-            casm.mov(FUNC_ARG_YTL[1], entry)
-          end
-          context.set_reg_content(FUNC_ARG_YTL[1], nil)
-          
+
           # other arguments
           @arguments[3..-1].each_with_index do |arg, i|
             context = arg.compile(context)
@@ -599,6 +588,12 @@ LocalVarNode
             context.set_reg_content(FUNC_ARG_YTL[i + 3], context.ret_node)
           end
           
+          casm.with_retry do 
+            entry = @arguments[1].code_space.var_base_immidiate_address
+            casm.mov(FUNC_ARG_YTL[1], entry)
+          end
+          context.set_reg_content(FUNC_ARG_YTL[1], nil)
+
           # self
           # Method Select
           # it is legal. use TMPR2 for method select
@@ -610,7 +605,7 @@ LocalVarNode
             casm.mov(FUNC_ARG_YTL[2], TMPR3)
           end
           context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
-          
+
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * 8)
@@ -749,7 +744,6 @@ LocalVarNode
           context.visited_top_node[self] = true
 
           context.push_signature(signode, self)
-#          cursig = context.to_signature
           context = @body.collect_candidate_type(context)
           context.pop_signature
 
@@ -768,6 +762,7 @@ LocalVarNode
             tl = type_list(sig).flatten.uniq
             print decide_type_core(tl).inspect, "\n"
             pp tl
+            print "CodeSpace 0x#{cs.base_address.to_s(16)}\n"
           end
         end
 

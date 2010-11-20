@@ -174,12 +174,12 @@ module YTLJit
 
         def check_signature_changed(context, signat, metsigent, cursig)
           if metsigent then
-            if metsigent[1] != signat then
+            if metsigent[1][1] != signat[1] then
               type_list(cursig)[1] = []
-              ti_reset(cursig)
+              ti_reset
 #              ti_reset(signat)
 #              ti_reset(metsigent[1])
-              ti_del_link(cursig, metsigent[1])
+              ti_del_link
               context.convergent = false
               metsigent[1] = signat
               true
@@ -489,7 +489,7 @@ module YTLJit
         end
         
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature(-2))
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
@@ -520,7 +520,7 @@ module YTLJit
 
 #=begin
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature(-2))
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
@@ -561,7 +561,7 @@ module YTLJit
         end
 
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature(-2))
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
@@ -608,7 +608,7 @@ module YTLJit
 
         def compile(context)
           @arguments[2].type = nil
-          @arguments[2].decide_type_once(context.to_signature(-2))
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
@@ -659,7 +659,7 @@ module YTLJit
 
         def compile(context)
           @arguments[2].type = nil
-          @arguments[2].decide_type_once(context.to_signature(-2))
+          @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
@@ -700,7 +700,7 @@ module YTLJit
       class SendCompareNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
-          cursig = context.to_signature(-2)
+          cursig = context.to_signature
           same_type(@arguments[3], @arguments[2], cursig, cursig, context)
           same_type(@arguments[2], @arguments[3], cursig, cursig, context)
           tt = RubyType::BaseType.from_object(true)
