@@ -150,12 +150,7 @@ LO        |                       |   |  |
           
         else
           prevsig = to_signature(offset - 1, cache)
-          top = curmethod.class_top
-          if curmethod.is_fcall or curmethod.is_vcall then
-            mt = curmethod.func.method_top_node(top, nil)
-          else
-            mt = curmethod.func.method_top_node(top, args[2].type)
-          end
+          mt, slf = curmethod.get_send_method_node(prevsig)
 
           rsig = to_signature_aux2(mt, cursignode, prevsig, offset, cache)
           cache[cursignode] = rsig
