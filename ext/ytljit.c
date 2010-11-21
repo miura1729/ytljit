@@ -515,8 +515,8 @@ Init_ytljit_ext()
   ytl_cArena = rb_define_class_under(ytl_mRuntime, "Arena", rb_cObject);
   rb_define_alloc_func(ytl_cArena, ytl_arena_allocate);
   rb_define_method(ytl_cArena, "[]=", ytl_arena_emit, 2);
-  rb_define_method(ytl_cArena, "[]", ytl_arena_ref, 1)
-;  rb_define_method(ytl_cArena, "size", ytl_arena_size, 0);
+  rb_define_method(ytl_cArena, "[]", ytl_arena_ref, 1);
+  rb_define_method(ytl_cArena, "size", ytl_arena_size, 0);
   rb_define_method(ytl_cArena, "address", ytl_arena_address, 0);
 
   /* Open Handles */

@@ -408,6 +408,9 @@ module YTLJit
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
                 add_type(context.to_signature, tt)
+              when LiteralNode
+                tt = RubyType::BaseType.from_ruby_class(clstop.value)
+                add_type(context.to_signature, tt)
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
               end
@@ -489,12 +492,16 @@ module YTLJit
             case slfnode
             when ConstantRefNode
               context = @initmethod.collect_candidate_type(context)
-              case slfnode.value_node
+              clstop = slfnode.value_node
+              case clstop
               when ClassTopNode
-                clstop = slfnode.value_node
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
                 add_type(context.to_signature, tt)
                 
+              when LiteralNode
+                tt = RubyType::BaseType.from_ruby_class(clstop.value)
+                add_type(context.to_signature, tt)
+
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
               end
