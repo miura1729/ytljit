@@ -31,6 +31,7 @@ VALUE ytl_arena_emit(VALUE, VALUE, VALUE);
 VALUE ytl_arena_ref(VALUE, VALUE);
 VALUE ytl_arena_size(VALUE);
 VALUE ytl_arena_address(VALUE);
+VALUE ytl_arena_to_s(VALUE);
 
 void init_csarena();
 void *csalloc(int);

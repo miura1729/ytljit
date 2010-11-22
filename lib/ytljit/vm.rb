@@ -551,6 +551,7 @@ LocalVarNode
             context.end_using_reg(FUNC_ARG[numarg - i - 1])
           end
           context.end_using_reg(fnc)
+          context.ret_reg = RETR
           
           decide_type_once(context.to_signature)
           @type.to_box.gen_unboxing(context)
@@ -953,6 +954,10 @@ LocalVarNode
           end
           
           context
+        end
+
+        def get_constant_value
+          [@klass_object]
         end
       end
 
@@ -2178,11 +2183,7 @@ LocalVarNode
         end
 
         def get_constant_value
-          if @value_node.is_a?(LiteralNode) then
-            [@value_node.value]
-          else
-            nil
-          end
+          @value_node.get_constant_value
         end
       end
 

@@ -34,11 +34,15 @@ module YTLJit
       attr :offset
 
       def size
-        @reftype.size
+        @type.size
+      end
+
+      def [](*args)
+        @type[*args]
       end
 
       def alignment
-        @reftype.alignment
+        @type.alignment
       end
     end
     
@@ -56,7 +60,7 @@ module YTLJit
       end
       
       def [](n = 0, offset = 0)
-        PointedData.new(@reftype, n, offset)
+        PointedData.new(@type, n, offset)
       end
     end
 

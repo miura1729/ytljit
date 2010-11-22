@@ -62,11 +62,21 @@ ytl_arena_address(VALUE self)
 {
   struct Arena *raw_arena;
 
-  int raw_offset;
-
   raw_arena = (struct Arena *)DATA_PTR(self);
 
   return INT2FIX(raw_arena->body);
 }
 
 
+VALUE
+ytl_arena_to_s(VALUE self)
+{
+  struct Arena *raw_arena;
+
+  raw_arena = (struct Arena *)DATA_PTR(self);
+
+  return rb_sprintf("#<Arena %p size=%d body=%p>", 
+		    (void *)self, 
+		    raw_arena->size,
+		    (void *)raw_arena->body);
+}

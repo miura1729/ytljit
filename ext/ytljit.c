@@ -518,6 +518,7 @@ Init_ytljit_ext()
   rb_define_method(ytl_cArena, "[]", ytl_arena_ref, 1);
   rb_define_method(ytl_cArena, "size", ytl_arena_size, 0);
   rb_define_method(ytl_cArena, "address", ytl_arena_address, 0);
+  rb_define_method(ytl_cArena, "to_s", ytl_arena_to_s, 0);
 
   /* Open Handles */
 #ifdef __CYGWIN__

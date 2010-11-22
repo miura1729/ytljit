@@ -134,6 +134,7 @@ module YTLJit
   module InternalRubyType
     include AbsArch
     VALUE = AsmType::MACHINE_WORD
+    P_VOID = AsmType::Pointer.new(VALUE)
     P_CHAR = AsmType::Pointer.new(AsmType::INT8)
 
     RBasic = AsmType::Struct.new(
@@ -162,6 +163,17 @@ module YTLJit
                RBasic, :basic,
                AsmType::DOUBLE, :float_value
               )
+
+    Arena = AsmType::Struct.new(
+              AsmType::MACHINE_WORD, :size,
+              AsmType::Array.new(AsmType::INT8, 0), :body
+            )
+
+    RData = AsmType::Struct.new(
+              RBasic, :basic,
+              P_VOID, :dmark,
+              P_VOID, :dfree,
+              AsmType::Pointer.new(Arena), :data)
 
     EMBEDER_FLAG = (1 << 13)
     def self.rstring_ptr(str, csstart, cscont)
