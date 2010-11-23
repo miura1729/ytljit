@@ -255,9 +255,9 @@ module YTLJit
         when :block
           mtopnode = BlockTopNode.new(curnode)
         when :method
-          mtopnode = MethodTopNode.new(curnode)
+          mtopnode = MethodTopNode.new(curnode, body.header['name'].to_sym)
         when :class
-          mtopnode = ClassTopNode.new(curnode)
+          mtopnode = ClassTopNode.new(curnode, body.header['name'].to_sym)
         when :top
           raise "Maybe bug not appear top block."
         end
@@ -491,9 +491,17 @@ module YTLJit
       end
 
       def visit_leave(code, ins, context)
-        curnode = context.current_node 
+        curnode = nil
+        vnode = nil
+        if context.top_nodes.last.name == :initialize then
+          visit_pop(code, ins, context)
+          curnode = context.current_node 
+          vnode = SelfRefNode.new(curnode)
+        else
+          curnode = context.current_node 
+          vnode = context.expstack.pop
+        end
 
-        vnode = context.expstack.pop
         srnode = SetResultNode.new(curnode, vnode)
         curnode.body = srnode
 

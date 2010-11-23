@@ -77,7 +77,7 @@ LO        |                       |   |  |
       def initialize(tnode)
         @top_node = tnode
         @modified_local_var = []
-        @modified_instance_var = {}
+        @modified_instance_var = Hash.new {|hash, key| hash[key] = []}
         @yield_node = []
       end
 
@@ -102,21 +102,6 @@ LO        |                       |   |  |
         end
 
         @modified_local_var[-1] = res
-      end
-
-      def merge_instance_var(lvlist)
-        res = nil
-        lvlist.each do |lvs|
-          if res then
-            lvs.each do |name, vall|
-              res[name] = res[name] | vall
-            end
-          else
-            res = lvs.dup
-          end
-        end
-      
-        @modified_instance_var = res
       end
     end
     

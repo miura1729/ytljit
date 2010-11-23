@@ -442,12 +442,7 @@ module YTLJit
             context = compile_ytl(context)
           end
 
-          decide_type_once(context.to_signature)
-          asm = context.assembler
-          asm.with_retry do
-            asm.mov(RETR, TMPR3)
-          end
-          context.ret_reg = RETR
+          context.ret_reg = RETR 
           context.ret_node = self
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -469,8 +464,8 @@ module YTLJit
           initfunc = MethodSelectNode.new(self, :initialize)
           initarg = arguments.dup
           initarg[2] = alloc
-          init = SendNode.make_send_node(self, initfunc, initarg,
-                                         op_flag, seqno)
+          init = SendNode.make_send_node(self, initfunc, 
+                                         initarg, op_flag, seqno)
           initfunc.set_reciever(init)
           alloc.parent = init
           @initmethod = init

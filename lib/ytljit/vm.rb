@@ -851,7 +851,7 @@ LocalVarNode
 
         def collect_info(context)
           context.modified_local_var.push [{}]
-          context.modified_instance_var = {}
+          context.modified_instance_var = Hash.new {|hash, key| hash[key] = []}
           context = super
           context.modified_local_var.pop
           if @klassclass_node then
@@ -1311,7 +1311,6 @@ LocalVarNode
           @code_space = CodeSpace.new
           @value_node = PhiNode.new(self)
           @modified_local_var_list = []
-          @modified_instance_var_list = []
         end
 
         attr          :name
@@ -1340,7 +1339,7 @@ LocalVarNode
         end
 
         def collect_info(context)
-          if @modified_instance_var_list.size == 0 then
+          if @modified_local_var_list.size == 0 then
             # first visit
             delnode = []
             fornode = []
@@ -1356,13 +1355,10 @@ LocalVarNode
             
           modlocvar = context.modified_local_var.last.map {|ele| ele.dup}
           @modified_local_var_list.push modlocvar
-          modinsvar = context.modified_instance_var.dup
-          @modified_instance_var_list.push modinsvar
-          if @modified_instance_var_list.size == 1 then
+          if @modified_local_var_list.size == 1 then
             @body.collect_info(context)
-          elsif @modified_instance_var_list.size == @come_from.size then
+          elsif @modified_local_var_list.size == @come_from.size then
             context.merge_local_var(@modified_local_var_list)
-            context.merge_instance_var(@modified_instance_var_list)
             @body.collect_info(context)
           else
             context
@@ -2078,11 +2074,8 @@ LocalVarNode
 
         def collect_info(context)
           vti = context.modified_instance_var[@name]
-          if vti then
-            @var_type_info = vti.dup
-          else
-            @var_type_info = nil
-          end
+          # Not dup so vti may update after.
+          @var_type_info = vti 
 
           context
         end
@@ -2092,6 +2085,7 @@ LocalVarNode
             cursig = context.to_signature
             same_type(self, src, cursig, cursig, context)
           end
+
           context
         end
 

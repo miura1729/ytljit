@@ -44,6 +44,7 @@ require 'ytljit/vm_type_gen'
 require 'ytljit/vm_type'
 
 require 'ytljit/vm_typeinf'
+require 'ytljit/vm_cruby_obj'
 
 require 'ytljit/arena'
 
