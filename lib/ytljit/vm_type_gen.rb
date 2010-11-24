@@ -98,6 +98,8 @@ module YTLJit
           asm = context.assembler
           val = context.ret_reg
           vnode = context.ret_node
+          context.start_using_reg(TMPR2)
+          context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_FLOAT_ARG[0])
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
           asm.with_retry do
@@ -105,6 +107,8 @@ module YTLJit
             asm.call_with_arg(rbfloatnew, 1)
           end
           context.end_using_reg(FUNC_FLOAT_ARG[0])
+          context.end_using_reg(TMPR3)
+          context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context
         end
@@ -135,7 +139,21 @@ module YTLJit
         end
 
         def gen_copy(context)
-          p "copy"
+          asm = context.assembler
+          val = context.ret_reg
+          context.start_using_reg(TMPR2)
+          context.start_using_reg(TMPR3)
+          context.start_using_reg(FUNC_ARG[0])
+          rbarydup = OpMemAddress.new(address_of("rb_ary_dup"))
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], val)
+            asm.call_with_arg(rbarydup, 1)
+          end
+          context.end_using_reg(FUNC_ARG[0])
+          context.end_using_reg(TMPR3)
+          context.end_using_reg(TMPR2)
+          context.ret_reg = RETR
+
           context
         end
 
@@ -143,6 +161,29 @@ module YTLJit
           other.is_a?(self.class) and
           self.class == other.class and
           @element_type == other.element_type
+        end
+      end
+
+      module StringTypeBoxedCodeGen
+        include AbsArch
+
+        def gen_copy(context)
+          asm = context.assembler
+          val = context.ret_reg
+          context.start_using_reg(TMPR2)
+          context.start_using_reg(TMPR3)
+          context.start_using_reg(FUNC_ARG[0])
+          rbstrresurrect = OpMemAddress.new(address_of("rb_str_resurrect"))
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], val)
+            asm.call_with_arg(rbstrresurrect, 1)
+          end
+          context.end_using_reg(FUNC_ARG[0])
+          context.end_using_reg(TMPR3)
+          context.end_using_reg(TMPR2)
+          context.ret_reg = RETR
+
+          context
         end
       end
 
