@@ -165,7 +165,7 @@ module YTLJit
             end
           end
 
-          @modified_local_var    = context.modified_local_var.dup
+          @modified_local_var    = context.modified_local_var.last.dup
           @modified_instance_var = context.modified_instance_var.dup
 
           context = fill_result_cache(context)

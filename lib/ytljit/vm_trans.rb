@@ -173,16 +173,26 @@ module YTLJit
 
       def visit_getdynamic(code, ins, context)
         # + 3 mean prtv_env/pointer to block function/self
-        offset = code.header['misc'][:local_size] + 3 - ins[1]
-        node = LocalVarRefNode.new(context.current_node, offset, ins[2])
+        dep = ins[2]
+        curcode = code
+        dep.times do
+          curcode = curcode.parent
+        end
+        offset = curcode.header['misc'][:local_size] + 3 - ins[1]
+        node = LocalVarRefNode.new(context.current_node, offset, dep)
         context.expstack.push node
       end
 
       def visit_setdynamic(code, ins, context)
+        dep = ins[2]
+        curcode = code
+        dep.times do
+          curcode = curcode.parent
+        end
         val = context.expstack.pop
         curnode = context.current_node
-        offset = code.header['misc'][:local_size] + 3 - ins[1]
-        node = LocalAssignNode.new(curnode, offset, ins[2], val)
+        offset = curcode.header['misc'][:local_size] + 3 - ins[1]
+        node = LocalAssignNode.new(curnode, offset, dep, val)
         curnode.body = node
         context.current_node = node
       end
@@ -197,13 +207,12 @@ module YTLJit
 
       # getclassvariable
       # setclassvariable
-      
-      def visit_getconstant(code, ins, context)
+
+      def get_self_object(context)
         klass = context.expstack.pop
         case klass
         when ConstantRefNode
           klass = klass.value_node
-
 
         when LiteralNode
           klass = klass.value
@@ -211,9 +220,22 @@ module YTLJit
             klass = context.current_class_node
           end
 
+        when SpecialObjectNode
+          if klass.kind == 3 then
+            klass = context.current_class_node
+          else
+            raise "Unkown special object kind = #{klass.kind}"
+          end
+
         else
           raise "Umkonwn node #{klass.class}"
         end
+
+        klass
+      end
+      
+      def visit_getconstant(code, ins, context)
+        klass = get_self_object(context)
         name = ins[1]
         curnode = context.current_node
         node = ConstantRefNode.new(curnode, klass, name)
@@ -221,6 +243,13 @@ module YTLJit
       end
 
       def visit_setconstant(code, ins, context)
+        klass = get_self_object(context)
+        value = context.expstack.pop
+        name = ins[1]
+        curnode = context.current_node
+        node = ConstantAssignNode.new(curnode, klass, name, value)
+        curnode.body = node
+        context.current_node = node
       end
 
       # getglobal
@@ -426,7 +455,7 @@ module YTLJit
           body = VMLib::InstSeqTree.new(code, blk_iseq)
           ncontext = YARVContext.new
           ncontext.current_file_name = context.current_file_name
-          ncontext.current_class_node = curnode
+          ncontext.current_class_node = context.current_class_node
           btn = ncontext.current_node = BlockTopNode.new(curnode)
           ncontext.top_nodes.push btn
 

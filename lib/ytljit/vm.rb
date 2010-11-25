@@ -735,7 +735,7 @@ LocalVarNode
 
         def collect_info(context)
           context.yield_node.push []
-          @body.collect_info(context)
+          context = @body.collect_info(context)
           @yield_node = context.yield_node.pop
           context
         end
@@ -819,7 +819,7 @@ LocalVarNode
       class BlockTopNode<MethodTopNode
         def collect_info(context)
           context.modified_local_var.last.push Hash.new
-          context = super
+          context = @body.collect_info(context)
           context.modified_local_var.last.pop
           context
         end
@@ -1125,6 +1125,24 @@ LocalVarNode
 
         def size
           8
+        end
+
+        def collect_info(context)
+          flay = @parent.frame_layout
+          fragstart = flay.size - @parent.argument_num
+          if fragstart <= @offset then
+            argoff = @offset - fragstart
+          else
+            argoff = @offset + @parent.argument_num
+          end
+=begin
+          # Assertion check for reverse of real_offset
+          unless @offset == @parent.real_offset(argoff)
+            raise
+          end
+=end
+          context.modified_local_var.last.last[argoff] = [self]
+          context
         end
 
         def collect_candidate_type(context)
@@ -1932,14 +1950,22 @@ LocalVarNode
 
         def collect_info(context)
           vti = nil
-          if context.modified_local_var.last[@depth] then
-            vti = context.modified_local_var.last[@depth][@offset]
+          if context.modified_local_var.last[-@depth - 1] then
+            vti = context.modified_local_var.last[-@depth - 1][@offset]
           end
 
           if vti then
             @var_type_info = vti.dup
           else
+            pp @offset
+            pp @depth
+            pp @current_frame_info.real_offset(@offset)
+            pp context.modified_local_var.last.size
             roff = @current_frame_info.real_offset(@offset)
+            pp @current_frame_info.frame_layout[roff].class
+            pp @current_frame_info.frame_layout[roff].instance_eval {@offset}
+            pp context.modified_local_var.last[-@depth - 1].size
+            raise "maybe bug"
             @var_type_info = [@current_frame_info.frame_layout[roff]]
           end
 
@@ -2005,7 +2031,7 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_local_var.last[@depth][@offset] = [self]
+          context.modified_local_var.last[-@depth - 1][@offset] = [self]
           @body.collect_info(context)
         end
           
@@ -2178,6 +2204,41 @@ LocalVarNode
 
         def get_constant_value
           @value_node.get_constant_value
+        end
+      end
+
+      class ConstantAssignNode<VariableRefCommonNode
+        include NodeUtil
+        include HaveChildlenMixin
+        
+        def initialize(parent, klass, name, value)
+          super(parent)
+          @name = name
+          @class_top = klass # .search_class_top
+          @value = value
+
+          if klass.is_a?(ClassTopNode) then
+            klass.constant_tab[@name] = @value
+          else
+            pp klass.class
+            raise "Not Implemented yet for set constant for dynamic class"
+          end
+        end
+
+        def traverse_childlen
+          yield @body
+        end
+
+        def collect_candidate_type(context)
+          @body.collect_candidate_type(context)
+        end
+        
+        def type
+          @value.type
+        end
+
+        def compile(context)
+          @body.compile(context)
         end
       end
 

@@ -6,6 +6,7 @@ spec = Gem::Specification.new do |s|
      s.authors      = ["Hideki Miura"]
      s.files        = [*Dir.glob("{lib}/*.rb"),
                        *Dir.glob("{lib}/ytljit/*.rb"),
+                       *Dir.glob("{lib}/runtime/*.rb"),
                        *Dir.glob("{ext}/*.c"), 
                        *Dir.glob("{ext}/*.h"), 
                        *Dir.glob("{ext}/*.rb"), 
