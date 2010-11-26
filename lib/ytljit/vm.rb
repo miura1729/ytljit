@@ -91,9 +91,61 @@ LocalVarNode
   module VM
     # Expression of VM is a set of Nodes
     module Node
+      module TypeListWithSignature
+        def type_list_initvar
+          TypeUtil::TypeContainer.new
+        end
+        
+        def type_list(sig)
+          @type_list.type_list(sig).value
+        end
+
+        def set_type_list(sig, val, pos = 1)
+          @type_list.type_list(sig).value[pos] = val
+        end
+
+        def add_type(sig, type, pos = 0)
+          @type_list.add_type(sig, type, pos)
+          if type.have_element? then
+            if @my_element_node == nil then
+              @my_element_node = BaseNode.new(self)
+            end
+            @element_node_list = [[sig, @my_element_node]]
+          end
+        end
+      end
+
+      module TypeListWithoutSignature
+        def type_list_initvar
+          [[], []]
+        end
+        
+        def type_list(sig)
+          @type_list
+        end
+
+        def set_type_list(sig, val, pos = 1)
+          @type_list[pos] = val
+        end
+
+        def add_type(sig, type, pos = 0)
+          tvsv = @type_list[pos]
+          if !tvsv.include? type then
+            tvsv.push type
+          end
+          if type.have_element? then
+            if @my_element_node == nil then
+              @my_element_node = BaseNode.new(self)
+            end
+            @element_node_list = [[sig, @my_element_node]]
+          end
+        end
+      end
+      
       class BaseNode
         include Inspect
         include AbsArch
+        include TypeListWithSignature
 
         def initialize(parent)
           cs = CodeSpace.new
@@ -116,8 +168,9 @@ LocalVarNode
 
           # iv for type inference
           @type = nil
-          @type_list = TypeUtil::TypeContainer.new
+          @type_list = type_list_initvar
           @element_node_list = []
+          @my_element_node = nil
           @type_inference_proc = cs
           @type_cache = nil
 
@@ -134,18 +187,6 @@ LocalVarNode
 
         attr          :ti_observer
         attr          :ti_observee
-
-        def add_type(sig, type, pos = 0)
-          @type_list.add_type(sig, type, pos)
-        end
-
-        def type_list(sig)
-          @type_list.type_list(sig).value
-        end
-
-        def set_type_list(sig, val, pos = 1)
-          @type_list.type_list(sig).value[pos] = val
-        end
 
         def collect_info(context)
           if is_a?(HaveChildlenMixin) then
@@ -313,8 +354,11 @@ LocalVarNode
             tlist[0]
             
           else
-            RubyType::DefaultType0.new
-
+            if tlist[0].class == tlist[1].class then
+              tlist[0]
+            else
+              RubyType::DefaultType0.new
+            end
           end
         end
 
@@ -889,7 +933,8 @@ LocalVarNode
           if ktop then
             ktop.constant_tab
           else
-            {}
+            ktop.constant_tab = {}
+            ktop.constant_tab
           end
         end
 
@@ -902,6 +947,20 @@ LocalVarNode
             end
             
             return search_method_with_super(name, klassobj.superclass)
+          end
+
+          [nil, nil]
+        end
+
+        def search_constant_with_super(name, klassobj = @klass_object)
+          clsnode = @@class_top_tab[klassobj]
+          if clsnode then
+            ctab = clsnode.get_constant_tab
+            if val = ctab[name] then
+              return [val, clsnode]
+            end
+            
+            return search_constant_with_super(name, klassobj.superclass)
           end
 
           [nil, nil]
@@ -1551,11 +1610,12 @@ LocalVarNode
 
       # Literal
       class LiteralNode<BaseNode
+        include TypeListWithoutSignature
+
         def initialize(parent, val)
           super(parent)
           @value = val
           @type = RubyType::BaseType.from_object(val)
-          @my_element_node = BaseNode.new(self)
         end
         
         attr :value
@@ -1566,11 +1626,10 @@ LocalVarNode
             @type = RubyType::BaseType.from_object(@value) 
           end
 
-          add_type(context.to_signature, @type)
+          sig = context.to_signature
+          add_type(sig, @type)
           case @value
           when Array
-            sig = context.to_signature
-            @element_node_list = [[sig, @my_element_node]]
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
               @element_node_list[0][1].add_type(sig, etype)
@@ -1957,15 +2016,8 @@ LocalVarNode
           if vti then
             @var_type_info = vti.dup
           else
-            pp @offset
-            pp @depth
-            pp @current_frame_info.real_offset(@offset)
-            pp context.modified_local_var.last.size
-            roff = @current_frame_info.real_offset(@offset)
-            pp @current_frame_info.frame_layout[roff].class
-            pp @current_frame_info.frame_layout[roff].instance_eval {@offset}
-            pp context.modified_local_var.last[-@depth - 1].size
             raise "maybe bug"
+            roff = @current_frame_info.real_offset(@offset)
             @var_type_info = [@current_frame_info.frame_layout[roff]]
           end
 
@@ -2163,12 +2215,13 @@ LocalVarNode
 
       class ConstantRefNode<VariableRefCommonNode
         include NodeUtil
+        include TypeListWithoutSignature
         
         def initialize(parent, klass, name)
           super(parent)
           @name = name
           @class_top = klass # .search_class_top
-          @value_node = klass.get_constant_tab[@name]
+          @value_node, dummy = klass.search_constant_with_super(@name)
         end
 
         attr :value_node
@@ -2177,6 +2230,7 @@ LocalVarNode
           if @value_node.is_a?(ClassTopNode) then
             add_type(context.to_signature, @value_node.type)
           else
+            context = @value_node.collect_candidate_type(context)
             cursig = context.to_signature
             same_type(self, @value_node, cursig, cursig, context)
           end

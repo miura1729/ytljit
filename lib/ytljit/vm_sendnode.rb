@@ -342,6 +342,9 @@ module YTLJit
           context = @new_method.compile(context)
           context.set_code_space(ocs)
 
+          context.ret_reg = 4   # nil
+          context.ret_node = self
+
           context
         end
       end

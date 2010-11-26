@@ -162,6 +162,12 @@ module YTLJit
           self.class == other.class and
           @element_type == other.element_type
         end
+
+        def eql?(other)
+          other.is_a?(self.class) and
+          self.class == other.class and
+          @element_type == other.element_type
+        end
       end
 
       module StringTypeBoxedCodeGen
