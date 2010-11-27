@@ -2,6 +2,8 @@ module YTLJit
   module VM
     module Node
       class CRubyInstanceVarRefNode<InstanceVarRefNode
+        include TypeListWithoutSignature
+
         def initialize(parent, name)
           super
           @current_frame_info = search_frame_info
@@ -25,6 +27,8 @@ module YTLJit
       end
 
       class CRubyInstanceVarAssignNode<InstanceVarAssignNode
+        include TypeListWithoutSignature
+
         def initialize(parent, name, val)
           super
           @current_frame_info = search_frame_info

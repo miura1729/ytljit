@@ -479,7 +479,7 @@ LocalVarNode
 
           mt, slf = get_send_method_node(cursig)
           if mt and (ynode = mt.yield_node[0]) then
-            context.push_signature(args, self)
+            context.push_signature(args, mt)
             args[1].type = nil
             args[1].decide_type_once(ynode.signature(context))
             res.push args[1].type
@@ -696,11 +696,14 @@ LocalVarNode
             @classtop = self
           end
           @end_nodes = []
+          @signature_cache = []
         end
 
         attr_accessor :name
         attr          :end_nodes
         attr          :yield_node
+
+        attr          :signature_cache
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -792,6 +795,10 @@ LocalVarNode
 
           context.visited_top_node[self] = true
 
+          if !@signature_cache.include?(sig) then
+            @signature_cache.push sig
+          end
+          
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
           context.pop_signature
@@ -1200,7 +1207,8 @@ LocalVarNode
             raise
           end
 =end
-          context.modified_local_var.last.last[argoff] = [self]
+          topnode = @parent.parent
+          context.modified_local_var.last.last[argoff] = [[topnode, self]]
           context
         end
 
@@ -2025,9 +2033,10 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @var_type_info.each do |src|
+          @var_type_info.each do |topnode, node|
             cursig = context.to_signature
-            same_type(self, src, cursig, cursig, context)
+            varsig = context.to_signature(topnode)
+            same_type(self, node, cursig, varsig, context)
           end
           context
         end
@@ -2083,7 +2092,8 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_local_var.last[-@depth - 1][@offset] = [self]
+          context.modified_local_var.last[-@depth - 1][@offset] = 
+            [[@frame_info.parent, self]]
           @body.collect_info(context)
         end
           

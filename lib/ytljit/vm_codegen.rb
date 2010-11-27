@@ -115,8 +115,32 @@ LO        |                       |   |  |
       end
 
       def to_signature(offset = -1, cache = {})
+        if offset.is_a?(Node::TopNode) then
+          i = -1
+          while @current_method[i] and @current_method[i] != offset
+            i = i - 1
+          end
+          if @current_method[i] == offset then
+            offset = i
+          else
+            # This is legal this TopNode has only one signature 
+            sigc = offset.signature_cache
+            if sigc.size == 1 then
+              return sigc[0]
+            else
+              raise "I can't type inference..."
+            end
+          end
+        end
+
         cursignode = @current_method_signature_node[offset]
         curmethod = @current_method[offset]
+
+        sigc = curmethod.signature_cache
+        if sigc.size == 1 then
+          return sigc[0]
+        end
+        
         if rsig = cache[cursignode] then
           return rsig
         end
@@ -134,12 +158,15 @@ LO        |                       |   |  |
           rsig
           
         else
+          raise "Maybe bug"
+=begin
           prevsig = to_signature(offset - 1, cache)
           mt, slf = curmethod.get_send_method_node(prevsig)
 
           rsig = to_signature_aux2(mt, cursignode, prevsig, offset, cache)
           cache[cursignode] = rsig
           return rsig
+=end
         end
       end
 

@@ -415,6 +415,7 @@ module YTLJit
         end
         RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
         cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
+        context.current_class_node.constant_tab[name] = cnode
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new
@@ -426,7 +427,6 @@ module YTLJit
         tr = self.class.new([body])
         tr.translate(ncontext)
 
-        context.current_class_node.constant_tab[name] = cnode
         curnode = context.current_node
         cvnode = ClassValueNode.new(curnode, cnode)
         context.expstack.push cvnode

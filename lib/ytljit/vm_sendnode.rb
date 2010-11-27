@@ -240,7 +240,7 @@ module YTLJit
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
-            context.push_signature(@arguments, self)
+            context.push_signature(@arguments, mt)
             if blknode.is_a?(TopNode) then
               # Have block
               mt.yield_node.map do |ynode|
