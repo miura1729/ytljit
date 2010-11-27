@@ -256,7 +256,8 @@ class InstructionTests < Test::Unit::TestCase
 
   def test_xmm_arith
     [:addss, :addsd, :subss, :subsd, 
-     :mulss, :mulsd, :divss, :divsd].each do |mnm|
+     :mulss, :mulsd, :divss, :divsd,
+     :comiss, :comisd].each do |mnm|
 
       # Pattern reg, reg
       @xmmregs.each do |reg|

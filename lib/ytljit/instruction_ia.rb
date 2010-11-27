@@ -749,12 +749,20 @@ module YTLJit
         when OpRegXMM
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          if op0 then
+            (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          else
+            (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
+          end
 
         when OpIndirect
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          if op0 then
+            (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          else
+            (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
+          end
 
         else
           return nosupported_addressing_mode(inst, dst, src)
@@ -1331,6 +1339,14 @@ module YTLJit
 
     def divsd(dst, src)
       common_arithxmm(dst, src, 0xF2, 0x5E, :divsd)
+    end
+
+    def comiss(dst, src)
+      common_arithxmm(dst, src, nil, 0x2F, :comiss)
+    end
+
+    def comisd(dst, src)
+      common_arithxmm(dst, src, 0x66, 0x2F, :comisd)
     end
 
     def int3
