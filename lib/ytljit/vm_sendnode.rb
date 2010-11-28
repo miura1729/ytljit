@@ -746,7 +746,11 @@ module YTLJit
           context.current_method_signature.push signature(context)
           context = gen_eval_self(context)
           if rrtype == Fixnum then
-            context = compile_compare(context)
+            context = compile_compare(context, :cmp, TMPR2, TMPR, RETR)
+
+          elsif rrtype == Float then
+            context = compile_compare(context, :comisd, XMM0, XMM4, RETR)
+
           else
             raise "Unkown method #{rtype.ruby_type} #{@func.name}"
           end
@@ -758,32 +762,36 @@ module YTLJit
       class SendGtNode<SendCompareNode
         include CompareOperationUtil
         add_special_send_node :<
-        def compile_compare(context)
-          context = gen_compare_operation(context , :setg, TMPR2, TMPR)
+        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
+          context = gen_compare_operation(context, cinst, :setg, 
+                                          tempreg, tempreg2, resreg)
         end
       end
 
       class SendGeNode<SendCompareNode
         include CompareOperationUtil
         add_special_send_node :<=
-        def compile_compare(context)
-          context = gen_compare_operation(context , :setge, TMPR2, TMPR)
+        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
+          context = gen_compare_operation(context, cinst, :setge, 
+                                          tempreg, tempreg2, resreg)
         end
       end
 
       class SendLtNode<SendCompareNode
         include CompareOperationUtil
         add_special_send_node :>
-        def compile_compare(context)
-          context = gen_compare_operation(context , :setl, TMPR2, TMPR)
+        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
+          context = gen_compare_operation(context, cinst, :setl, 
+                                          tempreg, tempreg2, resreg)
         end
       end
 
       class SendLeNode<SendCompareNode
         include CompareOperationUtil
         add_special_send_node :>=
-        def compile_compare(context)
-          context = gen_compare_operation(context , :setle, TMPR2, TMPR)
+        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
+          context = gen_compare_operation(context, cinst, :setle,
+                                          tempreg, tempreg2, resreg)
         end
       end
 

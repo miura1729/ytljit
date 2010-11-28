@@ -61,7 +61,8 @@ module YTLJit
     end
 
     module CompareOperationUtil
-      def gen_compare_operation(context, inst, tempreg, resreg)
+      def gen_compare_operation(context, cinst, sinst, 
+                                tempreg, tempreg2, resreg)
         context.start_using_reg(tempreg)
         asm = context.assembler
         asm.with_retry do
@@ -80,11 +81,11 @@ module YTLJit
           
         asm = context.assembler
         asm.with_retry do
-          if context.ret_reg != resreg then
-            asm.mov(resreg, context.ret_reg)
+          if context.ret_reg != tempreg2 then
+            asm.mov(tempreg2, context.ret_reg)
           end
-          asm.cmp(resreg, tempreg)
-          asm.send(inst, resreg)
+          asm.send(cinst, tempreg2, tempreg)
+          asm.send(sinst, resreg)
           asm.add(resreg, resreg)
         end
         context.end_using_reg(tempreg)

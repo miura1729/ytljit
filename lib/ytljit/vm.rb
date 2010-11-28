@@ -1805,6 +1805,7 @@ LocalVarNode
           @calling_convention = :unkown
           @reciever = nil
           @send_node = nil
+          @ruby_reciever = nil
         end
 
         def set_reciever(sendnode)
@@ -1864,7 +1865,20 @@ LocalVarNode
             if knode and knode.search_method_with_super(@name)[0] then
               @calling_convention = :ytl
             else
-              mth = rklass.instance_method(@name)
+              slfval = @reciever.get_constant_value
+              mth = nil
+              if slfval then
+                begin
+                  mth = slfval[0].instance_method(@name)
+                  @ruby_reciever = slfval[0]
+                rescue NameError
+                end
+              end
+              if slfval == nil or mth == nil then
+                mth = rklass.instance_method(@name)
+                @ruby_reciever = rklass
+              end
+
               if variable_argument?(mth.parameters) then
                 @calling_convention = :c_vararg
               else
@@ -1966,7 +1980,12 @@ LocalVarNode
               end
 
               addr = lambda {
-                rtype.ruby_type.method_address_of(@name)
+                if @ruby_reciever.class == Module then
+                  name = @name
+                  @ruby_reciever.instance_eval {method_address_of(name)}
+                else
+                  @ruby_reciever.method_address_of(@name)
+                end
               }
               if addr.call then
                 context.ret_reg = OpVarMemAddress.new(addr)
