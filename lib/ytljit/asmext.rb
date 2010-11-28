@@ -22,12 +22,18 @@ module YTLJit
       base = @entity
       case @type
       when AsmType::Scalar, AsmType::Pointer, AsmType::Array
-        if base != TMPR then
+        if @type.is_a?(DOUBLE) then
           code = ""
-          code += asm.update_state(gen.mov(TMPR, base))
+          code += asm.update_state(gen.movsd(XMM0, base))
           [code, @type]
         else
-          ["", @type]
+          if base != TMPR then
+            code = ""
+            code += asm.update_state(gen.mov(TMPR, base))
+            [code, @type]
+          else
+            ["", @type]
+          end
         end
 
       when AsmType::StructMember
@@ -131,6 +137,20 @@ module YTLJit
           if dst != TMPR then
             rcode += @asm.update_state(call_stephandler) if rcode != ""
             rcode += @asm.update_state(mov(dst, TMPR))
+          end
+          @asm.current_address = orgaddress
+          return [rcode, TypedData.new(rtype, dst)]
+        end
+
+      when :movsd
+        case src
+        when TypedData
+          orgaddress = @asm.current_address
+          rcode = ""
+          rcode, rtype = src.gen_access(self)
+          if dst != XMM0 then
+            rcode += @asm.update_state(call_stephandler) if rcode != ""
+            rcode += @asm.update_state(movsd(dst, XMM0))
           end
           @asm.current_address = orgaddress
           return [rcode, TypedData.new(rtype, dst)]

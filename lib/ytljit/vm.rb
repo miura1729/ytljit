@@ -352,13 +352,16 @@ LocalVarNode
               tlist[0].element_type = node.type
             end
             tlist[0]
-            
-          else
-            if tlist[0].class == tlist[1].class then
+
+          when 2
+            if tlist[0].ruby_type == tlist[1].ruby_type and
+                tlist[0].boxed then
               tlist[0]
             else
-              RubyType::DefaultType0.new
+              tlist[1]
             end
+          else
+            RubyType::DefaultType0.new
           end
         end
 
@@ -689,6 +692,7 @@ LocalVarNode
           super(parent)
           @name = name
           @code_spaces = [] # [[nil, CodeSpace.new]]
+          @orig_modified_local_var = []
           @yield_node = []
           if @parent then
             @classtop = search_class_top
@@ -701,6 +705,7 @@ LocalVarNode
 
         attr_accessor :name
         attr          :end_nodes
+        attr          :orig_modified_local_var
         attr          :yield_node
 
         attr          :signature_cache
@@ -869,6 +874,9 @@ LocalVarNode
 
       class BlockTopNode<MethodTopNode
         def collect_info(context)
+          @orig_modified_local_var = context.modified_local_var.last.map {|e|
+            e.dup
+          }
           context.modified_local_var.last.push Hash.new
           context = @body.collect_info(context)
           context.modified_local_var.last.pop
@@ -1350,7 +1358,7 @@ LocalVarNode
                 curas.mov(RETR, context.ret_reg)
               end
             end
-            context.set_reg_content(TMPR, context.ret_node)
+            context.set_reg_content(RETR, context.ret_node)
           end
 
           context.ret_reg = RETR
@@ -1982,7 +1990,7 @@ LocalVarNode
               addr = lambda {
                 if @ruby_reciever.class == Module then
                   name = @name
-                  @ruby_reciever.instance_eval {method_address_of(name)}
+                  @ruby_reciever.send(:method_address_of, name)
                 else
                   @ruby_reciever.method_address_of(@name)
                 end
@@ -2041,7 +2049,7 @@ LocalVarNode
           end
 
           if vti then
-            @var_type_info = vti.dup
+            @var_type_info = vti.map {|e| e.dup }
           else
             raise "maybe bug"
             roff = @current_frame_info.real_offset(@offset)
@@ -2111,8 +2119,23 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_local_var.last[-@depth - 1][@offset] = 
-            [[@frame_info.parent, self]]
+          top = @frame_info.parent
+
+          nodepare = nil
+          if @depth > 0 then 
+            nodepare = top.orig_modified_local_var[-@depth]
+          end
+          if nodepare then
+            nodepare = nodepare[@offset]
+          end
+          if nodepare then
+            nodepare.push [top, self]
+          else
+            nodepare = [[top, self]]
+          end
+            
+          context.modified_local_var.last[-@depth - 1][@offset] = nodepare
+
           @body.collect_info(context)
         end
           

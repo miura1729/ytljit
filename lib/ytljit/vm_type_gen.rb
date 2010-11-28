@@ -86,7 +86,13 @@ module YTLJit
         end
 
         def gen_unboxing(context)
-          p "inboxing"
+          asm = context.assembler
+          fobj = TypedData.new(InternalRubyType::RFloat, context.ret_reg)
+          asm.with_retry do
+            asm.movsd(XMM0, fobj[:float_value])
+          end
+
+          context.ret_reg = XMM0
           context
         end
       end

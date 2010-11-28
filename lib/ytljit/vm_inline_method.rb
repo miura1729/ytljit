@@ -53,7 +53,7 @@ module YTLJit
         decide_type_once(context.to_signature)
 
         if @type.boxed then
-          context = @type.gen_boxing(context)
+          context = @type.to_unbox.gen_boxing(context)
         end
         
         context

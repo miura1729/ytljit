@@ -551,7 +551,6 @@ module YTLJit
             return super(context)
           end
 
-          context.current_method_signature.push signature(context)
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
           elsif rrtype == Float then
@@ -559,7 +558,7 @@ module YTLJit
           else
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
-          context.current_method_signature.pop
+
           @body.compile(context)
         end
 #=end
@@ -592,7 +591,6 @@ module YTLJit
             return super(context)
           end
 
-          context.current_method_signature.push signature(context)
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :sub, TMPR2, TMPR)
           elsif rrtype == Float then
@@ -601,7 +599,6 @@ module YTLJit
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
-          context.current_method_signature.pop
           @body.compile(context)
         end
       end
@@ -639,7 +636,6 @@ module YTLJit
             return super(context)
           end
 
-          context.current_method_signature.push signature(context)
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :imul, TMPR2, 
                                                TMPR) do |context|
@@ -657,7 +653,6 @@ module YTLJit
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
-          context.current_method_signature.pop
           @body.compile(context)
         end
       end
@@ -690,7 +685,6 @@ module YTLJit
             return super(context)
           end
 
-          context.current_method_signature.push signature(context)
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :imul, TMPR2, 
                                                TMPR) do |context|
@@ -715,7 +709,6 @@ module YTLJit
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
-          context.current_method_signature.pop
           @body.compile(context)
         end
       end
@@ -743,7 +736,6 @@ module YTLJit
             return super(context)
           end
 
-          context.current_method_signature.push signature(context)
           context = gen_eval_self(context)
           if rrtype == Fixnum then
             context = compile_compare(context, :cmp, TMPR2, TMPR, RETR)
@@ -754,7 +746,7 @@ module YTLJit
           else
             raise "Unkown method #{rtype.ruby_type} #{@func.name}"
           end
-          context.current_method_signature.pop
+
           @body.compile(context)
         end
       end
@@ -856,6 +848,64 @@ module YTLJit
           context
         end
       end
+
+      class SendToFNode<SendNode
+        add_special_send_node :to_f
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          floattype = RubyType::BaseType.from_ruby_class(Float)
+          floattype = floattype.to_box
+          add_type(sig, floattype)
+          context
+        end
+      end
+
+      class SendAMNode<SendNode
+        add_special_send_node :-@
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          same_type(self, @arguments[2], sig, sig, context)
+          context
+        end
+      end
+
+      class SendRandNode<SendNode
+        add_special_send_node :rand
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          floattype = RubyType::BaseType.from_ruby_class(Float)
+          floattype = floattype.to_box
+          add_type(sig, floattype)
+          context
+        end
+      end
+
+      class SendMathFuncNode<SendNode
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          floattype = RubyType::BaseType.from_ruby_class(Float)
+          floattype = floattype.to_box
+          add_type(sig, floattype)
+          context
+        end
+      end
+      
+      class SendSqrtNode < SendMathFuncNode
+        add_special_send_node :sqrt
+      end
+
+      class SendSinNode < SendMathFuncNode
+        add_special_send_node :sin
+      end
+
+      class SendCosNode < SendMathFuncNode
+        add_special_send_node :cos
+      end
+
+      class SendTanNode < SendMathFuncNode
+        add_special_send_node :tan
+      end
+
     end
   end
 end

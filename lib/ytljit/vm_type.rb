@@ -242,11 +242,11 @@ module YTLJit
       end
 
       def to_unbox
-        self
+        @@unboxed_type_tab[@ruby_type].instance
       end
 
       def to_box
-        self
+        @@boxed_type_tab[@ruby_type].instance
       end
 
       def ==(other)
@@ -304,5 +304,6 @@ module YTLJit
     define_wraped_class(Hash, RubyTypeBoxed)
     define_wraped_class(Module, RubyTypeBoxed)
     define_wraped_class(Class, RubyTypeBoxed)
+    define_wraped_class(Object, RubyTypeBoxed)
   end
 end
