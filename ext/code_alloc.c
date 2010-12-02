@@ -229,7 +229,13 @@ csfree(void *chunk)
     rb_raise(rb_eArgError, "Maybe free illgal chunk");
   }
   bitpos = offset / alocsize;
+
+#if 0
   arena->bitmap[bitpos / 64] ^= (1 << (bitpos & (64 - 1)));
+  if (arena->bitmap[bitpos / 64] & (1 << (bitpos & (64 - 1))) == 0) {
+    rb_raise(rb_eArgError, "Maybe freeed chunk passed");
+  }
+#endif
 
   /* Update arena_search_tab */
   for (tmpa = arena_tab[logsize], sarena = arena_search_tab[logsize];

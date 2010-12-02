@@ -615,10 +615,19 @@ LocalVarNode
           
           # push prev env
           casm = context.assembler
-          casm.with_retry do 
-            casm.mov(FUNC_ARG_YTL[0], BPR)
+          if @func.is_a?(YieldNode) then
+            prevenv = @frame_info.offset_arg(0, BPR)
+            casm.with_retry do 
+              casm.mov(TMPR, prevenv)
+              casm.mov(FUNC_ARG_YTL[0], TMPR)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[0], prevenv)
+          else
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[0], BPR)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[0], BPR)
           end
-          context.set_reg_content(FUNC_ARG_YTL[0], BPR)
           
           # block
           # eval block
@@ -823,7 +832,8 @@ LocalVarNode
             tl = type_list(sig).flatten.uniq
             print decide_type_core(tl).inspect, "\n"
             pp tl
-            print "CodeSpace 0x#{cs.base_address.to_s(16)}\n"
+#            print "CodeSpace 0x#{cs.base_address.to_s(16)}\n"
+            print "CodeSpace #{cs.inspect}\n"
           end
         end
 
@@ -2073,8 +2083,27 @@ LocalVarNode
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
+
+          asm = context.assembler
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
+          if !rtype.boxed and rtype.ruby_type == Float then
+            asm.with_retry do
+              asm.mov(XMM0, offarg)
+            end
+            context.ret_reg = XMM0
+          else
+            asm.with_retry do
+              asm.mov(TMPR, offarg)
+            end
+            context.ret_reg = TMPR
+          end
+
+          if base == TMPR2 then
+            context.end_using_reg(TMPR2)
+          end
+
           context.ret_node = self
-          context.ret_reg = offarg
           context
         end
       end
@@ -2099,7 +2128,7 @@ LocalVarNode
         end
 
         def compile(context)
-          context = super(context)
+#          context = super(context)
           compile_main(context)
         end
       end

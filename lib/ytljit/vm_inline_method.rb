@@ -7,14 +7,14 @@ module YTLJit
         context = gen_eval_self(context)
         asm = context.assembler
         asm.with_retry do
-            if context.ret_reg.using(tempreg) then
-              asm.mov(TMPR, context.ret_reg)
-              context.end_using_reg(context.ret_reg)
-              asm.mov(tempreg, TMPR)
-            else
-              asm.mov(tempreg, context.ret_reg)
-              context.end_using_reg(context.ret_reg)
-            end
+          if context.ret_reg.using(tempreg) then
+            asm.mov(TMPR, context.ret_reg)
+            context.end_using_reg(context.ret_reg)
+            asm.mov(tempreg, TMPR)
+          else
+            asm.mov(tempreg, context.ret_reg)
+            context.end_using_reg(context.ret_reg)
+          end
         end
         context.set_reg_content(tempreg, context.ret_node)
         
@@ -23,6 +23,7 @@ module YTLJit
         # @arguments[3] is other
         aele = @arguments[3]
         context = aele.compile(context)
+        context.ret_node.type = nil
         context.ret_node.decide_type_once(context.to_signature)
         rtype = context.ret_node.type
         context = rtype.gen_unboxing(context)

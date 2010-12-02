@@ -123,7 +123,7 @@ class InstructionTests < Test::Unit::TestCase
   end
 
   def test_asm
-    [:mov, :add, :or, :adc, :sbb, :and, :sub, :xor, :cmp].each do |mnm|
+    [:mov, :add, :or, :adc, :sbb, :and, :sub, :xor, :cmp,].each do |mnm|
       # Pattern reg, immidiate
       @regs.each do |reg|
         @lits.each do |src|
@@ -214,6 +214,28 @@ class InstructionTests < Test::Unit::TestCase
     end
   end
 
+  def test_div
+    [:idiv, :imul].each do |mnm|
+      @indirects.each do |dst|
+        asm_ytljit(mnm, dst, nil)
+        asm_gas((mnm.to_s + "l").to_sym, dst, nil)
+      end
+
+      @regs.each do |dst|
+        asm_ytljit(mnm, dst, nil)
+        asm_gas((mnm.to_s + "l").to_sym, dst, nil)
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
+  end
+
   def test_xmm_mov
     [:movss, :movsd].each do |mnm|
 
@@ -257,7 +279,7 @@ class InstructionTests < Test::Unit::TestCase
   def test_xmm_arith
     [:addss, :addsd, :subss, :subsd, 
      :mulss, :mulsd, :divss, :divsd,
-     :comiss, :comisd].each do |mnm|
+     :comisd].each do |mnm|
 
       # Pattern reg, reg
       @xmmregs.each do |reg|

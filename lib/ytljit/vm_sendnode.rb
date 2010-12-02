@@ -186,14 +186,17 @@ module YTLJit
         def check_signature_changed(context, signat, metsigent, cursig)
           if metsigent then
             if metsigent[1][1] != signat[1] then
-              type_list(cursig)[1] = []
-              ti_reset
-#              ti_reset(signat)
-#              ti_reset(metsigent[1])
-              ti_del_link
-              context.convergent = false
-              metsigent[1] = signat
-              true
+              if metsigent[1][1].ruby_type < signat[1].ruby_type then
+                signat[1] = metsigent[1][1]
+                false
+              else
+                type_list(cursig)[1] = []
+                ti_reset
+                ti_del_link
+                context.convergent = false
+                metsigent[1] = signat
+                true
+              end
             else
               false
             end
@@ -228,7 +231,6 @@ module YTLJit
 
           # function select
           context = @func.collect_candidate_type(context)
-
 
           signat = signature(context)
           check_signature_changed(context, signat, metsigent, cursig)
@@ -516,7 +518,8 @@ module YTLJit
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            @initmethod.compile(context)
+            context = @initmethod.compile(context)
+            @body.compile(context)
           else
             super
           end
@@ -640,11 +643,20 @@ module YTLJit
             context = gen_arithmetic_operation(context, :imul, TMPR2, 
                                                TMPR) do |context|
               asm = context.assembler
-              asm.with_retry do
-                asm.mov(DBLLOR, TMPR2)
-                asm.imul(context.ret_reg)
-                context.end_using_reg(context.ret_reg)
+              if context.ret_reg.is_a?(OpRegistor) then
+                asm.with_retry do
+                  asm.push(context.ret_reg)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.imul(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                end
+              else
+                asm.with_retry do
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.imul(context.ret_reg)
+                end
               end
+              context.end_using_reg(context.ret_reg)
             end
               
           elsif rrtype == Float then
@@ -686,13 +698,21 @@ module YTLJit
           end
 
           if rrtype == Fixnum then
-            context = gen_arithmetic_operation(context, :imul, TMPR2, 
+            context = gen_arithmetic_operation(context, nil, TMPR2, 
                                                TMPR) do |context|
               asm = context.assembler
               asm.with_retry do
-                asm.mov(DBLLOR, TMPR2)
-                asm.cdq
-                asm.idiv(context.ret_reg)
+                if context.ret_reg == TMPR then
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                else
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(context.ret_reg)
+                end
                 asm.and(DBLHIR, DBLHIR)
                 asm.setnz(DBLHIR)
                 asm.neg(DBLHIR)
@@ -878,6 +898,18 @@ module YTLJit
           add_type(sig, floattype)
           context
         end
+      end
+
+      class SendSameArgTypeNode<SendNode
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          same_type(self, @arguments[3], sig, sig, context)
+          context
+        end
+      end
+
+      class SendPNode<SendSameArgTypeNode
+        add_special_send_node :p
       end
 
       class SendMathFuncNode<SendNode
