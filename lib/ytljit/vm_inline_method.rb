@@ -5,6 +5,9 @@ module YTLJit
       def gen_arithmetic_operation(context, inst, tempreg, resreg)
         context.start_using_reg(tempreg)
         context = gen_eval_self(context)
+        context.ret_node.type = nil
+        rtype = context.ret_node.decide_type_once(context.to_signature)
+        context = rtype.gen_unboxing(context)
         asm = context.assembler
         asm.with_retry do
           if context.ret_reg.using(tempreg) then
@@ -24,8 +27,7 @@ module YTLJit
         aele = @arguments[3]
         context = aele.compile(context)
         context.ret_node.type = nil
-        context.ret_node.decide_type_once(context.to_signature)
-        rtype = context.ret_node.type
+        rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
           
         asm = context.assembler
@@ -76,8 +78,8 @@ module YTLJit
         # @arguments[3] is other arg
         aele = @arguments[3]
         context = aele.compile(context)
-        context.ret_node.decide_type_once(context.to_signature)
-        rtype = context.ret_node.type
+        context.ret_node.type = nil
+        rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
           
         asm = context.assembler

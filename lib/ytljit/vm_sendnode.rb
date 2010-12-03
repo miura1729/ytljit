@@ -757,6 +757,9 @@ module YTLJit
           end
 
           context = gen_eval_self(context)
+          context.ret_node.type = nil
+          srtype = context.ret_node.decide_type_once(context.to_signature)
+          context = srtype.gen_unboxing(context)
           if rrtype == Fixnum then
             context = compile_compare(context, :cmp, TMPR2, TMPR, RETR)
 

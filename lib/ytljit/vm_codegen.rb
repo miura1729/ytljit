@@ -584,6 +584,7 @@ LO        |                       |   |  |
         casm.with_retry do 
           dmy, callpos = casm.call_with_arg(fnc, numarg)
         end
+        context.end_using_reg(fnc)
         @var_return_address = casm.output_stream.var_base_address(callpos)
         if context.options[:dump_context] then
           dump_context(context)

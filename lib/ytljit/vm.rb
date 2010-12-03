@@ -514,18 +514,21 @@ LocalVarNode
             
             context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
             casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG[0], rarg.size) # argc
+              casm.mov(FUNC_ARG[1], TMPR2)     # argv
+            end
+            context.set_reg_content(FUNC_ARG[0], nil)
+            context.set_reg_content(FUNC_ARG[1], TMPR2)
+
             # Method Select
             # it is legal. use TMPR2 for method select
             # use TMPR3 for store self
             context = @func.compile(context)
             fnc = context.ret_reg
             casm.with_retry do 
-              casm.mov(FUNC_ARG[0], rarg.size) # argc
-              casm.mov(FUNC_ARG[1], TMPR2)     # argv
               casm.mov(FUNC_ARG[2], TMPR3)     # self
             end
-            context.set_reg_content(FUNC_ARG[0], nil)
-            context.set_reg_content(FUNC_ARG[1], TMPR2)
             context.set_reg_content(FUNC_ARG[2], context.ret_node)
             
             context = gen_call(context, fnc, 3)
