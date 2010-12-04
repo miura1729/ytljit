@@ -104,6 +104,7 @@ module YTLJit
         attr          :var_return_address
         attr          :next_node
         attr          :class_top
+        attr          :frame_info
         attr          :modified_local_var
         attr          :modified_instance_var
         attr_accessor :result_cache
@@ -877,8 +878,17 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
-          floattype = floattype.to_box
           add_type(sig, floattype)
+          context
+        end
+      end
+
+      class SendToINode<SendNode
+        add_special_send_node :to_i
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
+          add_type(sig, fixnumtype)
           context
         end
       end

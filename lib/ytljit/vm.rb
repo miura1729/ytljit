@@ -1807,8 +1807,15 @@ LocalVarNode
         def compile(context)
           context = super(context)
           asm = context.assembler
-          slfarg = @frame_info.offset_arg(2, BPR)
+          # You can crash when you use yield in block.
+          # You can fix this bug for traversing TMPR3 for method top.
+          # But is is little troublesome. So it  is not supported.
+          prevenv = @frame_info.offset_arg(0, BPR)
+          # offset of self is common, so it no nessery traverse prev frame
+          # for @frame_info.
+          slfarg = @frame_info.offset_arg(2, TMPR3)
           asm.with_retry do
+            asm.mov(TMPR3, prevenv)
             asm.mov(TMPR3, slfarg)
           end
           
@@ -1831,7 +1838,7 @@ LocalVarNode
 
         def set_reciever(sendnode)
           @send_node = sendnode
-          if sendnode.is_fcall then
+          if sendnode.is_fcall or sendnode.is_vcall then
             @reciever = @parent.class_top
           else
             @reciever = sendnode.arguments[2]
@@ -1914,9 +1921,10 @@ LocalVarNode
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
+            slfop = @parent.frame_info.offset_arg(2, BPR)
             asm = context.assembler
             asm.with_retry do
-              asm.mov(TMPR3, 4)
+              asm.mov(TMPR3, slfop)
             end
             mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then

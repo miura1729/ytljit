@@ -135,6 +135,7 @@ module YTLJit
     include AbsArch
     VALUE = AsmType::MACHINE_WORD
     P_VOID = AsmType::Pointer.new(VALUE)
+    P_VALUE = AsmType::Pointer.new(VALUE)
     P_CHAR = AsmType::Pointer.new(AsmType::INT8)
 
     RBasic = AsmType::Struct.new(
@@ -174,6 +175,18 @@ module YTLJit
               P_VOID, :dmark,
               P_VOID, :dfree,
               AsmType::Pointer.new(Arena), :data)
+
+    RObject = AsmType::Struct.new(
+                RBasic, :basic,
+                AsmType::Union.new(
+                  AsmType::Struct.new(
+                    AsmType::INT32, :numiv,
+                    P_VALUE, :ivptr,
+                    P_VOID, :iv_index_tbl
+                  ), :heap,
+                  AsmType::Array.new(VALUE, 3), :ary
+                ), :as
+              )
 
     EMBEDER_FLAG = (1 << 13)
     def self.rstring_ptr(str, csstart, cscont)

@@ -171,6 +171,11 @@ module YTLJit
       end
 
       def self.related_ruby_class(klass, base)
+        if @@base_type_tab[klass] then
+          return [@@base_type_tab[klass], 
+                  @@boxed_type_tab[klass], 
+                  @@unboxed_type_tab[klass]]
+        end
         baseslf = base.new(klass)
         boxslf = RubyTypeBoxed.new(klass)
         unboxslf = RubyTypeUnboxed.new(klass)
@@ -203,7 +208,7 @@ module YTLJit
         @@boxed_type_tab[klass] = boxslf
         @@unboxed_type_tab[klass] = unboxslf
 
-        [boxslf, unboxslf]
+        [baseslf, boxslf, unboxslf]
       end
 
       def self.from_object(obj)

@@ -12,7 +12,7 @@ module YTLJit
         def compile_main(context)
           slfoff = @current_frame_info.offset_arg(2, BPR)
           asm = context.assembler
-          ivid = ((@name.object_id << 1) / AsmType::MACHINE_WORD.size)
+          ivid = ((@name.object_id << 1) / InternalRubyType::RObject.size)
           ivarget = OpMemAddress.new(address_of("rb_ivar_get"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], slfoff)
@@ -36,7 +36,7 @@ module YTLJit
 
         def compile_main(context)
           slfoff = @current_frame_info.offset_arg(2, BPR)
-          ivid = ((@name.object_id << 1) / AsmType::MACHINE_WORD.size)
+          ivid = ((@name.object_id << 1) / InternalRubyType::RObject.size)
           ivarset = OpMemAddress.new(address_of("rb_ivar_set"))
           context = @val.compile(context)
           rtype = @val.decide_type_once(context.to_signature)
