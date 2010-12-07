@@ -1364,26 +1364,32 @@ LocalVarNode
           context = @value_node.compile(context)
           if context.ret_reg != RETR then
             if context.ret_reg.is_a?(OpRegXMM) then
-              decide_type_once(context.to_signature)
-              context = @type.gen_boxing(context)
-              if context.ret_reg != RETR then
-                curas = context.assembler
-                curas.with_retry do
-                  curas.mov(RETR, context.ret_reg)
-                end
-                
-                context.set_reg_content(RETR, context.ret_node)
-              end
+=begin
+                 decide_type_once(context.to_signature)
+                 context = @type.gen_boxing(context)
+                 if context.ret_reg != RETR then
+                   curas = context.assembler
+                   curas.with_retry do
+                    curas.mov(RETR, context.ret_reg)
+                  end
+                   
+                   context.set_reg_content(RETR, context.ret_node)
+                 end
+=end
+              context.set_reg_content(context.ret_reg, context.ret_node)
             else
               curas = context.assembler
               curas.with_retry do
                 curas.mov(RETR, context.ret_reg)
               end
+              context.set_reg_content(RETR, context.ret_node)
+              context.ret_reg = RETR
             end
+          else
             context.set_reg_content(RETR, context.ret_node)
+            context.ret_reg = RETR
           end
 
-          context.ret_reg = RETR
           context = @body.compile(context)
 
           context
@@ -1964,7 +1970,9 @@ LocalVarNode
             context = @reciever.compile(context)
             context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
-            # context = rtype.gen_boxing(context)
+            if @calling_convention != :ytl then
+              context = rtype.gen_boxing(context)
+            end
             recval = context.ret_reg
             knode = ClassTopNode.get_class_top_node(rtype.ruby_type)
             mtop = nil
