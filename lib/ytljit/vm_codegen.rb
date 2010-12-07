@@ -241,6 +241,7 @@ LO        |                       |   |  |
         
         # RETR(EAX, RAX) or RETFR(STO, XM0) or Immdiage object
         @ret_reg = RETR
+        @ret_reg2 = RETR
         @ret_node = nil
 #        @depth_reg = {}
         @depth_reg = Hash.new(0)
@@ -261,6 +262,7 @@ LO        |                       |   |  |
 
       attr          :depth_reg
       attr_accessor :ret_reg
+      attr_accessor :ret_reg2
       attr_accessor :ret_node
 
       attr          :reg_content

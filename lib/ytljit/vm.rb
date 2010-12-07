@@ -471,7 +471,10 @@ LocalVarNode
           
           context.ret_node.decide_type_once(context.to_signature)
           rtype = context.ret_node.type
-          rtype.gen_unboxing(context)
+          if !rtype.boxed then
+            context = rtype.gen_unboxing(context)
+          end
+          context
         end
 
         def signature(context, args = @arguments)
@@ -527,7 +530,7 @@ LocalVarNode
             context = @func.compile(context)
             fnc = context.ret_reg
             casm.with_retry do 
-              casm.mov(FUNC_ARG[2], TMPR3)     # self
+              casm.mov(FUNC_ARG[2], context.ret_reg2)     # self
             end
             context.set_reg_content(FUNC_ARG[2], context.ret_node)
             
@@ -542,7 +545,9 @@ LocalVarNode
             context.ret_node = self
             
             decide_type_once(context.to_signature)
-            context = @type.to_box.gen_unboxing(context)
+            if !@type.boxed then 
+              context = @type.to_box.gen_unboxing(context)
+            end
             
             context
           end
@@ -575,7 +580,7 @@ LocalVarNode
               fnc = context.ret_reg
               casm = context.assembler
               casm.with_retry do 
-                casm.mov(FUNC_ARG[0], TMPR3)
+                casm.mov(FUNC_ARG[0], context.ret_reg2)
               end
               context.set_reg_content(FUNC_ARG[0], context.ret_node)
             else
@@ -604,7 +609,11 @@ LocalVarNode
           context.ret_reg = RETR
           
           decide_type_once(context.to_signature)
-          @type.to_box.gen_unboxing(context)
+          if !@type.boxed then 
+            context = @type.to_box.gen_unboxing(context)
+          end
+          
+          context
         end
 
         def compile_ytl(context)
@@ -666,7 +675,7 @@ LocalVarNode
           fnc = context.ret_reg
           casm = context.assembler
           casm.with_retry do 
-            casm.mov(FUNC_ARG_YTL[2], TMPR3)
+            casm.mov(FUNC_ARG_YTL[2], context.ret_reg2)
           end
           context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
 
@@ -1818,6 +1827,7 @@ LocalVarNode
             asm.mov(TMPR3, prevenv)
             asm.mov(TMPR3, slfarg)
           end
+          context.ret_reg2 = TMPR3
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
           context.ret_node = self
@@ -1926,6 +1936,7 @@ LocalVarNode
             asm.with_retry do
               asm.mov(TMPR3, slfop)
             end
+            context.ret_reg2 = TMPR3
             mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then
               sig = @parent.signature(context)
@@ -1953,7 +1964,7 @@ LocalVarNode
             context = @reciever.compile(context)
             context.ret_node.decide_type_once(context.to_signature)
             rtype = context.ret_node.type
-            context = rtype.gen_boxing(context)
+            # context = rtype.gen_boxing(context)
             recval = context.ret_reg
             knode = ClassTopNode.get_class_top_node(rtype.ruby_type)
             mtop = nil
@@ -1980,6 +1991,7 @@ LocalVarNode
                 asm.mov(TMPR2, RETR)
                 asm.pop(TMPR3)
               end
+              context.ret_reg2 = TMPR3
               
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
@@ -1992,8 +2004,18 @@ LocalVarNode
 
             elsif knode and mtop = knode.search_method_with_super(@name)[0] then
               asm = context.assembler
-              asm.with_retry do
-                asm.mov(TMPR3, recval)
+              if !rtype.boxed and rtype.ruby_type == Float then
+                if recval != XMM0 then
+                  asm.with_retry do
+                    asm.mov(XMM0, recval)
+                  end
+                end
+                context.ret_reg2 = XMM0
+              else
+                asm.with_retry do
+                  asm.mov(TMPR3, recval)
+                end
+                context.ret_reg2 = TMPR3
               end
 
               sig = @parent.signature(context)
@@ -2004,8 +2026,18 @@ LocalVarNode
               # regident type 
 
               asm = context.assembler
-              asm.with_retry do
-                asm.mov(TMPR3, recval)
+              if !rtype.boxed and rtype.ruby_type == Float then
+                if recval != XMM0 then
+                  asm.with_retry do
+                    asm.mov(XMM0, recval)
+                  end
+                end
+                context.ret_reg2 = XMM0
+              else
+                asm.with_retry do
+                  asm.mov(TMPR3, recval)
+                end
+                context.ret_reg2 = TMPR3
               end
 
               addr = lambda {
@@ -2085,6 +2117,7 @@ LocalVarNode
             cursig = context.to_signature
             varsig = context.to_signature(topnode)
             same_type(self, node, cursig, varsig, context)
+            same_type(node, self, varsig, cursig, context)
           end
           context
         end
@@ -2183,6 +2216,7 @@ LocalVarNode
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
+#          same_type(@val, self, cursig, cursig, context)
           @body.collect_candidate_type(context)
         end
 
@@ -2292,6 +2326,7 @@ LocalVarNode
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
+#          same_type(@val, self, cursig, cursig, context)
           @body.collect_candidate_type(context)
         end
 

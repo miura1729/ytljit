@@ -523,8 +523,8 @@ module YTLJit
         curnode = nil
         vnode = nil
         if context.top_nodes.last.name == :initialize then
-          visit_pop(code, ins, context)
           curnode = context.current_node 
+          visit_pop(code, ins, context)
           vnode = SelfRefNode.new(curnode)
         else
           curnode = context.current_node 

@@ -9,15 +9,19 @@ module YTLJit
         rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
         asm = context.assembler
-        asm.with_retry do
-          if context.ret_reg.using(tempreg) then
+        if context.ret_reg.using(tempreg) then
+          asm.with_retry do
             asm.mov(TMPR, context.ret_reg)
-            context.end_using_reg(context.ret_reg)
-            asm.mov(tempreg, TMPR)
-          else
-            asm.mov(tempreg, context.ret_reg)
-            context.end_using_reg(context.ret_reg)
           end
+          context.end_using_reg(context.ret_reg)
+          asm.with_retry do
+            asm.mov(tempreg, TMPR)
+          end
+        else
+          asm.with_retry do
+            asm.mov(tempreg, context.ret_reg)
+          end
+          context.end_using_reg(context.ret_reg)
         end
         context.set_reg_content(tempreg, context.ret_node)
         

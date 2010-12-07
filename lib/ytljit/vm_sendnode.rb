@@ -736,6 +736,7 @@ module YTLJit
 
       class SendCompareNode<SendNode
         include SendUtil
+        include CompareOperationUtil
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
           same_type(@arguments[3], @arguments[2], cursig, cursig, context)
@@ -744,6 +745,21 @@ module YTLJit
           add_type(cursig, tt)
           tt = RubyType::BaseType.from_object(false)
           add_type(cursig, tt)
+
+          context
+        end
+
+        def commmon_compile_compare(context, rtype, fixcmp, flocmp)
+          rrtype = rtype.ruby_type
+          if rrtype == Fixnum then
+            context = gen_compare_operation(context, :cmp, fixcmp, 
+                                            TMPR2, TMPR, RETR)
+          elsif rrtype == Float then
+            context = gen_compare_operation(context, :comisd, flocmp, 
+                                            XMM4, XMM0, RETR)
+          else
+            raise "Unkowwn type #{rtype}"
+          end
 
           context
         end
@@ -762,10 +778,10 @@ module YTLJit
           srtype = context.ret_node.decide_type_once(context.to_signature)
           context = srtype.gen_unboxing(context)
           if rrtype == Fixnum then
-            context = compile_compare(context, :cmp, TMPR2, TMPR, RETR)
+            context = compile_compare(context, rtype)
 
           elsif rrtype == Float then
-            context = compile_compare(context, :comisd, XMM0, XMM4, RETR)
+            context = compile_compare(context, rtype)
 
           else
             raise "Unkown method #{rtype.ruby_type} #{@func.name}"
@@ -776,38 +792,30 @@ module YTLJit
       end
 
       class SendGtNode<SendCompareNode
-        include CompareOperationUtil
         add_special_send_node :<
-        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
-          context = gen_compare_operation(context, cinst, :setg, 
-                                          tempreg, tempreg2, resreg)
+        def compile_compare(context, rtype)
+          commmon_compile_compare(context, rtype, :setg, :seta)
         end
       end
 
       class SendGeNode<SendCompareNode
-        include CompareOperationUtil
         add_special_send_node :<=
-        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
-          context = gen_compare_operation(context, cinst, :setge, 
-                                          tempreg, tempreg2, resreg)
+        def compile_compare(context, rtype)
+          commmon_compile_compare(context, rtype, :setge, :setae)
         end
       end
 
       class SendLtNode<SendCompareNode
-        include CompareOperationUtil
         add_special_send_node :>
-        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
-          context = gen_compare_operation(context, cinst, :setl, 
-                                          tempreg, tempreg2, resreg)
+        def compile_compare(context, rtype)
+          commmon_compile_compare(context, rtype, :setl, :setb)
         end
       end
 
       class SendLeNode<SendCompareNode
-        include CompareOperationUtil
         add_special_send_node :>=
-        def compile_compare(context, cinst, tempreg, tempreg2, resreg)
-          context = gen_compare_operation(context, cinst, :setle,
-                                          tempreg, tempreg2, resreg)
+        def compile_compare(context, rtype)
+          commmon_compile_compare(context, rtype, :setle, :setbe)
         end
       end
 
@@ -878,6 +886,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
+          floattype = floattype.to_box
           add_type(sig, floattype)
           context
         end
@@ -888,6 +897,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
+          fixnumtype = fixnumtype.to_box
           add_type(sig, fixnumtype)
           context
         end
@@ -907,7 +917,6 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
-          floattype = floattype.to_box
           add_type(sig, floattype)
           context
         end
