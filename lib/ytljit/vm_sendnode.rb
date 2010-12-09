@@ -935,31 +935,78 @@ module YTLJit
       end
 
       class SendMathFuncNode<SendNode
+        include SendUtil
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
-          floattype = floattype.to_box
           add_type(sig, floattype)
           context
+        end
+
+        def compile_call_func(context, fname)
+          fadd = address_of(fname)
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(FUNC_FLOAT_ARG[0], context.ret_reg)
+            asm.call_with_arg(fadd, 1)
+          end
+          context
+        end
+
+        def compile2(context)
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
+             @class_top.search_method_with_super(@func.name, rrtype)[0] then
+            return super(context)
+          end
+
+          context = gen_eval_self(context)
+          context = rtype.gen_unboxing(context)
+          compile_main(context)
         end
       end
       
       class SendSqrtNode < SendMathFuncNode
         add_special_send_node :sqrt
+        def compile_main(context)
+          context = compile_call_func(context, "sqrt")
+          context.ret_node = self
+          context.ret_reg = XMM0
+          context
+        end
       end
 
       class SendSinNode < SendMathFuncNode
         add_special_send_node :sin
+        def compile_main(context)
+          context = compile_call_func(context, "sin")
+          context.ret_node = self
+          context.ret_reg = XMM0
+          context
+        end
       end
 
       class SendCosNode < SendMathFuncNode
         add_special_send_node :cos
+        def compile_main(context)
+          context = compile_call_func(context, "cos")
+          context.ret_node = self
+          context.ret_reg = XMM0
+          context
+        end
       end
 
       class SendTanNode < SendMathFuncNode
         add_special_send_node :tan
+        def compile_main(context)
+          context = compile_call_func(context, "tan")
+          context.ret_node = self
+          context.ret_reg = XMM0
+          context
+        end
       end
-
     end
   end
 end

@@ -193,6 +193,10 @@ module YTLJit
         curnode = context.current_node
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
         node = LocalAssignNode.new(curnode, offset, dep, val)
+        if context.expstack[-1] == val then
+          varref = LocalVarRefNode.new(context.current_node, offset, dep)
+          context.expstack[-1] = varref
+        end
         curnode.body = node
         context.current_node = node
       end
@@ -523,8 +527,8 @@ module YTLJit
         curnode = nil
         vnode = nil
         if context.top_nodes.last.name == :initialize then
-          curnode = context.current_node 
           visit_pop(code, ins, context)
+          curnode = context.current_node 
           vnode = SelfRefNode.new(curnode)
         else
           curnode = context.current_node 

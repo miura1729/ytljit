@@ -73,6 +73,9 @@ module YTLJit
         val = context.expstack.pop
         curnode = context.current_node
         node = CRubyInstanceVarAssignNode.new(curnode, ins[1], val)
+        if context.expstack[-1] == val then
+          context.expstack[-1] = CRubyInstanceVarRefNode.new(curnode, ins[1])
+        end
         curnode.body = node
         context.current_node = node
       end
