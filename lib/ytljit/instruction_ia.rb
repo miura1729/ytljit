@@ -1296,6 +1296,16 @@ module YTLJit
       return nosupported_addressing_mode(:neg, src, nil, nil)
     end
 
+    def fstpl(dst)
+      case dst
+      when OpIndirect
+        modseq, modfmt = modrm(:fstpl, 3, dst, dst, nil)
+        return ([0xDD] + modseq).pack("C#{modfmt}")
+      end
+
+      return nosupported_addressing_mode(:neg, src, nil, nil)
+    end
+
     def cdq
       [0x99].pack("C")
     end

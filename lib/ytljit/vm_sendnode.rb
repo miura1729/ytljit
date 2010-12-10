@@ -949,11 +949,14 @@ module YTLJit
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], context.ret_reg)
             asm.call_with_arg(fadd, 1)
+            asm.sub(SPR, 8)
+            asm.fstpl(INDIRECT_SPR)
+            asm.pop(XMM0)
           end
           context
         end
 
-        def compile2(context)
+        def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
@@ -962,7 +965,10 @@ module YTLJit
             return super(context)
           end
 
-          context = gen_eval_self(context)
+          @arguments[3].decide_type_once(context.to_signature)
+          rtype = @arguments[3].type
+          rrtype = rtype.ruby_type
+          context = @arguments[3].compile(context)
           context = rtype.gen_unboxing(context)
           compile_main(context)
         end
