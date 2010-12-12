@@ -24,8 +24,8 @@ module YTLJit
         @not_reached_pos = false
       end
 
-      attr :the_top
-      attr :top_nodes
+      attr_accessor :the_top
+      attr          :top_nodes
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
@@ -137,6 +137,13 @@ module YTLJit
 
       def visit_block_start(code, ins, context)
         mtopnode = context.current_node
+        if !mtopnode.is_a?(TopNode) then
+          oldtop = context.the_top
+          mtopnode = TopTopNode.new(nil, Object)
+          context.the_top = mtopnode
+          oldtop.parent = mtopnode
+          mtopnode.init_node = oldtop
+        end
 
         locals = code.header['locals']
         args   = code.header['misc'][:arg_size]

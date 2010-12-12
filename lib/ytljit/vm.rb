@@ -1040,6 +1040,9 @@ LocalVarNode
             asm = context.assembler
             add = lambda { @klassclass.address }
             var_klassclass = OpVarImmidiateAddress.new(add)
+            context.start_using_reg(FUNC_ARG[0])
+            context.start_using_reg(FUNC_ARG[1])
+            context.start_using_reg(FUNC_ARG[2])
             asm.with_retry do
               asm.mov(FUNC_ARG_YTL[0], BPR)
               asm.mov(FUNC_ARG_YTL[1], 4)
@@ -1047,6 +1050,9 @@ LocalVarNode
             end
             add = cs.var_base_address
             context = gen_call(context, add, 3)
+            context.end_using_reg(FUNC_ARG[2])
+            context.end_using_reg(FUNC_ARG[1])
+            context.end_using_reg(FUNC_ARG[0])
           end
           
           context
@@ -1068,8 +1074,20 @@ LocalVarNode
           @id.push 0
 
           @unwind_proc = CodeSpace.new
+          @init_node = nil
           init_unwind_proc
           add_code_space(nil, @unwind_proc)
+        end
+
+        attr_accessor :init_node
+        attr          :code_space_tab
+        attr          :asm_tab
+
+        def traverse_childlen
+          if @init_node then
+            yield @init_node
+          end
+          yield @body
         end
 
         def init_unwind_proc
@@ -1092,14 +1110,29 @@ LocalVarNode
           end
         end
 
+        def collect_info(context)
+          if @init_node then
+            context = @init_node.collect_info(context)
+          end
+          super(context)
+        end
+
         def collect_candidate_type(context, signode, sig)
           context.convergent = true
           context.visited_top_node = {}
-          super
+          if @init_node then
+            context = @init_node.collect_candidate_type(context, signode, sig)
+          end
+          super(context, signode, sig)
         end
 
-        attr :code_space_tab
-        attr :asm_tab
+        def compile(context)
+          if @init_node then
+            context = @init_node.compile(context)
+          end
+          context = super(context)
+          context
+        end
       end
 
       class LocalFrameInfoNode<BaseNode
