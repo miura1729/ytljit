@@ -130,6 +130,10 @@ module YTLJit
     def using(reg)
        @reg == reg
     end
+
+    def reg_no
+      @reg.reg_no
+    end
   end
 
   case $ruby_platform

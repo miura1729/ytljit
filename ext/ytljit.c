@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include "ruby.h"
+#include "ruby/st.h"
 
 #include "ytljit.h"
 
@@ -33,13 +34,31 @@ ytl_address_of(VALUE self, VALUE symstr)
   return Qnil;
 }
 
+static rb_method_entry_t*
+search_method(VALUE klass, ID id)
+{
+    st_data_t body;
+    if (!klass) {
+	return 0;
+    }
+
+    while (!st_lookup(RCLASS_M_TBL(klass), id, &body)) {
+	klass = RCLASS_SUPER(klass);
+	if (!klass) {
+	    return 0;
+	}
+    }
+
+    return (rb_method_entry_t *)body;
+}
+
 VALUE 
 ytl_method_address_of(VALUE klass, VALUE mname)
 {
   rb_method_entry_t *me;
   ID mid = SYM2ID(mname);
 
-  me = rb_method_entry(klass, mid);
+  me = search_method(klass, mid);
 
   if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC) {
       return ULONG2NUM((uintptr_t)me->def->body.cfunc.func);
@@ -74,7 +93,7 @@ ytl_method_address_of_raw(VALUE klass, VALUE mname)
   rb_method_entry_t *me;
   ID mid = SYM2ID(mname);
 
-  me = rb_method_entry(klass, mid);
+  me = search_method(klass, mid);
 
   if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC) {
       return (void *)me->def->body.cfunc.func;

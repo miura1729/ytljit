@@ -713,14 +713,12 @@ module YTLJit
       when OpRegXMM
         case src
         when OpRegXMM
-          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          ([op, 0x0F, 0x10] + modseq).pack("C3#{modfmt}")
 
         when OpIndirect
-          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          (rexseq + [op, 0x0F, 0x10] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          ([op, 0x0F, 0x10] + modseq).pack("C3#{modfmt}")
 
         else
           return nosupported_addressing_mode(inst, dst, src)
@@ -729,9 +727,8 @@ module YTLJit
       when OpIndirect
         case src
         when OpRegXMM
-          rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, src, dst, dst, src)
-          (rexseq + [op, 0x0F, 0x11] + modseq).pack("#{rexfmt}C3#{modfmt}")
+          ([op, 0x0F, 0x11] + modseq).pack("C3#{modfmt}")
           
         else
           return nosupported_addressing_mode(inst, dst, src)

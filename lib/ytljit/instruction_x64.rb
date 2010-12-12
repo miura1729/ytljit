@@ -8,11 +8,25 @@ module YTLJit
           rrex |= 0b1
         end
       end
-
+      
+      if dst.is_a?(OpIndirect) and dst.reg.is_a?(OpReg64) then
+        if dst.reg_no >= 8 then
+          rrex |= 0b1000
+          rrex |= 0b1
+        end
+      end
+      
       if src.is_a?(OpReg64) then
         rrex |= 0b1000
         if src.reg_no >= 8 then
           rrex |= 0b100
+        end
+      end
+
+      if src.is_a?(OpIndirect) and src.reg.is_a?(OpReg64) then
+        if dst.reg_no >= 8 then
+          rrex |= 0b1000
+          rrex |= 0b1
         end
       end
 

@@ -1,7 +1,7 @@
 spec = Gem::Specification.new do |s|
      s.platform     = Gem::Platform::RUBY
      s.name         = "ytljit"
-     s.version      = "0.0.4"
+     s.version      = "0.0.5"
      s.summary      = "native code generator for ruby compiler"
      s.authors      = ["Hideki Miura"]
      s.files        = [*Dir.glob("{lib}/*.rb"),
