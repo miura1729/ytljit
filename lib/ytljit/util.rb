@@ -48,6 +48,41 @@ module YTLJit
   def boxing
     self
   end
+
+  # Singleton class can't be marshaled.
+  # So this class wrap to marshal singleton class
+  class ClassClassWrapper
+    def initialize(clsobj)
+      @klass_object = clsobj
+      @value = nil
+    end
+    
+    def value
+      if @value then
+        @value
+      else
+        @value = class << @klass_object; self; end
+        @value
+      end
+    end
+    
+    def name
+      value.name
+    end
+    
+    def ancestors
+      value.ancestors
+    end
+    
+    def marshal_dump
+      [@klass_object]
+    end
+    
+    def marshal_load(obj)
+      @klass_object = obj
+      @value = nil
+    end
+  end
 end
 
 class Fixnum
@@ -61,4 +96,5 @@ class Float
     [self].pack('d').unpack('q')[0]
   end
 end
+
 

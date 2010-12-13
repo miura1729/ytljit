@@ -922,9 +922,10 @@ LocalVarNode
           @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
-          @klassclass = class << @klass_object; self; end
+          @klassclass = ClassClassWrapper.new(@klass_object)
           @klassclass_node = nil # Lazy
-          RubyType::define_wraped_class(@klassclass, RubyType::RubyTypeBoxed)
+          RubyType::define_wraped_class(@klassclass, 
+                                        RubyType::RubyTypeBoxed)
           unless @@class_top_tab[klassobj]
             @@class_top_tab[klassobj] = self
           end
@@ -932,7 +933,7 @@ LocalVarNode
 
         def collect_info(context)
           context.modified_local_var.push [{}]
-          context.modified_instance_var = Hash.new {|hash, key| hash[key] = []}
+          context.modified_instance_var = Hash.new
           context = super
           context.modified_local_var.pop
           if @klassclass_node then
@@ -951,7 +952,9 @@ LocalVarNode
         end
 
         def make_klassclass_node
-          clsclsnode = ClassTopNode.new(self, @klassclass, @klassclass.name)
+          clsclsnode = ClassTopNode.new(self, 
+                                        @klassclass, 
+                                        @klassclass.name)
           clsclsnode.body = DummyNode.new
           @klassclass_node = clsclsnode
         end
@@ -1038,7 +1041,7 @@ LocalVarNode
           cs = self.find_cs_by_signature(context.to_signature)
           if cs then
             asm = context.assembler
-            add = lambda { @klassclass.address }
+            add = lambda { @klassclass.value.address }
             var_klassclass = OpVarImmidiateAddress.new(add)
             context.start_using_reg(FUNC_ARG[0])
             context.start_using_reg(FUNC_ARG[1])
@@ -1953,7 +1956,7 @@ LocalVarNode
               end
               if slfval == nil or mth == nil then
                 mth = rklass.instance_method(@name)
-                @ruby_reciever = rklass
+                @ruby_reciever = rtype.instance_eval {@ruby_type}
               end
 
               if variable_argument?(mth.parameters) then
@@ -2082,11 +2085,15 @@ LocalVarNode
               end
 
               addr = lambda {
-                if @ruby_reciever.class == Module then
+                rrec = @ruby_reciever
+                if rrec.is_a?(ClassClassWrapper) then
+                  rrec = rrec.value
+                end
+                if rrec.class == Module then
                   name = @name
-                  @ruby_reciever.send(:method_address_of, name)
+                  rrec.send(:method_address_of, name)
                 else
-                  @ruby_reciever.method_address_of(@name)
+                  rrec.method_address_of(@name)
                 end
               }
               if addr.call then
@@ -2319,6 +2326,9 @@ LocalVarNode
 
         def collect_info(context)
           vti = context.modified_instance_var[@name]
+          if vti == nil then
+            vti = []
+          end
           # Not dup so vti may update after.
           @var_type_info = vti 
 

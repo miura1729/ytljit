@@ -26,7 +26,7 @@ module YTLJit
         end
 
         def inspect
-          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type}}"
+          "{ #{boxed ? "BOXED" : "UNBOXED"} #{ruby_type}}"
         end
       end
 

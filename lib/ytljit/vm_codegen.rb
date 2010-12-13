@@ -77,7 +77,7 @@ LO        |                       |   |  |
       def initialize(tnode)
         @top_node = tnode
         @modified_local_var = []
-        @modified_instance_var = Hash.new {|hash, key| hash[key] = []}
+        @modified_instance_var = Hash.new
         @yield_node = []
       end
 

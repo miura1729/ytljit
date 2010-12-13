@@ -232,7 +232,16 @@ module YTLJit
       end
 
       attr_accessor :asm_type
-      attr_accessor :ruby_type
+
+      def ruby_type
+        if @ruby_type.is_a?(ClassClassWrapper) then
+          @ruby_type.value
+        else
+          @ruby_type
+        end
+      end
+
+      attr_writer :ruby_type
     end
 
     # Same as VALUE type in MRI
@@ -247,11 +256,11 @@ module YTLJit
       end
 
       def to_unbox
-        @@unboxed_type_tab[@ruby_type].instance
+        @@unboxed_type_tab[ruby_type].instance
       end
 
       def to_box
-        @@boxed_type_tab[@ruby_type].instance
+        @@boxed_type_tab[ruby_type].instance
       end
 
       def ==(other)
@@ -272,7 +281,7 @@ module YTLJit
       end
 
       def to_unbox
-        @@unboxed_type_tab[@ruby_type].instance
+        @@unboxed_type_tab[ruby_type].instance
       end
 
       def to_box
@@ -288,7 +297,7 @@ module YTLJit
       end
 
       def to_box
-        @@boxed_type_tab[@ruby_type].instance
+        @@boxed_type_tab[ruby_type].instance
       end
 
       def to_unbox
