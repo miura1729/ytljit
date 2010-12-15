@@ -2398,8 +2398,28 @@ LocalVarNode
         def initialize(parent, klass, name)
           super(parent)
           @name = name
+          rklass = nil
+          case klass
+          when LiteralNode, ConstantRefNode
+            rklass = klass.get_constant_value[0]
+            klass = ClassTopNode.get_class_top_node(rklass)
+
+          when ClassTopNode
+            rklass = klass.get_constant_value[0]
+            
+          else
+            klass = search_class_top
+          end
+
           @class_top = klass # .search_class_top
-          @value_node, dummy = klass.search_constant_with_super(@name)
+          @value_node = nil
+          clsnode = nil
+          if klass then
+            @value_node, clsnode = klass.search_constant_with_super(@name)
+          end
+          if clsnode == nil and rklass then
+            @value_node = LiteralNode.new(self, rklass.const_get(@name))
+          end
         end
 
         attr :value_node

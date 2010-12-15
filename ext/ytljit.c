@@ -61,7 +61,7 @@ ytl_method_address_of(VALUE klass, VALUE mname)
   me = search_method(klass, mid);
 
   if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC) {
-      return ULONG2NUM((uintptr_t)me->def->body.cfunc.func);
+    return ULONG2NUM((uintptr_t)me->def->body.cfunc.func);
   }
   else {
     return Qnil;
