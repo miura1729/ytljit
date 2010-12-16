@@ -357,7 +357,7 @@ LO        |                       |   |  |
       def start_using_reg(reg)
         case reg
         when OpRegistor
-          if reg != TMPR then
+          if reg != TMPR and reg != XMM0 then
             start_using_reg_aux(reg)
           end
 

@@ -938,17 +938,18 @@ LocalVarNode
           context.modified_local_var.pop
           if @klassclass_node then
             @klassclass_node.collect_info(context)
+          else
+            context
           end
-          context
         end
 
         def collect_candidate_type(context, signode, sig)
           super
           if @klassclass_node then
-            context = @klassclass_node.collect_candidate_type(context, 
-                                                              signode, sig)
+            @klassclass_node.collect_candidate_type(context, signode, sig)
+          else
+            context
           end
-          context
         end
 
         def make_klassclass_node
@@ -1241,8 +1242,7 @@ LocalVarNode
             end
             context.cpustack_pushn(siz)
           end
-          context = @body.compile(context)
-          context
+          @body.compile(context)
         end
       end
 
@@ -1391,8 +1391,7 @@ LocalVarNode
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
           same_type(@value_node, self, cursig, cursig, context)
-          context = @body.collect_candidate_type(context)
-          context
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)
@@ -1426,9 +1425,7 @@ LocalVarNode
             context.ret_reg = RETR
           end
 
-          context = @body.compile(context)
-
-          context
+          @body.compile(context)
         end
       end
 
@@ -1552,10 +1549,10 @@ LocalVarNode
 
         def collect_candidate_type(context, sender = nil)
           if @come_from.keys[0] == sender then
-            context = @body.collect_candidate_type(context)
+            @body.collect_candidate_type(context)
+          else
+            context
           end
-
-          context
         end
 
         def compile(context)
@@ -1567,8 +1564,6 @@ LocalVarNode
           else
             context
           end
-
-          context
         end
       end
 
@@ -1791,16 +1786,14 @@ LocalVarNode
           end
           context = @define.collect_candidate_type(context, arg, sig)
 
-          context = @body.collect_candidate_type(context)
-          context
+          @body.collect_candidate_type(context)
         end
 
         def compile(context)
 #          raise "Can't compile"
           context = super(context)
           context = @define.compile(context)
-          context = @body.compile(context)
-          context
+          @body.compile(context)
         end
       end
 
@@ -2302,8 +2295,8 @@ LocalVarNode
           if base == TMPR2 then
             context.end_using_reg(base)
           end
-          context = @body.compile(context)
-          context
+
+          @body.compile(context)
         end
       end
 
