@@ -1039,7 +1039,11 @@ LocalVarNode
         def compile(context)
           context = super(context)
 
-          cs = self.find_cs_by_signature(context.to_signature)
+          sig = context.to_signature
+          if @klassclass_node then
+            sig[2] = @klassclass_node.decide_type_once(sig)
+          end
+          cs = self.find_cs_by_signature(sig)
           if cs then
             asm = context.assembler
             add = lambda { @klassclass.value.address }
