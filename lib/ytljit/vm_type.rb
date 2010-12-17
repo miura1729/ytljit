@@ -241,6 +241,10 @@ module YTLJit
         end
       end
 
+      def ruby_type_raw
+        @ruby_type
+      end
+
       attr_writer :ruby_type
     end
 

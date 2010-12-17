@@ -52,6 +52,18 @@ module YTLJit
   # Singleton class can't be marshaled.
   # So this class wrap to marshal singleton class
   class ClassClassWrapper
+    @@instance_tab = {}
+
+    def self.instance(clsobj)
+      ins = @@instance_tab[clsobj] 
+      if ins == nil then
+        ins = ClassClassWrapper.new(clsobj)
+        @@instance_tab[clsobj] = ins
+      end
+
+      ins
+    end
+
     def initialize(clsobj)
       @klass_object = clsobj
       @value = nil
@@ -81,6 +93,16 @@ module YTLJit
     def marshal_load(obj)
       @klass_object = obj
       @value = nil
+    end
+
+    def superclass
+      sup = value.superclass
+      ins = @@instance_tab[sup]
+      if ins then
+        ins
+      else
+        sup
+      end
     end
   end
 end

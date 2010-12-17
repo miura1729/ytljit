@@ -922,7 +922,7 @@ LocalVarNode
           @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
-          @klassclass = ClassClassWrapper.new(@klass_object)
+          @klassclass = ClassClassWrapper.instance(@klass_object)
           @klassclass_node = nil # Lazy
           RubyType::define_wraped_class(@klassclass, 
                                         RubyType::RubyTypeBoxed)
@@ -1900,7 +1900,7 @@ LocalVarNode
 
         def method_top_node(ctop, slf)
           if slf then
-            ctop.search_method_with_super(@name, slf.ruby_type)[0]
+            ctop.search_method_with_super(@name, slf.ruby_type_raw)[0]
           else
             ctop.search_method_with_super(@name)[0]
           end
@@ -1933,10 +1933,11 @@ LocalVarNode
           else
             @reciever.decide_type_once(context.to_signature)
             rtype = @reciever.type
-            rklass = rtype.ruby_type
+            rklass = rtype.ruby_type_raw
             knode = ClassTopNode.get_class_top_node(rklass)
             if knode and knode.search_method_with_super(@name)[0] then
               @calling_convention = :ytl
+              @ruby_reciever = rklass
             else
               slfval = @reciever.get_constant_value
               mth = nil
@@ -1948,8 +1949,11 @@ LocalVarNode
                 end
               end
               if slfval == nil or mth == nil then
+                if rklass.is_a?(ClassClassWrapper) then
+                  rklass = rklass.value
+                end
                 mth = rklass.instance_method(@name)
-                @ruby_reciever = rtype.instance_eval {@ruby_type}
+                @ruby_reciever = rtype.ruby_type_raw
               end
 
               if variable_argument?(mth.parameters) then
@@ -2003,7 +2007,8 @@ LocalVarNode
               context = rtype.gen_boxing(context)
             end
             recval = context.ret_reg
-            knode = ClassTopNode.get_class_top_node(rtype.ruby_type)
+            rrtype = rtype.ruby_type_raw
+            knode = ClassTopNode.get_class_top_node(rrtype)
             mtop = nil
 
             if rtype.is_a?(RubyType::DefaultType0) then

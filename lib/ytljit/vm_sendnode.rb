@@ -382,12 +382,11 @@ module YTLJit
           # type inference of @new method execute when "send" instruction.
           context = @arguments[3].collect_candidate_type(context)
           @arguments[3].decide_type_once(context.to_signature)
-          rrtype = class << @arguments[3].type.ruby_type; self; end
+          rrtype = ClassClassWrapper.instance(@arguments[3].type.ruby_type)
           clsnode = ClassTopNode.get_class_top_node(rrtype)
           clsnode.get_method_tab[@new_method.name] = @new_method
 
           @body.collect_candidate_type(context)
-          context
         end
 
         def compile(context)
@@ -396,6 +395,9 @@ module YTLJit
           # Allocate new code space in compiling @new_method
           context = @new_method.compile(context)
           context.set_code_space(ocs)
+
+          context.ret_reg = 4   # nil
+          context.ret_node = self
 
           context
         end
