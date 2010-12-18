@@ -55,6 +55,9 @@ module YTLJit
     @@instance_tab = {}
 
     def self.instance(clsobj)
+      if clsobj.is_a?(ClassClassWrapper)
+        clsobj = clsobj.value
+      end
       ins = @@instance_tab[clsobj] 
       if ins == nil then
         ins = ClassClassWrapper.new(clsobj)
@@ -67,6 +70,10 @@ module YTLJit
     def initialize(clsobj)
       @klass_object = clsobj
       @value = nil
+    end
+
+    def to_s
+      "#<Ytljit::ClassClassWrapper type=#{value.inspect}"
     end
     
     def value

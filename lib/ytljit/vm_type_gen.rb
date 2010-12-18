@@ -164,9 +164,14 @@ module YTLJit
         end
 
         def ==(other)
-          other.is_a?(self.class) and
-          self.class == other.class and
-          @element_type == other.element_type
+          if other then
+            oc = other.ruby_type
+            sc = self.ruby_type
+            sc == oc and
+              @element_type == other.element_type
+          else
+            false
+          end
         end
 
         def eql?(other)

@@ -477,6 +477,7 @@ module YTLJit
           initfunc.set_reciever(init)
           alloc.parent = init
           @initmethod = init
+          @allocmethod = alloc
         end
 
         def traverse_childlen
@@ -521,7 +522,12 @@ module YTLJit
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            context = @initmethod.compile(context)
+            if @initmethod.func.calling_convention(context) != :ytl then
+              # initialize method not defined
+              context = @allocmethod.compile(context)
+            else
+              context = @initmethod.compile(context)
+            end
             @body.compile(context)
           else
             super

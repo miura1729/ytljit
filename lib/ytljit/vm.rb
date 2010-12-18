@@ -943,15 +943,6 @@ LocalVarNode
           end
         end
 
-        def collect_candidate_type(context, signode, sig)
-          super
-          if @klassclass_node then
-            @klassclass_node.collect_candidate_type(context, signode, sig)
-          else
-            context
-          end
-        end
-
         def make_klassclass_node
           clsclsnode = ClassTopNode.new(self, 
                                         @klassclass, 
@@ -1010,6 +1001,7 @@ LocalVarNode
         attr :klass_object
         attr :constant_tab
         attr :method_tab
+        attr :klassclass
 
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
@@ -1033,20 +1025,29 @@ LocalVarNode
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
           context.pop_signature
-          context
+
+          if @klassclass_node then
+            @klassclass_node.collect_candidate_type(context, signode, sig)
+          else
+            context
+          end
         end
 
         def compile(context)
           context = super(context)
 
-          sig = context.to_signature
-          if @klassclass_node then
-            sig[2] = @klassclass_node.decide_type_once(sig)
-          end
+          sig = context.to_signature.dup
+          sig[2] = @type
+=begin
+          pp sig
+          pp @name
+          pp @code_spaces.map{|a| a[0]}
+=end
+
           cs = self.find_cs_by_signature(sig)
           if cs then
             asm = context.assembler
-            add = lambda { @klassclass.value.address }
+            add = lambda { @klass_object.address }
             var_klassclass = OpVarImmidiateAddress.new(add)
             context.start_using_reg(FUNC_ARG[0])
             context.start_using_reg(FUNC_ARG[1])
@@ -1784,10 +1785,13 @@ LocalVarNode
           dmylit = LiteralNode.new(self, nil)
           arg = [dmylit, dmylit, @define]
           sig = []
+          cursig = context.to_signature
           arg.each do |ele|
-            ele.decide_type_once(context.to_signature)
+            ele.decide_type_once(cursig)
             sig.push ele.type
           end
+          type = RubyType::BaseType.from_ruby_class(@define.klassclass)
+          sig[2] = type
           context = @define.collect_candidate_type(context, arg, sig)
 
           @body.collect_candidate_type(context)
