@@ -266,7 +266,7 @@ LO        |                       |   |  |
       attr_accessor :ret_node
 
       attr          :reg_content
-      attr          :stack_content
+      attr_accessor :stack_content
 
       attr_accessor :slf
 
@@ -448,6 +448,9 @@ LO        |                       |   |  |
             asm.push(BPR)
             asm.mov(BPR, SPR)
           end
+          context.cpustack_push(BPR)
+          context.cpustack_push(TMPR)
+          context.cpustack_push(SPR)
             
           context
         end
@@ -466,6 +469,7 @@ LO        |                       |   |  |
             asm.mov(SPR, BPR)
             asm.pop(BPR)
           end
+          context.stack_content = []
 
           context
         end
@@ -500,8 +504,25 @@ LO        |                       |   |  |
       end
     end
 
-    module SendNodeCodeGen
-      include AbsArch
+    module CommonCodeGen
+      def gen_call(context, fnc, numarg)
+        casm = context.assembler
+
+        callpos = nil
+        casm.with_retry do 
+          dmy, callpos = casm.call_with_arg(fnc, numarg)
+        end
+        context.end_using_reg(fnc)
+        vretadd = casm.output_stream.var_base_address(callpos)
+        cpuinfo = [context.reg_content.dup]
+        cpuinfo.push context.stack_content.dup
+        context.top_node.frame_struct_array.push [vretadd, cpuinfo]
+        
+        if context.options[:dump_context] then
+          dump_context(context)
+        end
+        context
+      end
 
       def dump_context(context)
         print "---- Reg map ----\n"
@@ -510,6 +531,7 @@ LO        |                       |   |  |
         end
 
         print "---- Stack map ----\n"
+=begin
         @frame_info.frame_layout.each_with_index do |vinf, i|
           ro = @frame_info.real_offset(i)
           if mlv = @modified_local_var.last[0][ro] then
@@ -518,11 +540,17 @@ LO        |                       |   |  |
             print "    #{vinf.class} \n"
           end
         end
+=end
         context.stack_content.each do |value|
           print "    #{value.class} \n"
         end
       end
-      
+    end
+
+    module SendNodeCodeGen
+      include AbsArch
+      include CommonCodeGen
+
       def gen_make_argv(context)
         casm = context.assembler
         rarg = @arguments[3..-1]
@@ -576,21 +604,6 @@ LO        |                       |   |  |
         end
         context.cpustack_popn(argbyte)
 
-        context
-      end
-
-      def gen_call(context, fnc, numarg)
-        casm = context.assembler
-
-        callpos = nil
-        casm.with_retry do 
-          dmy, callpos = casm.call_with_arg(fnc, numarg)
-        end
-        context.end_using_reg(fnc)
-        @var_return_address = casm.output_stream.var_base_address(callpos)
-        if context.options[:dump_context] then
-          dump_context(context)
-        end
         context
       end
     end

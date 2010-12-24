@@ -84,7 +84,6 @@ module YTLJit
           @arguments = arguments
           @opt_flag = op_flag
           @seq_no = seqno
-          @var_return_address = nil
           @next_node = @@current_node
           @@current_node = self
 
@@ -101,7 +100,6 @@ module YTLJit
         attr_accessor :func
         attr_accessor :arguments
         attr          :opt_flag
-        attr          :var_return_address
         attr          :next_node
         attr          :class_top
         attr          :frame_info

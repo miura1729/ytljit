@@ -33,6 +33,8 @@ VALUE ytl_arena_size(VALUE);
 VALUE ytl_arena_address(VALUE);
 VALUE ytl_arena_to_s(VALUE);
 
+void ytl_step_handler(void);
+
 void init_csarena();
 void *csalloc(int);
 void csfree(void *);

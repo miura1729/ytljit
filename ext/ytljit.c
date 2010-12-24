@@ -396,79 +396,86 @@ ytl_value_space_to_s(VALUE self)
   return rb_sprintf("#<valueSpace %p base=%p:...>", (void *)self, (void *)raw_cs->body);
 }
 
-static VALUE *
-get_registers(unsigned long *regs, VALUE *argv)
-{
-  argv[0] = ULONG2NUM((unsigned long)__builtin_return_address(1));
-
-  /* regs[0]   old bp
-     regs[-1]  old ebx (maybe gcc depend)
-     regs[-2]  return address
-     regs[-3]  pusha starts
-  */
-  argv[1] = ULONG2NUM(regs[-3]);   /* eax */
-  argv[2] = ULONG2NUM(regs[-4]);   /* ecx */
-  argv[3] = ULONG2NUM(regs[-5]);   /* edx */
-  argv[4] = ULONG2NUM(regs[-6]);   /* ebx */
-  argv[5] = ULONG2NUM(regs[-7]);   /* ebp */
-  argv[6] = ULONG2NUM(regs[-8]);   /* esi */
-  argv[7] = ULONG2NUM(regs[-9]);   /* edi */
-
-  return argv;
-}
-
-static void
-body(void)
-{
-  VALUE *argv;
-  unsigned long *regs;
-
-#if defined(__i386__) || defined(__i386)
-  asm("mov (%%ebp), %0"
-      : "=r" (regs) : : "%eax");
-#elif defined(__x86_64__) || defined(__x86_64)
-  asm("mov (%%rbp), %0"
-      : "=r" (regs) : : "%rax");
+#ifdef __x86_64__
+#define NUMREGS 16
+#elif  __i386__
+#define NUMREGS 8
 #else
 #error "only i386 or x86-64 is supported"
 #endif
-  argv = ALLOCA_N(VALUE, 8);
-  argv = get_registers(regs, argv);
-
-  rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, 8, argv);
-}
 
 static void
+body(uintptr_t *regbuf)
+{
+  VALUE *argv;
+  int i;
+
+  argv = ALLOCA_N(VALUE, NUMREGS + 1);
+
+  for (i = 0; i < NUMREGS; i++) {
+    argv[i] = ULONG2NUM((uintptr_t)regbuf[NUMREGS - i - 1]);
+  }
+  argv[NUMREGS] = ULONG2NUM((uintptr_t)regbuf);
+
+  rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, NUMREGS + 1, argv);
+}
+
+static uintptr_t * __attribute__ ((noinline))
 pushall(void)
 {
 #ifdef __x86_64__
-  asm("push %rax");
+  asm("pop %rax");
   asm("push %rcx");
   asm("push %rdx");
   asm("push %rbx");
   asm("push %rbp");
   asm("push %rsi");
   asm("push %rdi");
+  asm("push %r8");
+  asm("push %r9");
+  asm("push %r10");
+  asm("push %r11");
+  asm("push %r12");
+  asm("push %r13");
+  asm("push %r14");
+  asm("push %r15");
+  asm("mov  %rax, %rcx");	/* return %rsp */
+  asm("mov  %rsp, %rax");	/* return %rsp */
+  asm("push %rcx");
 #elif __i386__
+  asm("pop %eax");
   asm("pushal");
+  asm("mov  %rax, %ecx");	/* return %rsp */
+  asm("mov  %esp, %eax");	/* return %rsp */
+  asm("push %ecx")
 #else
 #error "only i386 or x86-64 is supported"
 #endif
 }
 
-static void
+static void __attribute__ ((noinline))
 popall(void)
 {
 #ifdef __x86_64__
+  asm("pop %rax");
+  asm("pop %r15");
+  asm("pop %r14");
+  asm("pop %r13");
+  asm("pop %r12");
+  asm("pop %r11");
+  asm("pop %r10");
+  asm("pop %r9");
+  asm("pop %r8");
   asm("pop %rdi");
   asm("pop %rsi");
   asm("pop %rbp");
   asm("pop %rbx");
   asm("pop %rdx");
   asm("pop %rcx");
-  asm("pop %rax");
+  asm("push %rax");
 #elif __i386__
   asm("popal");
+  asm("push %eax");
 #else
 #error "only i386 or x86-64 is supported"
 #endif
@@ -477,12 +484,29 @@ popall(void)
 void
 ytl_step_handler()
 {
-
-  /* Don't add local variables. Maybe break consistency of stack */
-
-  pushall();
-  body();
+#ifdef __x86_64__
+  asm("push %rax");
+  asm("add $0x8, %rsp");
+  asm("mov %0, %%rax" : : "g"(__builtin_return_address(0)));
+  asm("sub $0x8, %rsp");
+  asm("push %rax");
+  body(pushall());
   popall();
+  asm("pop %rax");
+  asm("pop %rax");
+#elif __i386__
+  asm("push %eax");
+  asm("add $0x4, %esp");
+  asm("mov %0, %%eax" : : "g"(__builtin_return_address(0)));
+  asm("sub $0x4, %esp");
+  asm("push %eax");
+  body(pushall());
+  popall();
+  asm("pop %eax");
+  asm("pop %eax");
+#else
+#error "only i386 or x86-64 is supported"
+#endif
 }
 
 void 

@@ -1082,6 +1082,8 @@ LocalVarNode
           @asm_tab = {}
           @id.push 0
 
+          @frame_struct_array = []
+          @frame_struct_tab = {}
           @unwind_proc = CodeSpace.new
           @init_node = nil
           init_unwind_proc
@@ -1091,6 +1093,14 @@ LocalVarNode
         attr_accessor :init_node
         attr          :code_space_tab
         attr          :asm_tab
+        attr          :frame_struct_array
+        attr          :frame_struct_tab
+
+        def make_frame_struct_tab
+          @frame_struct_array.each do |vkey, val|
+            @frame_struct_tab[vkey.value] = val
+          end
+        end
 
         def traverse_childlen
           if @init_node then

@@ -32,6 +32,7 @@ module YTLJit
 
       module FixnumTypeUnboxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def gen_boxing(context)
           asm = context.assembler
@@ -57,6 +58,7 @@ module YTLJit
 
       module FixnumTypeBoxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def gen_boxing(context)
           context
@@ -80,6 +82,7 @@ module YTLJit
 
       module FloatTypeBoxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def gen_boxing(context)
           context
@@ -99,6 +102,7 @@ module YTLJit
 
       module FloatTypeUnboxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def gen_boxing(context)
           asm = context.assembler
@@ -108,10 +112,12 @@ module YTLJit
           context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_FLOAT_ARG[0])
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
+          sh = OpMemAddress.new(address_of("ytl_step_handler"))
           asm.with_retry do
+            asm.call(sh)
             asm.mov(FUNC_FLOAT_ARG[0], val)
-            asm.call_with_arg(rbfloatnew, 1)
           end
+          context = gen_call(context, rbfloatnew, 1)
           context.end_using_reg(FUNC_FLOAT_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -126,6 +132,7 @@ module YTLJit
 
       module ArrayTypeBoxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def instance
           ni = self.dup
@@ -153,8 +160,8 @@ module YTLJit
           rbarydup = OpMemAddress.new(address_of("rb_ary_dup"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
-            asm.call_with_arg(rbarydup, 1)
           end
+          context = gen_call(context, rbarydup, 1)
           context.end_using_reg(FUNC_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -183,6 +190,7 @@ module YTLJit
 
       module StringTypeBoxedCodeGen
         include AbsArch
+        include CommonCodeGen
 
         def gen_copy(context)
           asm = context.assembler
@@ -193,8 +201,8 @@ module YTLJit
           rbstrresurrect = OpMemAddress.new(address_of("rb_str_resurrect"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
-            asm.call_with_arg(rbstrresurrect, 1)
           end
+          context = gen_call(context, rbstrresurrect, 1)
           context.end_using_reg(FUNC_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -205,6 +213,9 @@ module YTLJit
       end
 
       module ArrayTypeUnboxedCodeGen
+        include AbsArch
+        include CommonCodeGen
+
         def have_element?
           true
         end
