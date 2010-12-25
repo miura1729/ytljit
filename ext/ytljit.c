@@ -496,6 +496,7 @@ void __attribute__ ((optimize("omit-frame-pointer")))
 ytl_step_handler()
 {
 #ifdef __x86_64__
+  asm("push %rax");
   asm("add $0x8, %rsp");
   asm("mov %0, %%rax" : : "g"(__builtin_return_address(0)));
   asm("sub $0x8, %rsp");
