@@ -420,7 +420,7 @@ body(uintptr_t *regbuf)
   rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, NUMREGS + 1, argv);
 }
 
-static uintptr_t * __attribute__ ((noinline))
+static uintptr_t * __attribute__ ((noinline, optimize("omit-frame-pointer")))
 pushall(void)
 {
 #ifdef __x86_64__
@@ -444,16 +444,21 @@ pushall(void)
   asm("push %rcx");
 #elif __i386__
   asm("pop %eax");
-  asm("pushal");
-  asm("mov  %rax, %ecx");	/* return %rsp */
+  asm("push %ecx");
+  asm("push %edx");
+  asm("push %ebx");
+  asm("push %ebp");
+  asm("push %esi");
+  asm("push %edi");
+  asm("mov  %eax, %ecx");	/* return %rsp */
   asm("mov  %esp, %eax");	/* return %rsp */
-  asm("push %ecx")
+  asm("push %ecx");
 #else
 #error "only i386 or x86-64 is supported"
 #endif
 }
 
-static void __attribute__ ((noinline))
+static void __attribute__ ((noinline, optimize("omit-frame-pointer")))
 popall(void)
 {
 #ifdef __x86_64__
@@ -474,18 +479,23 @@ popall(void)
   asm("pop %rcx");
   asm("push %rax");
 #elif __i386__
-  asm("popal");
+  asm("pop %eax");
+  asm("pop %edi");
+  asm("pop %esi");
+  asm("pop %ebp");
+  asm("pop %ebx");
+  asm("pop %edx");
+  asm("pop %ecx");
   asm("push %eax");
 #else
 #error "only i386 or x86-64 is supported"
 #endif
 }
 
-void
+void __attribute__ ((optimize("omit-frame-pointer")))
 ytl_step_handler()
 {
 #ifdef __x86_64__
-  asm("push %rax");
   asm("add $0x8, %rsp");
   asm("mov %0, %%rax" : : "g"(__builtin_return_address(0)));
   asm("sub $0x8, %rsp");
