@@ -73,9 +73,9 @@ module YTLJit
       case dst
       when OpIndirect
         case src
-          when Integer
+        when Integer
           disp = dst.disp
-          dst2 = dst.class.new(dst.reg, disp + 4)
+          dst2 = dst.class.new(dst.reg, disp.value + 4)
           bit32val = 1 << 32
           code = mov(dst2, src / bit32val)
           code += mov(dst, src % bit32val)
@@ -108,18 +108,20 @@ module YTLJit
       if @asm.retry_mode == :change_op then
         return [code, callpos]
       end
-
-      code += @asm.update_state(add(SPR, OpImmidiate8.new(argsize)))
-      offset = @funcarg_info.area_allocate_pos.pop
-      alloc_argument_area = lambda {
-        asm.with_current_address(asm.output_stream.base_address + offset) {
-          asm.output_stream[offset] = sub(SPR, argsize)
+      
+      if argnum != 0 then
+        code += @asm.update_state(add(SPR, OpImmidiate8.new(argsize)))
+        offset = @funcarg_info.area_allocate_pos.pop
+        alloc_argument_area = lambda {
+          asm.with_current_address(asm.output_stream.base_address + offset) {
+            asm.output_stream[offset] = sub(SPR, argsize)
+          }
         }
-      }
-      asm.after_patch_tab.push alloc_argument_area
-
-      @funcarg_info.update_maxargs(argnum)
-      @funcarg_info.used_arg_tab.pop
+        asm.after_patch_tab.push alloc_argument_area
+        
+        @funcarg_info.update_maxargs(argnum)
+        @funcarg_info.used_arg_tab.pop
+      end
       @asm.current_address = orgaddress
       
       [code, callpos]

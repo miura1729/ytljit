@@ -491,7 +491,12 @@ module YTLJit
         regv = reg.value
       end
 
-      case rm.disp
+      rmdisp = rm.disp
+      if rmdisp.class == OpImmidiate then
+        rmdisp = rmdisp.value
+      end
+
+      case rmdisp
       when 0
         if rm.reg.is_a?(OpEBP) or rm.reg.is_a?(OpRBP) then
           modrm_indirect_off8(regv, rm.reg, 0)
@@ -505,16 +510,16 @@ module YTLJit
         end
         
       when OpImmidiate8
-        modrm_indirect_off8(regv, rm.reg, rm.disp.value)
+        modrm_indirect_off8(regv, rm.reg, rmdisp.value)
         
       when OpImmidiate32
-        modrm_indirect_off32(regv, rm.reg, rm.disp.value)
+        modrm_indirect_off32(regv, rm.reg, rmdisp.value)
 
       when Integer
-        if small_integer_8bit?(rm.disp.abs) then
-          modrm_indirect_off8(regv, rm.reg, rm.disp)
+        if small_integer_8bit?(rmdisp.abs) then
+          modrm_indirect_off8(regv, rm.reg, rmdisp)
         else
-          modrm_indirect_off32(regv, rm.reg, rm.disp)
+          modrm_indirect_off32(regv, rm.reg, rmdisp)
         end
       end
     end

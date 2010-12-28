@@ -521,8 +521,8 @@ LocalVarNode
               casm.mov(FUNC_ARG[0], rarg.size) # argc
               casm.mov(FUNC_ARG[1], TMPR2)     # argv
             end
-            context.set_reg_content(FUNC_ARG[0], nil)
-            context.set_reg_content(FUNC_ARG[1], TMPR2)
+            context.set_reg_content(FUNC_ARG[0].dst_opecode, nil)
+            context.set_reg_content(FUNC_ARG[1].dst_opecode, TMPR2)
 
             # Method Select
             # it is legal. use TMPR2 for method select
@@ -532,7 +532,7 @@ LocalVarNode
             casm.with_retry do 
               casm.mov(FUNC_ARG[2], context.ret_reg2)     # self
             end
-            context.set_reg_content(FUNC_ARG[2], context.ret_node)
+            context.set_reg_content(FUNC_ARG[2].dst_opecode, context.ret_node)
             
             context = gen_call(context, fnc, 3)
             context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
@@ -542,6 +542,7 @@ LocalVarNode
             context.end_using_reg(FUNC_ARG[0])
             context.end_using_reg(TMPR2)
             context.ret_reg = RETR
+            context.set_reg_content(context.ret_reg, self)
             context.ret_node = self
             
             decide_type_once(context.to_signature)
@@ -582,7 +583,8 @@ LocalVarNode
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], context.ret_reg2)
               end
-              context.set_reg_content(FUNC_ARG[0], context.ret_node)
+              context.set_reg_content(FUNC_ARG[0].dst_opecode, 
+                                      context.ret_node)
             else
               # other arg.
               context = arg.compile(context)
@@ -593,7 +595,8 @@ LocalVarNode
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
               end
-              context.set_reg_content(FUNC_ARG[argpos], context.ret_node)
+              context.set_reg_content(FUNC_ARG[argpos].dst_opecode, 
+                                      context.ret_node)
             end
             argpos = argpos + 1
             cursrc = cursrc + 1
@@ -607,6 +610,7 @@ LocalVarNode
           end
           context.end_using_reg(fnc)
           context.ret_reg = RETR
+          context.set_reg_content(context.ret_reg, self)
           
           decide_type_once(context.to_signature)
           if !@type.boxed then 
@@ -633,12 +637,12 @@ LocalVarNode
               casm.mov(TMPR, prevenv)
               casm.mov(FUNC_ARG_YTL[0], TMPR)
             end
-            context.set_reg_content(FUNC_ARG_YTL[0], prevenv)
+            context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, prevenv)
           else
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], BPR)
             end
-            context.set_reg_content(FUNC_ARG_YTL[0], BPR)
+            context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, BPR)
           end
           
           # block
@@ -647,6 +651,7 @@ LocalVarNode
           
           # compile block with other code space and context
           tcontext = context.dup
+          tcontext.prev_context = context
           @arguments[1].compile(tcontext)
           
           casm = context.assembler
@@ -658,14 +663,15 @@ LocalVarNode
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
             end
-            context.set_reg_content(FUNC_ARG_YTL[i + 3], context.ret_node)
+            context.set_reg_content(FUNC_ARG_YTL[i + 3].dst_opecode, 
+                                    context.ret_node)
           end
           
           casm.with_retry do 
             entry = @arguments[1].code_space.var_base_immidiate_address
             casm.mov(FUNC_ARG_YTL[1], entry)
           end
-          context.set_reg_content(FUNC_ARG_YTL[1], nil)
+          context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, nil)
 
           # self
           # Method Select
@@ -677,7 +683,7 @@ LocalVarNode
           casm.with_retry do 
             casm.mov(FUNC_ARG_YTL[2], context.ret_reg2)
           end
-          context.set_reg_content(FUNC_ARG_YTL[2], @arguments[2])
+          context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, @arguments[2])
 
           context = gen_call(context, fnc, numarg)
           
@@ -1057,6 +1063,9 @@ LocalVarNode
               asm.mov(FUNC_ARG_YTL[1], 4)
               asm.mov(FUNC_ARG_YTL[2], var_klassclass)
             end
+            context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, BPR)
+            context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, nil)
+            context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, self)
             add = cs.var_base_address
             context = gen_call(context, add, 3)
             context.end_using_reg(FUNC_ARG[2])
@@ -1255,9 +1264,11 @@ LocalVarNode
             asm.with_retry do
               asm.sub(SPR, siz)
             end
-            context.cpustack_pushn(siz)
           end
-          @body.compile(context)
+          context.cpustack_pushn(siz)
+          context = @body.compile(context)
+          context.cpustack_popn(siz)
+          context
         end
       end
 
@@ -1463,9 +1474,9 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          context.set_reg_content(TMPR, self)
           context.ret_node = self
           context.ret_reg = RETR
+          context.set_reg_content(RETR, self)
           context
         end
       end
@@ -1550,6 +1561,7 @@ LocalVarNode
             end
           end
 
+          context.set_reg_content(context.ret_reg, self)
           context
         end
 
@@ -1756,6 +1768,7 @@ LocalVarNode
               context.ret_reg = XMM0
             end
             context.ret_node = self
+            context.set_reg_content(context.ret_reg, self)
 
           else
             if @var_value == nil then
@@ -1766,6 +1779,7 @@ LocalVarNode
             context.ret_node = self
             context.ret_reg = @var_value
             context = @type.gen_copy(context)
+            context.set_reg_content(context.ret_reg, self)
           end
 
           context
@@ -1884,6 +1898,7 @@ LocalVarNode
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
           context.ret_node = self
+          context.set_reg_content(context.ret_reg, self)
           context
         end
       end
@@ -2051,6 +2066,8 @@ LocalVarNode
                 asm.mov(TMPR2, RETR)
                 asm.pop(TMPR3)
               end
+              context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, nil)
+              context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, self)
               context.ret_reg2 = TMPR3
               
               context.end_using_reg(FUNC_ARG[1])
@@ -2296,6 +2313,7 @@ LocalVarNode
           end
 
           valr = context.ret_reg
+          valn = context.ret_node
           context = gen_pursue_parent_function(context, @depth)
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
@@ -2313,7 +2331,11 @@ LocalVarNode
               asm.mov(offarg, TMPR)
             end
           end
-          
+
+          tmpctx = context
+          @depth.times { tmpctx = tmpctx.prev_context}
+          tmpctx.set_reg_content(offarg, valn)
+
           context.ret_reg = nil
           if base == TMPR2 then
             context.end_using_reg(base)

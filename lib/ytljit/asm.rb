@@ -1,14 +1,30 @@
 module YTLJit
 
   class StepHandler
-    REG_NAME = ["EAX", "ECX", "EDX", "EBX", "EBP", "ESP", "EDI"]
-    def step_handler(*regs)
-      STDERR.print "#{regs[0].to_s(16)} "
-      STDERR.print CodeSpace.disasm_cache[regs[0].to_s(16)], "\n"
-      regs.each_with_index do |val, i|
-        STDERR.print REG_NAME[i]
+    case $ruby_platform
+    when /x86_64/
+      REGS = {
+        "RAX" => 0, "RCX" => 2, "RDX" => 3, "RBX" => 4, 
+        "RBP" => 5, "RSP" => 16, "RDI" => 6, "RSI" => 7,
+        "R8" => 8, "R9" => 9, "R10" => 10, "R11" => 11, "R12" => 12,
+        "R13" => 13, "R14" => 14, "R15" => 15
+      }
+
+    when /i.86/
+      REGS = {
+        "EAX" => 0, "ECX" => 2, "EDX" => 3, "EBX" => 4, 
+        "EBP" => 5, "ESP" => 8, "EDI" => 6, "ESI" => 7
+      }
+    end
+    
+    def step_handler(*regval)
+      STDERR.print "#{regval[1].to_s(16)} "
+      STDERR.print CodeSpace.disasm_cache[regval[1].to_s(16)], "\n"
+      STDERR.print $frame_struct_tab[regval[1]][1].map {|n| n.class}, "\n"
+      REGS.each do |rname, no|
+        STDERR.print rname
         STDERR.print ": 0x"
-        STDERR.print val.to_s(16)
+        STDERR.print regval[no].to_s(16)
         STDERR.print " "
       end
       STDERR.print "\n"

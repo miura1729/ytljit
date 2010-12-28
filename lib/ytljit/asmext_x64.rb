@@ -148,7 +148,7 @@ module YTLJit
         case src
         when Integer
           disp = dst.disp
-          dst2 = dst.class.new(dst.reg, disp + 4)
+          dst2 = dst.class.new(dst.reg, disp.value + 4)
           bit32val = 1 << 32
           code = mov(dst2, src / bit32val)
           code += mov(dst, src % bit32val)
@@ -177,40 +177,22 @@ module YTLJit
         return [code, callpos]
       end
 
-      offset = @funcarg_info.area_allocate_pos.pop
-      if offset then
-        imm = OpImmidiate8.new(argsize)
-        code += @asm.update_state(add(SPR, imm))
-        alloc_argument_area = lambda {
-          @asm.with_current_address(@asm.output_stream.base_address + offset) {
-            @asm.output_stream[offset] = sub(SPR, argsize)
+      if argnum != 0 then
+        offset = @funcarg_info.area_allocate_pos.pop
+        if offset then
+          imm = OpImmidiate8.new(argsize)
+          code += @asm.update_state(add(SPR, imm))
+          alloc_argument_area = lambda {
+            @asm.with_current_address(@asm.output_stream.base_address + offset) {
+              @asm.output_stream[offset] = sub(SPR, argsize)
+            }
           }
-        }
-        @asm.after_patch_tab.push alloc_argument_area
-      end
-
-      @funcarg_info.update_maxargs(argnum)
-      @funcarg_info.used_arg_tab.pop
-
-=begin
-      # Save already stored restorer
-      uat = @funcarg_info.used_arg_tab.last
-      while !fainfo.empty? do
-        nreg = fainfo.pop
-        if argpos = ARGPOS2REG.index(nreg) then
-          if uat[argpos] then
-            fainfo.push nreg
-            break
-          else
-            code += @asm.update_state(pop(nreg))
-            uat[argpos] = true
-          end
-        else
-          fainfo.push nreg
-          break
+          @asm.after_patch_tab.push alloc_argument_area
         end
+        
+        @funcarg_info.update_maxargs(argnum)
+        @funcarg_info.used_arg_tab.pop
       end
-=end
 
       @asm.current_address = orgaddress
 

@@ -116,6 +116,9 @@ module YTLJit
   class OpIndirect<Operand
     def initialize(reg, disp = 0)
       @reg = reg
+      if disp.is_a?(Fixnum) then
+        disp = OpImmidiate.new(disp)
+      end
       @disp = disp
     end
 

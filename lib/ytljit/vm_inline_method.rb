@@ -21,6 +21,7 @@ module YTLJit
           asm.with_retry do
             asm.mov(tempreg, context.ret_reg)
           end
+          context.set_reg_content(tempreg, context.ret_node)
           context.end_using_reg(context.ret_reg)
         end
         context.set_reg_content(tempreg, context.ret_node)
@@ -75,6 +76,7 @@ module YTLJit
         asm.with_retry do
           asm.mov(tempreg, context.ret_reg)
         end
+        context.set_reg_content(tempreg, context.ret_node)
         context.set_reg_content(tempreg, context.ret_node)
         
         # @arguments[1] is block

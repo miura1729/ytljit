@@ -951,16 +951,20 @@ module YTLJit
 
         def compile_call_func(context, fname)
           fadd = OpMemAddress.new(address_of(fname))
-          context.start_using_reg(FUNC_ARG[0])
+          context.start_using_reg(FUNC_FLOAT_ARG[0])
           asm = context.assembler
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], context.ret_reg)
+          end
+          context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, 
+                                  context.ret_node)
+          asm.with_retry do
             asm.call_with_arg(fadd, 1)
             asm.sub(SPR, 8)
             asm.fstpl(INDIRECT_SPR)
             asm.pop(XMM0)
           end
-          context.end_using_reg(FUNC_ARG[0])
+          context.end_using_reg(FUNC_FLOAT_ARG[0])
           context
         end
 

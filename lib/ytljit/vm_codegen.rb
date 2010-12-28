@@ -233,6 +233,7 @@ LO        |                       |   |  |
       include AbsArch
       def initialize(tnode)
         @top_node = tnode
+        @prev_context = nil
         @code_space = nil
 
         # Signature of current compiling method
@@ -256,6 +257,7 @@ LO        |                       |   |  |
       end
 
       attr          :top_node
+      attr_accessor :prev_context
       attr          :code_space
 
       attr          :current_method_signature
@@ -277,18 +279,30 @@ LO        |                       |   |  |
           dst = dst.dst_opecode
         end
         if dst.is_a?(OpRegistor) then
-          if val.is_a?(OpRegistor)
+          if val.is_a?(OpRegistor) and @reg_content[val] then
             @reg_content[dst] = @reg_content[val]
           else
             @reg_content[dst] = val
           end
-        elsif dst.is_a?(OpIndirect) and dst.reg == SPR then
+        elsif dst.is_a?(OpIndirect) then
           wsiz = AsmType::MACHINE_WORD.size
-          if val.is_a?(OpRegistor)
-            cpustack_setn(dst.disp.value / wsiz, @reg_content[val])
-          else
-            cpustack_setn(dst.disp.value / wsiz, val)
+          if dst.reg == SPR then
+            if val.is_a?(OpRegistor) and @reg_content[val] then
+              cpustack_setn(dst.disp.value / wsiz, @reg_content[val])
+            else
+              cpustack_setn(dst.disp.value / wsiz, val)
+            end
           end
+          if dst.reg == BPR then
+            if val.is_a?(OpRegistor) and @reg_content[val] then
+              cpustack_setn(-dst.disp.value / wsiz + 3, @reg_content[val])
+            else
+              cpustack_setn(-dst.disp.value / wsiz + 3, val)
+            end
+          end
+        elsif dst.is_a?(OpImmidiate) then
+          # do nothing and legal
+
         else
           pp "foo"
           pp dst
@@ -296,15 +310,22 @@ LO        |                       |   |  |
       end
 
       def cpustack_push(reg)
-        @stack_content.push @reg_content[reg]
+        if @reg_content[reg] then
+          @stack_content.push @reg_content[reg]
+        else
+          @stack_content.push reg
+        end
       end
 
       def cpustack_pop(reg)
-        @reg_content[reg] = @stack_content.pop
+        cont = @stack_content.pop
+        if !cont.is_a?(OpRegistor) then
+          @reg_content[reg] = cont
+        end
       end
 
       def cpustack_setn(offset, val)
-        @stack_content[-offset] = val
+        @stack_content[offset] = val
       end
 
       def cpustack_pushn(num)
