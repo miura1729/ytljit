@@ -408,6 +408,7 @@ static void
 body(uintptr_t *regbuf)
 {
   VALUE *argv;
+  uintptr_t sp;
   int i;
 
   argv = ALLOCA_N(VALUE, NUMREGS + 1);
@@ -415,7 +416,10 @@ body(uintptr_t *regbuf)
   for (i = 0; i < NUMREGS; i++) {
     argv[i] = ULONG2NUM((uintptr_t)regbuf[NUMREGS - i - 1]);
   }
-  argv[NUMREGS] = ULONG2NUM((uintptr_t)regbuf);
+  sp = (uintptr_t)regbuf;
+  sp += NUMREGS * sizeof(uintptr_t); /* reg save area */
+  sp += sizeof(uintptr_t); 	/* stored pc by call instruction */
+  argv[NUMREGS] = ULONG2NUM(sp);
 
   rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, NUMREGS + 1, argv);
 }

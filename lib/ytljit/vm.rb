@@ -176,6 +176,8 @@ LocalVarNode
 
           @ti_observer = {}
           @ti_observee = []
+
+          @debug_info = nil
         end
 
         attr_accessor :parent
@@ -187,6 +189,8 @@ LocalVarNode
 
         attr          :ti_observer
         attr          :ti_observee
+
+        attr_accessor :debug_info
 
         def collect_info(context)
           if is_a?(HaveChildlenMixin) then
@@ -1083,6 +1087,11 @@ LocalVarNode
 
       class TopTopNode<ClassTopNode
         include MethodTopCodeGen
+        @@frame_struct_tab = {}
+
+        def self.frame_struct_tab
+          @@frame_struct_tab
+        end
 
         def initialize(parent, klassobj, name = :top)
           super
@@ -1092,7 +1101,6 @@ LocalVarNode
           @id.push 0
 
           @frame_struct_array = []
-          @frame_struct_tab = {}
           @unwind_proc = CodeSpace.new
           @init_node = nil
           init_unwind_proc
@@ -1103,11 +1111,10 @@ LocalVarNode
         attr          :code_space_tab
         attr          :asm_tab
         attr          :frame_struct_array
-        attr          :frame_struct_tab
 
         def make_frame_struct_tab
           @frame_struct_array.each do |vkey, val|
-            @frame_struct_tab[vkey.value] = val
+            @@frame_struct_tab[vkey.value] = val
           end
         end
 

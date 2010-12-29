@@ -20,7 +20,9 @@ module YTLJit
     def step_handler(*regval)
       STDERR.print "#{regval[1].to_s(16)} "
       STDERR.print CodeSpace.disasm_cache[regval[1].to_s(16)], "\n"
-      STDERR.print $frame_struct_tab[regval[1]][1].map {|n| n.class}, "\n"
+      frame_struct_tab = VM::Node::TopTopNode.frame_struct_tab
+      STDERR.print frame_struct_tab[regval[1]][0].debug_info, "\n"
+      STDERR.print frame_struct_tab[regval[1]][2].map {|n| n.class}, "\n"
       REGS.each do |rname, no|
         STDERR.print rname
         STDERR.print ": 0x"

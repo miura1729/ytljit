@@ -76,6 +76,7 @@ module YTLJit
       def visit_getinstancevariable(code, ins, context)
         curnode = context.current_node
         node = CRubyInstanceVarRefNode.new(curnode, ins[1])
+        node.debug_info = context.debug_info
         context.expstack.push node
       end
 
@@ -83,6 +84,7 @@ module YTLJit
         val = context.expstack.pop
         curnode = context.current_node
         node = CRubyInstanceVarAssignNode.new(curnode, ins[1], val)
+        node.debug_info = context.debug_info
         if context.expstack[-1] == val then
           context.expstack[-1] = CRubyInstanceVarRefNode.new(curnode, ins[1])
         end

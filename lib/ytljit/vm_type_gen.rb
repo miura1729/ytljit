@@ -113,12 +113,12 @@ module YTLJit
           context.start_using_reg(FUNC_FLOAT_ARG[0])
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
           sh = OpMemAddress.new(address_of("ytl_step_handler"))
-          context = gen_call(context, sh, 0)
+          context = gen_call(context, sh, 0, vnode)
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], val)
           end
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, vnode)
-          context = gen_call(context, rbfloatnew, 1)
+          context = gen_call(context, rbfloatnew, 1, vnode)
           context.end_using_reg(FUNC_FLOAT_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -164,7 +164,7 @@ module YTLJit
             asm.mov(FUNC_ARG[0], val)
           end
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_call(context, rbarydup, 1)
+          context = gen_call(context, rbarydup, 1, vnode)
           context.end_using_reg(FUNC_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
@@ -207,7 +207,7 @@ module YTLJit
             asm.mov(FUNC_ARG[0], val)
           end
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_call(context, rbstrresurrect, 1)
+          context = gen_call(context, rbstrresurrect, 1, vnode)
           context.end_using_reg(FUNC_ARG[0])
           context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)

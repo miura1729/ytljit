@@ -526,7 +526,7 @@ LO        |                       |   |  |
     end
 
     module CommonCodeGen
-      def gen_call(context, fnc, numarg)
+      def gen_call(context, fnc, numarg, slf = nil)
         casm = context.assembler
 
         callpos = nil
@@ -535,7 +535,13 @@ LO        |                       |   |  |
         end
         context.end_using_reg(fnc)
         vretadd = casm.output_stream.var_base_address(callpos)
-        cpuinfo = [context.reg_content.dup]
+        cpuinfo = []
+        if slf then
+          cpuinfo.push slf
+        else
+          cpuinfo.push slf
+        end
+        cpuinfo.push context.reg_content.dup
         cpuinfo.push context.stack_content.dup
         context.top_node.frame_struct_array.push [vretadd, cpuinfo]
         

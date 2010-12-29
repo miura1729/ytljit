@@ -8,7 +8,7 @@ module YTLJit
         @top_nodes = [@the_top]
         @current_file_name = nil
         @current_class_node = the_top
-        @current_method_name = nil
+        @current_method_node = nil
 
         @enc_label = ""
         @enc_pos_in_source = ""
@@ -29,7 +29,7 @@ module YTLJit
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
-      attr_accessor :current_method_name
+      attr_accessor :current_method_node
       
       attr_accessor :enc_label
       attr_accessor :enc_pos_in_source
@@ -52,6 +52,21 @@ module YTLJit
         valnode = LiteralNode.new(ctn, value)
         ctn.get_constant_tab[name] = valnode
       end
+
+      def debug_info
+        mname = nil
+        if @current_method_node then
+          mname = @current_method_node.get_constant_value
+        end
+        if mname then
+          mname = mname[0]
+        end
+
+        [@current_file_name, 
+         @current_class_node.name, 
+         mname,
+         @current_line_no]
+      end
     end
 
     class YARVTranslatorBase
@@ -68,7 +83,7 @@ module YTLJit
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
             lstr = context.enc_label + "+blk+" + 
-                   context.current_method_name.to_s
+                   context.current_method_node.to_s
             context.enc_label = lstr
           end
           translate_block(code, context)
@@ -108,6 +123,7 @@ module YTLJit
         nllab = context.local_label_tab[label]
         if nllab == nil then
           nllab = LocalLabel.new(curnode, label)
+          nllab.debug_info = context.debug_info
           context.local_label_tab[label] = nllab
         end
         
@@ -122,6 +138,7 @@ module YTLJit
         
         unless curnode.is_a?(JumpNode)
           jmpnode = JumpNode.new(curnode, nllab)
+          jmpnode.debug_info = context.debug_info
           nllab.parent = jmpnode
 
           val = context.expstack.pop
@@ -140,6 +157,7 @@ module YTLJit
         if !mtopnode.is_a?(TopNode) then
           oldtop = context.the_top
           mtopnode = TopTopNode.new(nil, Object)
+          mtopnode.debug_info = context.debug_info
           context.the_top = mtopnode
           oldtop.parent = mtopnode
           mtopnode.init_node = oldtop
@@ -187,6 +205,7 @@ module YTLJit
         end
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
         node = LocalVarRefNode.new(context.current_node, offset, dep)
+        node.debug_info = context.debug_info
         context.expstack.push node
       end
 
@@ -200,8 +219,10 @@ module YTLJit
         curnode = context.current_node
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
         node = LocalAssignNode.new(curnode, offset, dep, val)
+        node.debug_info = context.debug_info
         if context.expstack[-1] == val then
           varref = LocalVarRefNode.new(context.current_node, offset, dep)
+          varref.debug_info = context.debug_info
           context.expstack[-1] = varref
         end
         curnode.body = node
@@ -250,6 +271,7 @@ module YTLJit
         name = ins[1]
         curnode = context.current_node
         node = ConstantRefNode.new(curnode, klass, name)
+        node.debug_info = context.debug_info
         context.expstack.push node
       end
 
@@ -259,6 +281,7 @@ module YTLJit
         name = ins[1]
         curnode = context.current_node
         node = ConstantAssignNode.new(curnode, klass, name, value)
+        node.debug_info = context.debug_info
         curnode.body = node
         context.current_node = node
       end
@@ -268,17 +291,20 @@ module YTLJit
       
       def visit_putnil(code, ins, context)
         nnode = LiteralNode.new(nil, nil)
+        nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
 
       def visit_putself(code, ins, context)
         curnode = context.current_node
         nnode = SelfRefNode.new(curnode)
+        nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
       
       def visit_putobject(code, ins, context)
         nnode = LiteralNode.new(nil, ins[1])
+        nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
 
@@ -301,13 +327,14 @@ module YTLJit
         when :top
           raise "Maybe bug not appear top block."
         end
+        mtopnode.debug_info = context.debug_info
         ncontext.current_node = mtopnode
         ncontext.top_nodes.push mtopnode
 
         ncontext.current_file_name = context.current_file_name
         ncontext.current_class_node = context.current_class_node
         mname = context.expstack.last
-        ncontext.current_method_name = mname
+        ncontext.current_method_node = mname
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -316,6 +343,7 @@ module YTLJit
 
       def visit_putstring(code, ins, context)
         nnode = LiteralNode.new(nil, ins[1])
+        nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
 
@@ -326,6 +354,7 @@ module YTLJit
 
       def visit_duparray(code, ins, context)
         nnode = LiteralNode.new(nil, ins[1])
+        nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
 
@@ -426,6 +455,7 @@ module YTLJit
         end
         RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
         cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
+        cnode.debug_info = context.debug_info
         context.current_class_node.constant_tab[name] = cnode
         
         body = VMLib::InstSeqTree.new(code, ins[2])
@@ -440,6 +470,7 @@ module YTLJit
 
         curnode = context.current_node
         cvnode = ClassValueNode.new(curnode, cnode)
+        cvnode.debug_info = context.debug_info
         context.expstack.push cvnode
 
         context
@@ -472,19 +503,25 @@ module YTLJit
 
           tr = self.class.new([body])
           tr.translate(ncontext)
+          btn.debug_info = context.debug_info
           arg.push btn # block
         else
-          arg.push LiteralNode.new(curnode, nil) # block(dymmy)
+          argnode = LiteralNode.new(curnode, nil)
+          argnode.debug_info = context.debug_info
+          arg.push argnode      # block(dymmy)
         end
 
         # perv env
-        arg.push LiteralNode.new(curnode, nil)
+        argnode = LiteralNode.new(curnode, nil)
+        argnode.debug_info = context.debug_info
+        arg.push argnode
 
         arg = arg.reverse
 
         func = MethodSelectNode.new(curnode, ins[1])
         op_flag = ins[4]
         sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
+        sn.debug_info = context.debug_info
         func.set_reciever(sn)
         context.expstack.push sn
 
@@ -497,6 +534,7 @@ module YTLJit
       def visit_invokeblock(code, ins, context)
         curnode = context.current_node
         func = YieldNode.new(curnode)
+        func.debug_info = context.debug_info
         numarg = ins[1]
         op_flag = ins[2]
         seqno = ins[3]
@@ -513,17 +551,24 @@ module YTLJit
         framelayout = frameinfo.frame_layout
 
         # self
-        args.push LiteralNode.new(curnode, nil)
+        argnode = LiteralNode.new(curnode, nil)
+        argnode.debug_info = context.debug_info
+        args.push argnode
 
         # block
-        args.push LiteralNode.new(curnode, nil)
+        argnode = LiteralNode.new(curnode, nil)
+        argnode.debug_info = context.debug_info
+        args.push argnode
         
         # perv env
-        args.push LiteralNode.new(curnode, nil)
+        argnode = LiteralNode.new(curnode, nil)
+        argnode.debug_info = context.debug_info
+        args.push argnode
 
         args = args.reverse
 
         nnode = SendNode.new(curnode, func, args, op_flag, seqno)
+        nnode.debug_info = context.debug_info
         func.parent = nnode
         context.expstack.push nnode
 
@@ -537,12 +582,15 @@ module YTLJit
           visit_pop(code, ins, context)
           curnode = context.current_node 
           vnode = SelfRefNode.new(curnode)
+          vnode.debug_info = context.debug_info
         else
           curnode = context.current_node 
           vnode = context.expstack.pop
+          vnode.debug_info = context.debug_info
         end
 
         srnode = SetResultNode.new(curnode, vnode)
+        srnode.debug_info = context.debug_info
         curnode.body = srnode
 
         context.current_node = srnode
@@ -557,6 +605,7 @@ module YTLJit
         when :top
           nnode = ClassEndNode.new(srnode)
         end
+        nnode.debug_info = context.debug_info
 
         context.top_nodes.last.end_nodes.push nnode
         srnode.body = nnode
@@ -570,6 +619,7 @@ module YTLJit
         nllab = get_vmnode_from_label(context, ins[1])
 
         jpnode = JumpNode.new(curnode, nllab) 
+        jpnode.debug_info = context.debug_info
         jpnode.body = nllab
 
         val = context.expstack.pop
@@ -587,6 +637,7 @@ module YTLJit
         cond = context.expstack.pop
        
         node = BranchIfNode.new(curnode, cond, nllab)
+        node.debug_info = context.debug_info
         nllab.come_from[node] = nil
 
         curnode.body = node
@@ -600,6 +651,7 @@ module YTLJit
         cond = context.expstack.pop
         
         node = BranchUnlessNode.new(curnode, cond, nllab)
+        node.debug_info = context.debug_info
         nllab.come_from[node] = nil
 
         curnode.body = node
