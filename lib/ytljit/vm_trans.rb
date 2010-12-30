@@ -498,6 +498,7 @@ module YTLJit
           ncontext = YARVContext.new
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = context.current_class_node
+          ncontext.current_method_node = context.current_method_node
           btn = ncontext.current_node = BlockTopNode.new(curnode)
           ncontext.top_nodes.push btn
 

@@ -304,8 +304,8 @@ LO        |                       |   |  |
           # do nothing and legal
 
         else
-          pp "foo"
-          pp dst
+#          pp "foo"
+#          pp dst
         end
       end
 
@@ -539,7 +539,7 @@ LO        |                       |   |  |
         if slf then
           cpuinfo.push slf
         else
-          cpuinfo.push slf
+          cpuinfo.push self
         end
         cpuinfo.push context.reg_content.dup
         cpuinfo.push context.stack_content.dup

@@ -213,7 +213,7 @@ ytl_proc_copy(VALUE self, VALUE procval)
 VALUE 
 ytl_memref(VALUE self, VALUE addr)
 {
-  return UINT2NUM(*((char *)NUM2LONG(addr)));
+  return ULONG2NUM(*((uintptr_t *)NUM2LONG(addr)));
 }
 
 VALUE

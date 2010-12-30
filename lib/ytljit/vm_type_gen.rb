@@ -112,8 +112,11 @@ module YTLJit
           context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_FLOAT_ARG[0])
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
+=begin
+          # This is sample of backtrace
           sh = OpMemAddress.new(address_of("ytl_step_handler"))
           context = gen_call(context, sh, 0, vnode)
+=end
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], val)
           end

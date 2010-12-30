@@ -16,6 +16,19 @@ module YTLJit
         "EBP" => 5, "ESP" => 8, "EDI" => 6, "ESI" => 7
       }
     end
+
+    def backtrace(bp)
+      bp = memref(bp)
+      pc = memref(bp + AsmType::MACHINE_WORD.size)
+      frame_struct_tab = VM::Node::TopTopNode.frame_struct_tab
+      if frame_struct_tab[pc] then
+        STDERR.print frame_struct_tab[pc][0].class, "\n"
+        STDERR.print frame_struct_tab[pc][0].debug_info, "\n"
+        STDERR.print frame_struct_tab[pc][2].map {|n| n.class}, "\n"
+        bp = memref(bp)
+        backtrace(bp)
+      end
+    end
     
     def step_handler(*regval)
       STDERR.print "#{regval[1].to_s(16)} "
@@ -29,6 +42,8 @@ module YTLJit
         STDERR.print regval[no].to_s(16)
         STDERR.print " "
       end
+      STDERR.print "\nbacktrace\n"
+      backtrace(regval[5])
       STDERR.print "\n"
      end
   end

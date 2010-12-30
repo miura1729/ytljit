@@ -478,6 +478,12 @@ module YTLJit
           @allocmethod = alloc
         end
 
+        def debug_info=(val)
+          @initmethod.debug_info = val
+          @allocmethod.debug_info = val
+          @debug_info = val
+        end
+
         def traverse_childlen
           @arguments.each do |arg|
             yield arg
