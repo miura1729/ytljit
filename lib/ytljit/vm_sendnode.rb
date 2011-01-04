@@ -269,7 +269,7 @@ module YTLJit
           context = super(context)
 
           context.start_using_reg(TMPR2)
-          context.start_using_reg(TMPR3)
+          context.start_using_reg(PTMPR)
           callconv = @func.calling_convention(context)
           
           case callconv
@@ -291,7 +291,7 @@ module YTLJit
             context.ret_reg = RETR
           end
           context.ret_node = self
-          context.end_using_reg(TMPR3)
+          context.end_using_reg(PTMPR)
           context.end_using_reg(TMPR2)
           
           context = @body.compile(context)
@@ -434,7 +434,7 @@ module YTLJit
 
         def compile(context)
           context.start_using_reg(TMPR2)
-          context.start_using_reg(TMPR3)
+          context.start_using_reg(PTMPR)
           callconv = @func.calling_convention(context)
           
           case callconv
@@ -448,9 +448,14 @@ module YTLJit
             context = compile_ytl(context)
           end
 
-          context.ret_reg = RETR 
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(RETR, PTMPR)
+          end
+
+          context.ret_reg = RETR
           context.ret_node = self
-          context.end_using_reg(TMPR3)
+          context.end_using_reg(PTMPR)
           context.end_using_reg(TMPR2)
           
           context = @body.compile(context)
@@ -501,19 +506,32 @@ module YTLJit
             when ConstantRefNode
               context = @initmethod.collect_candidate_type(context)
               clstop = slfnode.value_node
+              tt = nil
+              sig = context.to_signature
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                add_type(context.to_signature, tt)
+                add_type(sig, tt)
                 
               when LiteralNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.value)
-                add_type(context.to_signature, tt)
+                add_type(sig, tt)
 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
               end
 
+              # set element type
+              if tt.ruby_type == Range then
+                tt.args = @arguments[3..-1]
+                add_element_node(sig, @arguments[3], context)
+              end
+
+              if tt.ruby_type == Array then
+                @arguments[3..-1].each do |anode|
+                  add_element_node(sig, anode, context)
+                end
+              end
             else
               raise "Unkonwn node type #{@arguments[2].class} "
             end
@@ -526,11 +544,12 @@ module YTLJit
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            if @initmethod.func.calling_convention(context) != :ytl then
+            if @initmethod.func.calling_convention(context) then
+              context = @initmethod.compile(context)
+
+            else
               # initialize method not defined
               context = @allocmethod.compile(context)
-            else
-              context = @initmethod.compile(context)
             end
             @body.compile(context)
           else

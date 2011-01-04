@@ -530,7 +530,7 @@ LocalVarNode
 
             # Method Select
             # it is legal. use TMPR2 for method select
-            # use TMPR3 for store self
+            # use PTMPR for store self
             context = @func.compile(context)
             fnc = context.ret_reg
             casm.with_retry do 
@@ -580,7 +580,7 @@ LocalVarNode
               # Self
               # Method Select
               # it is legal. use TMPR2 for method select
-              # use TMPR3 for store self
+              # use PTMPR for store self
               context = @func.compile(context)
               fnc = context.ret_reg
               casm = context.assembler
@@ -680,7 +680,7 @@ LocalVarNode
           # self
           # Method Select
           # it is legal. use TMPR2 for method select
-          # use TMPR3 for store self
+          # use PTMPR for store self
           context = @func.compile(context)
           fnc = context.ret_reg
           casm = context.assembler
@@ -1891,17 +1891,17 @@ LocalVarNode
           context = super(context)
           asm = context.assembler
           # You can crash when you use yield in block.
-          # You can fix this bug for traversing TMPR3 for method top.
+          # You can fix this bug for traversing PTMPR for method top.
           # But is is little troublesome. So it  is not supported.
           prevenv = @frame_info.offset_arg(0, BPR)
           # offset of self is common, so it no nessery traverse prev frame
           # for @frame_info.
-          slfarg = @frame_info.offset_arg(2, TMPR3)
+          slfarg = @frame_info.offset_arg(2, PTMPR)
           asm.with_retry do
-            asm.mov(TMPR3, prevenv)
-            asm.mov(TMPR3, slfarg)
+            asm.mov(PTMPR, prevenv)
+            asm.mov(PTMPR, slfarg)
           end
-          context.ret_reg2 = TMPR3
+          context.ret_reg2 = PTMPR
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
           context.ret_node = self
@@ -2013,9 +2013,9 @@ LocalVarNode
             slfop = @parent.frame_info.offset_arg(2, BPR)
             asm = context.assembler
             asm.with_retry do
-              asm.mov(TMPR3, slfop)
+              asm.mov(PTMPR, slfop)
             end
-            context.ret_reg2 = TMPR3
+            context.ret_reg2 = PTMPR
             mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then
               sig = @parent.signature(context)
@@ -2071,11 +2071,11 @@ LocalVarNode
                 asm.mov(FUNC_ARG[1], mnval)
                 asm.call_with_arg(meaddrof, 2)
                 asm.mov(TMPR2, RETR)
-                asm.pop(TMPR3)
+                asm.pop(PTMPR)
               end
               context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, nil)
               context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, self)
-              context.ret_reg2 = TMPR3
+              context.ret_reg2 = PTMPR
               
               context.end_using_reg(FUNC_ARG[1])
               context.end_using_reg(FUNC_ARG[0])
@@ -2083,10 +2083,11 @@ LocalVarNode
               context.ret_node = self
               context.set_reg_content(RETR, self)
               context.set_reg_content(TMPR2, self)
-              context.set_reg_content(TMPR3, @reciever)
+              context.set_reg_content(PTMPR, @reciever)
               context.ret_reg = TMPR2
 
-            elsif knode and mtop = knode.search_method_with_super(@name)[0] then
+            elsif knode and
+                mtop = knode.search_method_with_super(@name)[0] then
               asm = context.assembler
               if !rtype.boxed and rtype.ruby_type == Float then
                 if recval != XMM0 then
@@ -2097,9 +2098,9 @@ LocalVarNode
                 context.ret_reg2 = XMM0
               else
                 asm.with_retry do
-                  asm.mov(TMPR3, recval)
+                  asm.mov(PTMPR, recval)
                 end
-                context.ret_reg2 = TMPR3
+                context.ret_reg2 = PTMPR
               end
 
               sig = @parent.signature(context)
@@ -2119,9 +2120,9 @@ LocalVarNode
                 context.ret_reg2 = XMM0
               else
                 asm.with_retry do
-                  asm.mov(TMPR3, recval)
+                  asm.mov(PTMPR, recval)
                 end
-                context.ret_reg2 = TMPR3
+                context.ret_reg2 = PTMPR
               end
 
               addr = lambda {

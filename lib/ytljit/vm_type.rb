@@ -314,6 +314,7 @@ module YTLJit
     define_wraped_class(NilClass,  RubyTypeBoxed)
     define_wraped_class(Fixnum, RubyTypeUnboxed)
     define_wraped_class(Float, RubyTypeUnboxed)
+    define_wraped_class(Range, RubyTypeUnboxed)
     define_wraped_class(TrueClass, RubyTypeBoxed)
     define_wraped_class(FalseClass, RubyTypeBoxed)
     define_wraped_class(Symbol, RubyTypeBoxed)

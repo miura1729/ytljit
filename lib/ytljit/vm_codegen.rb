@@ -359,7 +359,6 @@ LO        |                       |   |  |
       end
 
       def reset_using_reg
-#        @depth_reg = {}
         @depth_reg = Hash.new(0)
       end
 

@@ -350,6 +350,22 @@ module YTLJit
       # concatstrings
       # tostring
       # toregexp
+
+      def newinst_to_sendnode(argnum, klass, code, ins, context)
+        arg = []
+        argnum.times {
+          arg.push context.expstack.pop
+        }
+        curnode = context.current_node
+        arg.push ConstantRefNode.new(curnode, nil, klass.name.to_sym)
+
+        arg.reverse.each do |c|
+          context.expstack.push c
+        end
+
+        visit_send(code, [:send, :new, argnum, nil, 0, nil], context)
+      end
+
       # newarray
 
       def visit_duparray(code, ins, context)
@@ -363,8 +379,13 @@ module YTLJit
       # splatarray
       # checkincludearray
       # newhash
-      # newrange
 
+      def visit_newrange(code, ins, context)
+        exclflag = LiteralNode.new(nil, ins[1])
+        context.expstack.push exclflag
+        newinst_to_sendnode(3, Range, code, ins, context)
+      end
+        
       def visit_pop(code, ins, context)
         node = context.expstack.pop
         if node == nil then
@@ -579,7 +600,9 @@ module YTLJit
       def visit_leave(code, ins, context)
         curnode = nil
         vnode = nil
+
         if context.top_nodes.last.name == :initialize then
+          # This is necessary. So it decides type of new method
           visit_pop(code, ins, context)
           curnode = context.current_node 
           vnode = SelfRefNode.new(curnode)

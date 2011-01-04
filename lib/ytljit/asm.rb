@@ -127,6 +127,7 @@ module YTLJit
     attr          :output_stream
     attr          :after_patch_tab
     attr          :retry_mode
+    attr          :generator
 
     def var_current_address
       current_address = @current_address

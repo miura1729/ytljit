@@ -92,6 +92,7 @@ module YTLJit
       TMPR = OpEAX.instance
       TMPR2 = OpEDX.instance
       TMPR3 = OpECX.instance
+      PTMPR = OpEBX.instance
       DBLLOR = OpEAX.instance
       DBLHIR = OpEDX.instance
       RETR = OpEAX.instance
@@ -104,6 +105,7 @@ module YTLJit
 #      TMPR3 = OpRCX.instance
       TMPR2 = OpR10.instance
       TMPR3 = OpR11.instance
+      PTMPR = OpRBX.instance
       DBLLOR = OpRAX.instance
       DBLHIR = OpRDX.instance
       RETR = OpRAX.instance

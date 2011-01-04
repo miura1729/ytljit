@@ -109,7 +109,7 @@ module YTLJit
           val = context.ret_reg
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
-          context.start_using_reg(TMPR3)
+#          context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_FLOAT_ARG[0])
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
 =begin
@@ -123,7 +123,7 @@ module YTLJit
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbfloatnew, 1, vnode)
           context.end_using_reg(FUNC_FLOAT_ARG[0])
-          context.end_using_reg(TMPR3)
+#          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context
@@ -160,7 +160,7 @@ module YTLJit
           val = context.ret_reg
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
-          context.start_using_reg(TMPR3)
+#          context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_ARG[0])
           rbarydup = OpMemAddress.new(address_of("rb_ary_dup"))
           asm.with_retry do
@@ -169,7 +169,7 @@ module YTLJit
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbarydup, 1, vnode)
           context.end_using_reg(FUNC_ARG[0])
-          context.end_using_reg(TMPR3)
+#          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
 
@@ -188,7 +188,6 @@ module YTLJit
         end
 
         def eql?(other)
-          other.is_a?(self.class) and
           self.class == other.class and
           @element_type == other.element_type
         end
@@ -203,7 +202,7 @@ module YTLJit
           val = context.ret_reg
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
-          context.start_using_reg(TMPR3)
+#          context.start_using_reg(TMPR3)
           context.start_using_reg(FUNC_ARG[0])
           rbstrresurrect = OpMemAddress.new(address_of("rb_str_resurrect"))
           asm.with_retry do
@@ -212,11 +211,34 @@ module YTLJit
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbstrresurrect, 1, vnode)
           context.end_using_reg(FUNC_ARG[0])
-          context.end_using_reg(TMPR3)
+#          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
 
           context
+        end
+      end
+
+      module RangeTypeUnboxedCodeGen
+        include AbsArch
+        include CommonCodeGen
+
+        def instance
+          ni = self.dup
+          ni.instance_eval { extend RangeTypeUnboxedCodeGen }
+          ni.init
+          ni
+        end
+
+        def init
+          @args = nil
+        end
+
+        attr_accessor :args
+        
+        def ==(other)
+          self.class == other.class and
+            @args == other.args
         end
       end
 
