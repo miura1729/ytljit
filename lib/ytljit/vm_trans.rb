@@ -165,6 +165,9 @@ module YTLJit
 
         locals = code.header['locals']
         args   = code.header['misc'][:arg_size]
+        (args - locals.size).times do 
+          locals.push nil
+        end
 
         context.current_node = mtopnode.construct_frame_info(locals, args)
       end
@@ -176,7 +179,7 @@ module YTLJit
         dep = 0
         ccode = code
         while ccode.header['type'] == :block
-          ccode = code.parent
+          ccode = ccode.parent
           dep += 1
         end
         
@@ -381,7 +384,7 @@ module YTLJit
       # newhash
 
       def visit_newrange(code, ins, context)
-        exclflag = LiteralNode.new(nil, ins[1])
+        exclflag = LiteralNode.new(nil, ins[1] == 1)
         context.expstack.push exclflag
         newinst_to_sendnode(3, Range, code, ins, context)
       end

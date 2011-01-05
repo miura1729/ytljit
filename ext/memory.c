@@ -27,7 +27,7 @@ ytl_arena_ref(VALUE self, VALUE offset)
   raw_arena = (struct Arena *)DATA_PTR(self);
   raw_offset = FIX2INT(offset);
 
-  return INT2FIX(raw_arena->body[raw_offset]);
+  return ULONG2NUM(raw_arena->body[raw_offset]);
 }
 
 VALUE
@@ -38,7 +38,7 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
   int raw_offset;
 
   raw_arena = (struct Arena *)DATA_PTR(self);
-  raw_offset = FIX2INT(offset);
+  raw_offset = NUM2ULONG(offset);
 
   raw_arena->body[raw_offset] = FIX2INT(src);
 
@@ -64,7 +64,7 @@ ytl_arena_address(VALUE self)
 
   raw_arena = (struct Arena *)DATA_PTR(self);
 
-  return INT2FIX(raw_arena->body);
+  return ULONG2NUM((uintptr_t)raw_arena->body);
 }
 
 

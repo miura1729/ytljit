@@ -464,6 +464,7 @@ LO        |                       |   |  |
             # Make linkage of frame pointer
             asm.push(BPR)
             asm.mov(BPR, SPR)
+            asm.push(THEPR)
             asm.push(TMPR)
             asm.push(BPR)
             asm.mov(BPR, SPR)
@@ -486,6 +487,7 @@ LO        |                       |   |  |
           asm.with_retry do
             asm.mov(SPR, BPR)
             asm.pop(BPR)
+            asm.pop(THEPR)
             asm.mov(SPR, BPR)
             asm.pop(BPR)
           end
@@ -525,6 +527,18 @@ LO        |                       |   |  |
     end
 
     module CommonCodeGen
+      include AbsArch
+
+      def gen_alloca(context, siz)
+        asm = context.assembler
+        siz = siz * AsmType::MACHINE_WORD.size
+        asm.with_retry do
+          asm.sub(THEPR, siz)
+        end
+        context.ret_reg = THEPR
+        context
+      end
+
       def gen_call(context, fnc, numarg, slf = nil)
         casm = context.assembler
 

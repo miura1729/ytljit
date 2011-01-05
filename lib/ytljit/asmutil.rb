@@ -93,6 +93,7 @@ module YTLJit
       TMPR2 = OpEDX.instance
       TMPR3 = OpECX.instance
       PTMPR = OpEBX.instance
+      THEPR = OpEDI.instance    # Temporary Heap pointer
       DBLLOR = OpEAX.instance
       DBLHIR = OpEDX.instance
       RETR = OpEAX.instance
@@ -106,6 +107,7 @@ module YTLJit
       TMPR2 = OpR10.instance
       TMPR3 = OpR11.instance
       PTMPR = OpRBX.instance
+      THEPR = OpR12.instance    # Temporary Heap pointer
       DBLLOR = OpRAX.instance
       DBLHIR = OpRDX.instance
       RETR = OpRAX.instance

@@ -235,6 +235,49 @@ module YTLJit
         end
 
         attr_accessor :args
+
+        def gen_boxing(context)
+          rtype = args[0].decide_type_once(context.to_signature)
+
+          base = context.ret_reg
+          rbrangenew = OpMemAddress.new(address_of("rb_range_new"))
+          begoff = OpIndirect.new(TMPR2, 0)
+          endoff = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size)
+          excoff = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size * 2)
+ 
+          context.start_using_reg(TMPR2)
+          context.start_using_reg(FUNC_ARG[0])
+          context.start_using_reg(FUNC_ARG[1])
+          context.start_using_reg(FUNC_ARG[2])
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(TMPR2, base)
+          end
+
+          context.ret_reg = begoff
+          context = rtype.gen_boxing(context)
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], context.ret_reg)
+          end
+
+          context.ret_reg = endoff
+          context = rtype.gen_boxing(context)
+          asm.with_retry do
+            asm.mov(FUNC_ARG[1], context.ret_reg)
+          end
+
+          asm.with_retry do
+            asm.mov(FUNC_ARG[2], excoff)
+            asm.call_with_arg(rbrangenew, 3)
+          end
+
+          context.start_using_reg(FUNC_ARG[2])
+          context.start_using_reg(FUNC_ARG[1])
+          context.start_using_reg(FUNC_ARG[0])
+          context.end_using_reg(TMPR2)
+          context.ret_reg = RETR
+          context
+        end
         
         def ==(other)
           self.class == other.class and

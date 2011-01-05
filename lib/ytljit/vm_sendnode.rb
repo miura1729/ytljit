@@ -544,7 +544,26 @@ module YTLJit
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            if @initmethod.func.calling_convention(context) then
+            if !@is_escape and rrtype.to_s == '#<Class:Range>' then
+              context = gen_alloca(context, 3)
+              asm = context.assembler
+              breg = context.ret_reg
+
+              off = 0
+              [3, 4, 5].each do |no|
+                context = @arguments[no].compile(context)
+                dst = OpIndirect.new(breg, off)
+                asm.with_retry do
+                  asm.mov(dst, context.ret_reg)
+                end
+                off = off + AsmType::MACHINE_WORD.size
+              end
+              
+              context.ret_reg = breg
+              context.ret_node = self
+              context
+
+            elsif @initmethod.func.calling_convention(context) then
               context = @initmethod.compile(context)
 
             else
@@ -950,6 +969,60 @@ module YTLJit
           floattype = RubyType::BaseType.from_ruby_class(Float)
           add_type(sig, floattype)
           context
+        end
+      end
+
+      class SendRangeAccessNode<SendNode
+        include AbsArch
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          if slf.ruby_type == Range then
+            epare = @arguments[2].element_node_list[0]
+            esig = epare[0]
+            enode = epare[1]
+            tt = enode.decide_type_once(esig)
+            add_type(cursig, tt)
+          else
+            super
+          end
+
+          context
+        end
+
+        def compile(context)
+          rtype = @arguments[2].decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
+          if rrtype == Range and !rtype.boxed then
+            context = @arguments[2].compile(context)
+            slotoff = OpIndirect.new(TMPR, arg_offset)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR, context.ret_reg)
+              asm.mov(RETR, slotoff)
+            end
+
+            context.ret_reg = RETR
+            context.ret_node = self
+
+            context
+          else
+            super(context)
+          end
+        end
+      end
+
+      class SendFirstNode<SendRangeAccessNode
+        add_special_send_node :first
+        def arg_offset
+          0
+        end
+      end
+
+      class SendLastNode<SendRangeAccessNode
+        add_special_send_node :last
+        def arg_offset
+          AsmType::MACHINE_WORD.size
         end
       end
 

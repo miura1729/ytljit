@@ -173,6 +173,7 @@ LocalVarNode
           @my_element_node = nil
           @type_inference_proc = cs
           @type_cache = nil
+          @is_escape = false
 
           @ti_observer = {}
           @ti_observee = []
@@ -186,6 +187,7 @@ LocalVarNode
 
         attr_accessor :type
         attr_accessor :element_node_list
+        attr_accessor :is_escape
 
         attr          :ti_observer
         attr          :ti_observee
@@ -300,6 +302,8 @@ LocalVarNode
             dst.ti_changed
             context.convergent = false
           end
+
+          dst.is_escape ||= src.is_escape
         end
 
         def same_type(dst, src, dsig, ssig, context)
@@ -773,9 +777,9 @@ LocalVarNode
 
         def construct_frame_info(locals, argnum)
           finfo = LocalFrameInfoNode.new(self)
-          finfo.system_num = 4         # BP ON Stack, BP, RET
+          finfo.system_num = 5         # BP ON Stack, HP, ET, BP, RET
           
-          # 3 means BP, BP and SP
+          # 5means BP, HP, Exception Tag, BP and SP
           lsize = locals.size + finfo.system_num
           
           # construct frame
@@ -796,7 +800,10 @@ LocalVarNode
                                                      :OLD_BP, curpos)
           curpos -= 1
           frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :FRAME_INFO, curpos)
+                                                     :EXPTAG, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :TMPHEAP, curpos)
           curpos -= 1
           frame_layout[curpos] = SystemValueNode.new(finfo, 
                                                      :OLD_BPSTACK, curpos)
@@ -859,6 +866,10 @@ LocalVarNode
           end
         end
 
+        def compile_init(context)
+          context
+        end
+
         def compile(context)
           oldcs = context.code_space
           @code_spaces.each do |sig, cs|
@@ -867,6 +878,7 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
+            context = compile_init(context)
             context = @body.compile(context)
             context.current_method_signature.pop
           end
@@ -1100,6 +1112,8 @@ LocalVarNode
           @asm_tab = {}
           @id.push 0
 
+          @local_object_area = nil
+
           @frame_struct_array = []
           @unwind_proc = CodeSpace.new
           @init_node = nil
@@ -1159,6 +1173,18 @@ LocalVarNode
             context = @init_node.collect_candidate_type(context, signode, sig)
           end
           super(context, signode, sig)
+        end
+
+        def compile_init(context)
+          if @init_node == nil then
+            ar = @local_object_area = Runtime::Arena.new
+            aa = (ar.address + ar.size) & (~0xf)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(THEPR, aa)
+            end
+          end
+          context
         end
 
         def compile(context)
@@ -1420,6 +1446,7 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
+          @is_escape = true
           context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
@@ -1736,14 +1763,22 @@ LocalVarNode
           end
 
           sig = context.to_signature
-          add_type(sig, @type)
           case @value
           when Array
+            add_type(sig, @type)
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
               @element_node_list[0][1].add_type(sig, etype)
             end
+
+          when Range
+            @type = @type.to_box
+            add_type(sig, @type)
+
+          else
+            add_type(sig, @type)
           end
+
           context
         end
 
@@ -2245,6 +2280,7 @@ LocalVarNode
         def initialize(parent)
           super(parent, 2, 0)
           @classtop = search_class_top
+          @topnode = search_top
         end
 
         def compile_main(context)
@@ -2254,11 +2290,17 @@ LocalVarNode
           context
         end
 
+#=begin
         def collect_candidate_type(context)
-          @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-          add_type(context.to_signature, @type)
-          context
+          if @topnode.is_a?(ClassTopNode) then
+            @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
+            add_type(context.to_signature, @type)
+            context
+          else
+            super(context)
+          end
         end
+#=end
 
         def compile(context)
 #          context = super(context)
@@ -2420,6 +2462,8 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
+          @is_escape = true
+          @val.is_escape = true
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
