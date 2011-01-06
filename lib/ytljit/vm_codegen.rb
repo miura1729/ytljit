@@ -464,13 +464,14 @@ LO        |                       |   |  |
             # Make linkage of frame pointer
             asm.push(BPR)
             asm.mov(BPR, SPR)
-            asm.push(THEPR)
             asm.push(TMPR)
+            asm.push(THEPR)
             asm.push(BPR)
             asm.mov(BPR, SPR)
           end
           context.cpustack_push(BPR)
           context.cpustack_push(TMPR)
+          context.cpustack_push(THEPR)
           context.cpustack_push(SPR)
             
           context

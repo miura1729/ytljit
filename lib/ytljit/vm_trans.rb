@@ -369,7 +369,9 @@ module YTLJit
         visit_send(code, [:send, :new, argnum, nil, 0, nil], context)
       end
 
-      # newarray
+      def visit_newarray(code, ins, context)
+        newinst_to_sendnode(ins[1], Array, code, ins, context)
+      end
 
       def visit_duparray(code, ins, context)
         nnode = LiteralNode.new(nil, ins[1])
@@ -501,9 +503,10 @@ module YTLJit
       end
 
       def visit_send(code, ins, context)
-        blk_iseq = ins[3]
         curnode = context.current_node
         numarg = ins[2]
+        blk_iseq = ins[3]
+        op_flag = ins[4]
         seqno = ins[5]
 
         # regular arguments
@@ -514,7 +517,14 @@ module YTLJit
         end
         
         # self
-        arg.push context.expstack.pop
+        slf = context.expstack.pop
+        if (op_flag & (0b11 << 3)) != 0 and # fcall, vcall
+            slf.is_a?(LiteralNode) and 
+            slf.value == nil and 
+            context.current_class_node.name != :top then
+          slf = SelfRefNode.new(curnode)
+        end
+        arg.push slf
 
         # block
         if blk_iseq then
@@ -544,7 +554,6 @@ module YTLJit
         arg = arg.reverse
 
         func = MethodSelectNode.new(curnode, ins[1])
-        op_flag = ins[4]
         sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
         sn.debug_info = context.debug_info
         func.set_reciever(sn)

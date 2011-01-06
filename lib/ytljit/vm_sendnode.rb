@@ -893,8 +893,6 @@ module YTLJit
           when [Hash]
             @arguments[2].add_element_node(context.to_signature, self, context)
 
-          else
-            raise "Unkown type #{slf.ruby_type} in :[]"
           end
 
           context
@@ -1023,6 +1021,27 @@ module YTLJit
         add_special_send_node :last
         def arg_offset
           AsmType::MACHINE_WORD.size
+        end
+      end
+
+      class SendExcludeEndNode<SendRangeAccessNode
+        add_special_send_node :exclude_end?
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          if slf.ruby_type == Range then
+            tt = RubyType::BaseType.from_ruby_class(TrueClass)
+            add_type(cursig, tt)
+            tt = RubyType::BaseType.from_ruby_class(FalseClass)
+            add_type(cursig, tt)
+          else
+            super
+          end
+
+          context
+        end
+
+        def arg_offset
+          AsmType::MACHINE_WORD.size * 2
         end
       end
 

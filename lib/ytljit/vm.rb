@@ -1100,6 +1100,7 @@ LocalVarNode
       class TopTopNode<ClassTopNode
         include MethodTopCodeGen
         @@frame_struct_tab = {}
+        @@local_object_area = Runtime::Arena.new
 
         def self.frame_struct_tab
           @@frame_struct_tab
@@ -1111,8 +1112,6 @@ LocalVarNode
           @code_space_tab = []
           @asm_tab = {}
           @id.push 0
-
-          @local_object_area = nil
 
           @frame_struct_array = []
           @unwind_proc = CodeSpace.new
@@ -1176,13 +1175,11 @@ LocalVarNode
         end
 
         def compile_init(context)
-          if @init_node == nil then
-            ar = @local_object_area = Runtime::Arena.new
-            aa = (ar.address + ar.size) & (~0xf)
-            asm = context.assembler
-            asm.with_retry do
-              asm.mov(THEPR, aa)
-            end
+          ar = @@local_object_area
+          aa = (ar.address + ar.size) & (~0xf)
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(THEPR, aa)
           end
           context
         end
@@ -1191,8 +1188,7 @@ LocalVarNode
           if @init_node then
             context = @init_node.compile(context)
           end
-          context = super(context)
-          context
+          super(context)
         end
       end
 
