@@ -953,6 +953,12 @@ LocalVarNode
           end
         end
 
+        attr :klass_object
+        attr :constant_tab
+        attr :method_tab
+        attr :klassclass
+        attr :klassclass_node
+
         def collect_info(context)
           context.modified_local_var.push [{}]
           context.modified_instance_var = Hash.new
@@ -966,11 +972,13 @@ LocalVarNode
         end
 
         def make_klassclass_node
-          clsclsnode = ClassTopNode.new(self, 
-                                        @klassclass, 
-                                        @klassclass.name)
-          clsclsnode.body = DummyNode.new
-          @klassclass_node = clsclsnode
+          if @klassclass_node == nil then
+            clsclsnode = ClassTopNode.new(self, 
+                                          @klassclass, 
+                                          @klassclass.name)
+            clsclsnode.body = DummyNode.new
+            @klassclass_node = clsclsnode
+          end
         end
 
         def get_method_tab(klassobj = @klass_object)
@@ -1019,11 +1027,6 @@ LocalVarNode
 
           [nil, nil]
         end
-
-        attr :klass_object
-        attr :constant_tab
-        attr :method_tab
-        attr :klassclass
 
         def construct_frame_info(locals, argnum)
           locals.unshift :_self
@@ -1956,6 +1959,11 @@ LocalVarNode
           @send_node = sendnode
           if sendnode.is_fcall or sendnode.is_vcall then
             @reciever = @parent.class_top
+            if @reciever == @parent.search_top and 
+                !@reciever.is_a?(TopTopNode) then
+              @reciever.make_klassclass_node
+              @reciever = @reciever.klassclass_node
+            end
           else
             @reciever = sendnode.arguments[2]
           end
@@ -1984,17 +1992,20 @@ LocalVarNode
               @calling_convention = :ytl
             else
               # reciever = Object
-              if @reciever.klass_object then
-                addr = @reciever.klass_object.method_address_of(@name)
+              recobj = @reciever.klass_object
+              if recobj.is_a?(ClassClassWrapper) then
+                recobj = recobj.value
+              end
+              if recobj then
+                addr = recobj.method_address_of(@name)
                 if addr then
-                  recobj = @reciever.klass_object
                   if variable_argument?(recobj.method(@name).parameters) then
                     @calling_convention = :c_vararg
                   else
                     @calling_convention = :c_fixarg
                   end
                 else
-                  raise "Unkown method - #{@name}"
+                  raise "Unkown method - #{recobj}##{@name}"
                   @calling_convention = :c
                 end
               else
@@ -2053,9 +2064,13 @@ LocalVarNode
               cs = mtop.find_cs_by_signature(sig)
               context.ret_reg = cs.var_base_address
             else
-              if @reciever.klass_object then
+              recobj = @reciever.klass_object
+              if recobj.is_a?(ClassClassWrapper) then
+                recobj = recobj.value
+              end
+              if recobj then
                 addr = lambda {
-                  @reciever.klass_object.method_address_of(@name)
+                  recobj.method_address_of(@name)
                 }
                 if addr.call then
                   context.ret_reg = OpVarMemAddress.new(addr)
