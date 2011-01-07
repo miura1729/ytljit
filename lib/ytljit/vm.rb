@@ -380,6 +380,7 @@ LocalVarNode
           else
             @type
           end
+          @type
         end
 
         def decide_type(sig)
@@ -2013,8 +2014,7 @@ LocalVarNode
               end
             end
           else
-            @reciever.decide_type_once(context.to_signature)
-            rtype = @reciever.type
+            rtype = @reciever.decide_type_once(context.to_signature)
             rklass = rtype.ruby_type_raw
             knode = ClassTopNode.get_class_top_node(rklass)
             if knode and knode.search_method_with_super(@name)[0] then
@@ -2087,10 +2087,12 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
-            context.ret_node.decide_type_once(context.to_signature)
-            rtype = context.ret_node.type
+            rtype = context.ret_node.decide_type_once(context.to_signature)
             if @calling_convention != :ytl then
               context = rtype.gen_boxing(context)
+              rtype = rtype.to_box
+            elsif !rtype.boxed then
+              context = rtype.gen_unboxing(context)
             end
             recval = context.ret_reg
             rrtype = rtype.ruby_type_raw
@@ -2534,10 +2536,6 @@ LocalVarNode
             same_type(self, @value_node, cursig, cursig, context)
           end
           context
-        end
-        
-        def type
-          @value_node.type
         end
 
         def compile(context)

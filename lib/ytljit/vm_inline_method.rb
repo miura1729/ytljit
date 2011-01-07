@@ -58,9 +58,8 @@ module YTLJit
         context.ret_reg = resreg
         
         decide_type_once(context.to_signature)
-
         if @type.boxed then
-          context = @type.to_unbox.gen_boxing(context)
+          context = @type.gen_boxing(context)
         end
         
         context
@@ -102,8 +101,8 @@ module YTLJit
         context.ret_reg = resreg
         
         decide_type_once(context.to_signature)
-        if type.boxed then
-          context = type.gen_boxing(context)
+        if @type.boxed then
+          context = @type.gen_boxing(context)
         end
         
         context

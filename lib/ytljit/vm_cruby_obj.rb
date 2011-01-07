@@ -26,6 +26,10 @@ module YTLJit
           
           context.ret_reg = RETR
           context.ret_node = self
+          decide_type_once(context.to_signature)
+          if !@type.boxed then 
+            context = @type.to_box.gen_unboxing(context)
+          end
           context
         end
       end

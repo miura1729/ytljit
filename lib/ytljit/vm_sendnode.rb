@@ -934,7 +934,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
-          floattype = floattype.to_box
+ #         floattype = floattype.to_box
           add_type(sig, floattype)
           context
         end
@@ -945,7 +945,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
-          fixnumtype = fixnumtype.to_box
+#          fixnumtype = fixnumtype.to_box
           add_type(sig, fixnumtype)
           context
         end
@@ -957,6 +957,39 @@ module YTLJit
           sig = context.to_signature
           same_type(self, @arguments[2], sig, sig, context)
           context
+        end
+
+        def compile(context)
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rtype.is_a?(RubyType::DefaultType0) or
+              @class_top.search_method_with_super(@func.name, rrtype)[0] then
+            return super(context)
+          end
+
+          context = gen_eval_self(context)
+          context = rtype.gen_unboxing(context)
+          asm = context.assembler
+          if rrtype == Fixnum then
+            asm.with_retry do
+              asm.mov(RETR, context.ret_reg)
+              asm.neg(RETR)
+            end
+            context.ret_reg = RETR
+          elsif rrtype == Float then
+            context.start_using_reg(XMM4)
+            asm.with_retry do
+              asm.mov(XMM4, context.ret_reg)
+              asm.subsd(XMM0, XMM0)
+              asm.subsd(XMM0, XMM4)
+            end
+            context.ret_reg = XMM0
+            context.end_using_reg(XMM4)
+          end
+          context.ret_node = self
+
+          @body.compile(context)
         end
       end
 
@@ -1085,7 +1118,7 @@ module YTLJit
           context
         end
 
-        def compile2(context)
+        def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
