@@ -92,8 +92,7 @@ module YTLJit
         context.the_top
       end
 
-      def translate_block(code, context)
-        visit_block_start(code, nil, context)
+      def translate_main(code, context)
         code.body.each do |ins|
           pos = "#{code.header['filename']}:#{context.current_line_no}"
           context.enc_pos_in_source = pos
@@ -111,6 +110,11 @@ module YTLJit
             send(("visit_" + opname).to_sym, code, ins, context)
           end
         end
+      end
+
+      def translate_block(code, context)
+        visit_block_start(code, nil, context)
+        translate_main(code, context)
         visit_block_end(code, nil, context)
       end
     end
@@ -128,6 +132,14 @@ module YTLJit
         end
         
         nllab
+      end
+
+      def gen_arg_node(context, func, args)
+        curnode = context.current_node
+        nnode = SendNode.new(curnode, func, args, 0, 0)
+        nnode.debug_info = context.debug_info
+        func.parent = nnode
+        nnode
       end
 
       def visit_symbol(code, ins, context)
@@ -173,6 +185,16 @@ module YTLJit
       end
 
       def visit_block_end(code, ins, context)
+        curnode = context.current_node
+        top = context.top_nodes.last
+        if top.class == MethodTopNode then
+          if top.end_nodes.size == 1 and
+              curnode.value_node.is_a?(SendEvalNode) then
+            code = top.to_ruby(ToRubyContext.new).ret_code.last
+            proc = eval("lambda" + code)
+            SendNode.get_macro_tab[top.name] = proc
+          end
+        end
       end
 
       def depth_of_block(code)
@@ -350,8 +372,32 @@ module YTLJit
         context.expstack.push nnode
       end
 
-      # concatstrings
-      # tostring
+      def visit_concatstrings(code, ins, context)
+        curnode = context.current_node
+        numarg = ins[1] - 1
+        nnode = context.expstack[-numarg - 1]
+        numarg.times do |i|
+          func = FixArgCApiNode.new(curnode, "rb_str_append")
+          args = [nnode, context.expstack[i - numarg]]
+          nnode = gen_arg_node(context, func, args)
+        end
+
+        numarg.times do
+          context.expstack.pop
+        end
+        context.expstack.push nnode
+      end
+
+      def visit_tostring(code, ins, context)
+        curnode = context.current_node
+        func = FixArgCApiNode.new(curnode, "rb_obj_as_string")
+        args = []
+        argele = context.expstack.pop
+        args.push argele
+        nnode = gen_arg_node(context, func, args)
+        context.expstack.push nnode
+      end
+
       # toregexp
 
       def newinst_to_sendnode(argnum, klass, code, ins, context)
@@ -555,9 +601,20 @@ module YTLJit
 
         func = MethodSelectNode.new(curnode, ins[1])
         sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
-        sn.debug_info = context.debug_info
-        func.set_reciever(sn)
-        context.expstack.push sn
+        if sn.is_a?(SendNode) then
+          sn.debug_info = context.debug_info
+          func.set_reciever(sn)
+          context.expstack.push sn
+        elsif sn.is_a?(String)
+          is = RubyVM::InstructionSequence.compile(
+                   sn, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS
+               ).to_a
+          ncode = VMLib::InstSeqTree.new(code, is)
+          ncode.body.pop        # Chop leave instruction
+          translate_main(ncode, context)
+        else
+          raise "Unexcepted data type #{sn.class}"
+        end
 
         context
       end

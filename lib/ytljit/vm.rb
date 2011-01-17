@@ -1106,7 +1106,7 @@ LocalVarNode
         @@frame_struct_tab = {}
         @@local_object_area = Runtime::Arena.new
 
-        def self.frame_struct_tab
+        def self.get_frame_struct_tab
           @@frame_struct_tab
         end
 
@@ -1939,6 +1939,41 @@ LocalVarNode
           context.ret_reg2 = PTMPR
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
+          context.ret_node = self
+          context.set_reg_content(context.ret_reg, self)
+          context
+        end
+      end
+
+      # C API (fix arguments)
+      class FixArgCApiNode<BaseNode
+        include NodeUtil
+        include SendUtil
+
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @frame_info = search_frame_info
+        end
+
+        attr :name
+        attr :frame_info
+
+        def collect_candidate_type(context)
+          context
+        end
+
+        def calling_convention(context)
+          :c_fixarg
+        end
+
+        def method_top_node(ctop, slf)
+          nil
+        end
+
+        def compile(context)
+          context = super(context)
+          context.ret_reg = OpMemAddress.new(address_of(@name))
           context.ret_node = self
           context.set_reg_content(context.ret_reg, self)
           context

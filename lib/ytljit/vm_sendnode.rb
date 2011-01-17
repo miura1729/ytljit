@@ -47,9 +47,14 @@ module YTLJit
 
         @@current_node = nil
         @@special_node_tab = {}
+        @@macro_tab = {}
         
         def self.node
           @@current_node
+        end
+
+        def self.get_macro_tab
+          @@macro_tab
         end
 
         def self.add_special_send_node(name)
@@ -63,6 +68,14 @@ module YTLJit
         end
 
         def self.make_send_node(parent, func, arguments, op_flag, seqno)
+          if mproc = @@macro_tab[func.name] then
+            args = []
+            arguments[3..-1].each do |ele|
+               args.push eval(ele.to_ruby(ToRubyContext.new).ret_code.last)
+            end
+            return mproc.call(*args)
+          end
+
           spcl = @@special_node_tab[func.name]
           newobj = nil
           if spcl then
@@ -399,6 +412,10 @@ module YTLJit
 
           context
         end
+      end
+      
+      class SendEvalNode<SendNode
+        add_special_send_node :eval
       end
 
       class SendAllocateNode<SendNode
@@ -934,7 +951,6 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
- #         floattype = floattype.to_box
           add_type(sig, floattype)
           context
         end
@@ -945,7 +961,6 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
-#          fixnumtype = fixnumtype.to_box
           add_type(sig, fixnumtype)
           context
         end

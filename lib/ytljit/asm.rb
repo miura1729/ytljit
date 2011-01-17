@@ -20,7 +20,7 @@ module YTLJit
     def backtrace(bp)
       bp = memref(bp)
       pc = memref(bp + AsmType::MACHINE_WORD.size)
-      frame_struct_tab = VM::Node::TopTopNode.frame_struct_tab
+      frame_struct_tab = VM::Node::TopTopNode.get_frame_struct_tab
       if frame_struct_tab[pc] then
         STDERR.print frame_struct_tab[pc][0].class, "\n"
         STDERR.print frame_struct_tab[pc][0].debug_info, "\n"
@@ -33,7 +33,7 @@ module YTLJit
     def step_handler(*regval)
       STDERR.print "#{regval[1].to_s(16)} "
       STDERR.print CodeSpace.disasm_cache[regval[1].to_s(16)], "\n"
-      frame_struct_tab = VM::Node::TopTopNode.frame_struct_tab
+      frame_struct_tab = VM::Node::TopTopNode.get_frame_struct_tab
       STDERR.print frame_struct_tab[regval[1]][0].debug_info, "\n"
       STDERR.print frame_struct_tab[regval[1]][2].map {|n| n.class}, "\n"
       REGS.each do |rname, no|
