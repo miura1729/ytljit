@@ -776,21 +776,59 @@ LocalVarNode
           end
         end
 
-        def construct_frame_info(locals, argnum)
+        def add_arg_to_args(args, addnum)
+          if args.is_a?(Integer) then
+            args = args + addnum
+          elsif args.is_a?(Array) then
+            args = args.dup
+            args[0] += addnum
+            args[3] += addnum if args[3] >= 0
+            args[4] += addnum if args[4] >= 0
+            args[5] += addnum if args[5] >= 0
+          else
+            raise "Unkonwn args #{args}"
+          end
+
+          args
+        end
+
+        def construct_frame_info(locals, argnum, args)
           finfo = LocalFrameInfoNode.new(self)
           finfo.system_num = 5         # BP ON Stack, HP, ET, BP, RET
+
+          argc = args
+          opt_label = []
+          rest_index = -1
+          post_len = -1
+          post_start = -1
+          block_index = -1
+          simple = -1
+          if args.is_a?(Array) then
+            argc = args[0]
+            opt_label = args[1]
+            post_len = args[2]
+            post_start = args[3]
+            rest_index = args[4]
+            block_index = args[5]
+            simple = args[6]
+          end
           
           # 5means BP, HP, Exception Tag, BP and SP
           lsize = locals.size + finfo.system_num
           
           # construct frame
           frame_layout = Array.new(lsize)
-          i = 0
           fargstart = lsize - argnum
+          i = 0
           argnum.times do
-            lnode = LocalVarNode.new(finfo, locals[i], fargstart + i)
+            kind = :arg
+            if i == rest_index then
+              kind = :rest_arg
+            end
+            lnode = LocalVarNode.new(finfo, locals[i], fargstart + i,
+                                     kind)
             frame_layout[fargstart + i] = lnode
-            i += 1
+            i = i + 1
           end
           
           curpos = fargstart - 1
@@ -812,7 +850,7 @@ LocalVarNode
           j = 0
           lvarnum = lsize - finfo.system_num 
           while i < lvarnum do
-            lnode = LocalVarNode.new(finfo, locals[i], j)
+            lnode = LocalVarNode.new(finfo, locals[i], j, :local_var)
             frame_layout[j] = lnode
             i += 1
             j += 1
@@ -908,12 +946,13 @@ LocalVarNode
           context
         end
 
-        def construct_frame_info(locals, argnum)
+        def construct_frame_info(locals, argnum, args)
           locals.unshift :_self
           locals.unshift :_block
           locals.unshift :_prev_env
           argnum += 3
-          super(locals, argnum)
+          args = add_arg_to_args(args, 3)
+          super(locals, argnum, args)
         end
       end
 
@@ -1029,12 +1068,13 @@ LocalVarNode
           [nil, nil]
         end
 
-        def construct_frame_info(locals, argnum)
+        def construct_frame_info(locals, argnum, args)
           locals.unshift :_self
           locals.unshift :_block
           locals.unshift :_prev_env
           argnum += 3
-          super(locals, argnum)
+          args = add_arg_to_args(args, 3)
+          super(locals, argnum, args)
         end
 
         def collect_candidate_type(context, signode, sig)
@@ -1306,13 +1346,15 @@ LocalVarNode
       end
 
       class LocalVarNode<BaseNode
-        def initialize(parent, name, offset)
+        def initialize(parent, name, offset, kind)
           super(parent)
           @name = name
           @offset = offset
+          @kind = kind
         end
 
         attr :name
+        attr :kind
 
         def size
           8

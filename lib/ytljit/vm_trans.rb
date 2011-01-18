@@ -176,12 +176,14 @@ module YTLJit
         end
 
         locals = code.header['locals']
-        args   = code.header['misc'][:arg_size]
-        (args - locals.size).times do 
+        arg_size   = code.header['misc'][:arg_size]
+        args   = code.header['args']
+        (arg_size - locals.size).times do 
           locals.push nil
         end
-
-        context.current_node = mtopnode.construct_frame_info(locals, args)
+        
+        cnode = mtopnode.construct_frame_info(locals, arg_size, args)
+        context.current_node = cnode
       end
 
       def visit_block_end(code, ins, context)
@@ -191,6 +193,7 @@ module YTLJit
           if top.end_nodes.size == 1 and
               curnode.value_node.is_a?(SendEvalNode) then
             code = top.to_ruby(ToRubyContext.new).ret_code.last
+            print code
             proc = eval("lambda" + code)
             SendNode.get_macro_tab[top.name] = proc
           end
@@ -374,11 +377,11 @@ module YTLJit
 
       def visit_concatstrings(code, ins, context)
         curnode = context.current_node
-        numarg = ins[1] - 1
-        nnode = context.expstack[-numarg - 1]
-        numarg.times do |i|
+        numarg = ins[1]
+        nnode = context.expstack[-numarg]
+        (numarg - 1).times do |i|
           func = FixArgCApiNode.new(curnode, "rb_str_append")
-          args = [nnode, context.expstack[i - numarg]]
+          args = [nnode, context.expstack[i - numarg + 1]]
           nnode = gen_arg_node(context, func, args)
         end
 
