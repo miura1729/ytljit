@@ -71,9 +71,11 @@ module YTLJit
           if mproc = @@macro_tab[func.name] then
             args = []
             arguments[3..-1].each do |ele|
-               args.push eval(ele.to_ruby(ToRubyContext.new).ret_code.last)
+              args.push eval(ele.to_ruby(ToRubyContext.new).ret_code.last)
             end
-            return mproc.call(*args)
+            res = mproc.call(*args)
+#            p res
+            return res
           end
 
           spcl = @@special_node_tab[func.name]

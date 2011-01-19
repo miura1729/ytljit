@@ -22,6 +22,8 @@ module YTLJit
         @local_label_tab = {}
 
         @not_reached_pos = false
+
+        @macro_method = nil
       end
 
       attr_accessor :the_top
@@ -43,6 +45,8 @@ module YTLJit
       attr          :local_label_tab
 
       attr_accessor :not_reached_pos
+
+      attr_accessor :macro_method
 
       def import_object(klass, name, value)
         ctn = ClassTopNode.get_class_top_node(klass)
@@ -175,6 +179,8 @@ module YTLJit
           mtopnode.init_node = oldtop
         end
 
+        context.macro_method = nil
+
         locals = code.header['locals']
         arg_size   = code.header['misc'][:arg_size]
         args   = code.header['args']
@@ -190,10 +196,9 @@ module YTLJit
         curnode = context.current_node
         top = context.top_nodes.last
         if top.class == MethodTopNode then
-          if top.end_nodes.size == 1 and
-              curnode.value_node.is_a?(SendEvalNode) then
+          if context.macro_method then
             code = top.to_ruby(ToRubyContext.new).ret_code.last
-            print code
+#            print code
             proc = eval("lambda" + code)
             SendNode.get_macro_tab[top.name] = proc
           end
@@ -366,6 +371,7 @@ module YTLJit
 
         tr = self.class.new([body])
         tr.translate(ncontext)
+        context.macro_method = ncontext.macro_method
         context.expstack.push mtopnode
       end
 
@@ -588,6 +594,8 @@ module YTLJit
           tr = self.class.new([body])
           tr.translate(ncontext)
           btn.debug_info = context.debug_info
+          context.macro_method = ncontext.macro_method
+
           arg.push btn # block
         else
           argnode = LiteralNode.new(curnode, nil)
@@ -604,17 +612,29 @@ module YTLJit
 
         func = MethodSelectNode.new(curnode, ins[1])
         sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
+        if sn.is_a?(SendEvalNode) then
+          if context.macro_method == nil then
+            context.macro_method = true
+          end
+        end
+
         if sn.is_a?(SendNode) then
           sn.debug_info = context.debug_info
           func.set_reciever(sn)
           context.expstack.push sn
-        elsif sn.is_a?(String)
+
+        elsif sn.is_a?(Array)
+          # macro(including eval method). execute in compile time and
+          # compile eval strings.
+          val, evalstr = sn
+          evalstr = evalstr.join("\n")
           is = RubyVM::InstructionSequence.compile(
-                   sn, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS
+                   evalstr, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS
                ).to_a
           ncode = VMLib::InstSeqTree.new(code, is)
           ncode.body.pop        # Chop leave instruction
           translate_main(ncode, context)
+#          context.expstack.push val
         else
           raise "Unexcepted data type #{sn.class}"
         end
