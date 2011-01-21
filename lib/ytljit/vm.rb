@@ -703,6 +703,43 @@ LocalVarNode
           context.end_using_reg(fnc)
           context
         end
+
+        def compile_c_fixarg_raw(context)
+          context = @func.compile(context)
+          fnc = context.ret_reg
+          numarg = @arguments.size
+          
+          numarg.times do |i|
+            context.start_using_reg(FUNC_ARG[i])
+          end
+          context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
+          
+          @arguments.each_with_index do |arg, argpos|
+            context = arg.compile(context)
+            context.ret_node.decide_type_once(context.to_signature)
+            rtype = context.ret_node.type
+
+            casm = context.assembler
+            casm.with_retry do 
+              casm.mov(FUNC_ARG[argpos], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG[argpos].dst_opecode, 
+                                    context.ret_node)
+          end
+          
+          context = gen_call(context, fnc, numarg)
+          
+          context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
+          numarg.times do |i|
+            context.end_using_reg(FUNC_ARG[numarg - i - 1])
+          end
+          context.end_using_reg(fnc)
+          context.ret_reg = RETR
+          context.set_reg_content(context.ret_reg, self)
+          
+          decide_type_once(context.to_signature)
+          context
+        end
       end
 
       class DummyNode
@@ -1987,8 +2024,7 @@ LocalVarNode
         end
       end
 
-      # C API (fix arguments)
-      class FixArgCApiNode<BaseNode
+      class CApiCommonNode<BaseNode
         include NodeUtil
         include SendUtil
 
@@ -2005,10 +2041,6 @@ LocalVarNode
           context
         end
 
-        def calling_convention(context)
-          :c_fixarg
-        end
-
         def method_top_node(ctop, slf)
           nil
         end
@@ -2019,6 +2051,20 @@ LocalVarNode
           context.ret_node = self
           context.set_reg_content(context.ret_reg, self)
           context
+        end
+      end
+
+      # C API (fix arguments)
+      class FixArgCApiNode<CApiCommonNode
+        def calling_convention(context)
+          :c_fixarg_raw
+        end
+      end
+
+      # C API (variable arguments)
+      class VarArgCApiNode<CApiCommonNode
+        def calling_convention(context)
+          :c_vararg_raw
         end
       end
 
@@ -2111,7 +2157,22 @@ LocalVarNode
                 if rklass.is_a?(ClassClassWrapper) then
                   rklass = rklass.value
                 end
-                mth = rklass.instance_method(@name)
+                begin
+                  mth = rklass.instance_method(@name)
+                rescue NameError
+                  p @parent.debug_info
+                  p context.to_signature
+                  p @name
+#                  p @reciever.func.reciever.class
+#                  p @reciever.instance_eval {@type_list }
+=begin
+                  mc = @reciever.get_send_method_node(context.to_signature)[0]
+                  iv = mc.end_nodes[0].parent.value_node
+                  p iv.instance_eval {@name}
+                  p iv.instance_eval {@type_list}
+=end
+                  raise
+                end
                 @ruby_reciever = rtype.ruby_type_raw
               end
 
@@ -2506,6 +2567,7 @@ LocalVarNode
           vti = context.modified_instance_var[@name]
           if vti == nil then
             vti = []
+            context.modified_instance_var[@name] = vti
           end
           # Not dup so vti may update after.
           @var_type_info = vti 
@@ -2547,7 +2609,10 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          context.modified_instance_var[@name] = [self]
+          if context.modified_instance_var[@name] == nil then
+            context.modified_instance_var[@name] = []
+          end
+          context.modified_instance_var[@name].push self
           @body.collect_info(context)
         end
 

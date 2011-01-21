@@ -138,9 +138,9 @@ module YTLJit
         nllab
       end
 
-      def gen_arg_node(context, func, args)
+      def gen_arg_node(context, sendnode, func, args)
         curnode = context.current_node
-        nnode = SendNode.new(curnode, func, args, 0, 0)
+        nnode = sendnode.new(curnode, func, args, 0, 0)
         nnode.debug_info = context.debug_info
         func.parent = nnode
         nnode
@@ -388,7 +388,7 @@ module YTLJit
         (numarg - 1).times do |i|
           func = FixArgCApiNode.new(curnode, "rb_str_append")
           args = [nnode, context.expstack[i - numarg + 1]]
-          nnode = gen_arg_node(context, func, args)
+          nnode = gen_arg_node(context, RetStringSendNode, func, args)
         end
 
         numarg.times do
@@ -403,7 +403,7 @@ module YTLJit
         args = []
         argele = context.expstack.pop
         args.push argele
-        nnode = gen_arg_node(context, func, args)
+        nnode = gen_arg_node(context, RetStringSendNode, func, args)
         context.expstack.push nnode
       end
 
@@ -425,7 +425,17 @@ module YTLJit
       end
 
       def visit_newarray(code, ins, context)
-        newinst_to_sendnode(ins[1], Array, code, ins, context)
+        curnode = context.current_node
+        func = FixArgCApiNode.new(curnode, "rb_ary_new3")
+        argnum = ins[1]
+        argnumnode = LiteralNode.new(nil, argnum)
+        args = [argnumnode]
+        argnum.times do
+          argele = context.expstack.pop
+          args.push argele
+        end
+        nnode = gen_arg_node(context, RetArraySendNode, func, args)
+        context.expstack.push nnode
       end
 
       def visit_duparray(code, ins, context)
@@ -468,17 +478,26 @@ module YTLJit
       end
 
       def visit_dupn(code, ins, context)
+        raise "foo"
       end
 
       def visit_swap(code, ins, context)
+        val0 = context.expstack.pop
+        val1 = context.expstack.pop
+        context.expstack.push val0
+        context.expstack.push val1
       end
 
       # reput
       
       def visit_topn(code, ins, context)
+        n = ins[1] + 1
+        context.expstack.push context.expstack[-n]
       end
 
       def visit_setn(code, ins, context)
+        n = ins[1] + 1
+        context.expstack[-n] = context.expstack.last
       end
 
       # adjuststack

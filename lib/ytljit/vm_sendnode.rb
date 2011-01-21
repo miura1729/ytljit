@@ -74,7 +74,6 @@ module YTLJit
               args.push eval(ele.to_ruby(ToRubyContext.new).ret_code.last)
             end
             res = mproc.call(*args)
-#            p res
             return res
           end
 
@@ -294,8 +293,14 @@ module YTLJit
           when :c_fixarg
             context = compile_c_fixarg(context)
 
+          when :c_fixarg_raw
+            context = compile_c_fixarg_raw(context)
+
           when :ytl
             context = compile_ytl(context)
+
+          else
+            raise "Unsupported calling conversion #{callconv}"
           end
           
           decide_type_once(context.to_signature)
@@ -465,6 +470,9 @@ module YTLJit
 
           when :ytl
             context = compile_ytl(context)
+
+          else
+            raise "Unsupported calling conversion #{callconv}"
           end
 
           asm = context.assembler
@@ -1153,7 +1161,7 @@ module YTLJit
         end
       end
       
-      class SendSqrtNode < SendMathFuncNode
+      class SendSqrtNode<SendMathFuncNode
         add_special_send_node :sqrt
         def compile_main(context)
           context = compile_call_func(context, "sqrt")
@@ -1163,7 +1171,7 @@ module YTLJit
         end
       end
 
-      class SendSinNode < SendMathFuncNode
+      class SendSinNode<SendMathFuncNode
         add_special_send_node :sin
         def compile_main(context)
           context = compile_call_func(context, "sin")
@@ -1173,7 +1181,7 @@ module YTLJit
         end
       end
 
-      class SendCosNode < SendMathFuncNode
+      class SendCosNode<SendMathFuncNode
         add_special_send_node :cos
         def compile_main(context)
           context = compile_call_func(context, "cos")
@@ -1183,12 +1191,48 @@ module YTLJit
         end
       end
 
-      class SendTanNode < SendMathFuncNode
+      class SendTanNode<SendMathFuncNode
         add_special_send_node :tan
         def compile_main(context)
           context = compile_call_func(context, "tan")
           context.ret_node = self
           context.ret_reg = XMM0
+          context
+        end
+      end
+
+      class RawSendNode<SendNode
+        def collect_candidate_type(context)
+          @arguments.each do |arg|
+            context = arg.collect_candidate_type(context)
+          end
+
+          context = collect_candidate_type_body(context)
+
+          @body.collect_candidate_type(context)
+        end
+      end
+
+      class RetStringSendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(String)
+          add_type(sig, tt)
+
+          context
+        end
+      end
+
+      class RetArraySendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(Array)
+          add_type(sig, tt)
+
+          @arguments[3..-1].each do |anode|
+            add_element_node(sig, anode, context)
+          end
+
           context
         end
       end
