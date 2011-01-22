@@ -1103,6 +1103,16 @@ module YTLJit
         end
       end
 
+      class SendSizeNode<SendNode
+        add_special_send_node :size
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(Fixnum)
+          add_type(cursig, tt)
+          context
+        end
+      end
+
       class SendSameArgTypeNode<SendNode
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature

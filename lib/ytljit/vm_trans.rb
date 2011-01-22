@@ -429,11 +429,13 @@ module YTLJit
         func = FixArgCApiNode.new(curnode, "rb_ary_new3")
         argnum = ins[1]
         argnumnode = LiteralNode.new(nil, argnum)
-        args = [argnumnode]
+        args = []
         argnum.times do
           argele = context.expstack.pop
           args.push argele
         end
+        args.push argnumnode
+        args = args.reverse
         nnode = gen_arg_node(context, RetArraySendNode, func, args)
         context.expstack.push nnode
       end
@@ -474,7 +476,10 @@ module YTLJit
       end
 
       def visit_dup(code, ins, context)
-        context.expstack.push context.expstack.last
+        orgnode = context.expstack.pop
+        nnode = MultiplexNode.new(orgnode)
+        context.expstack.push nnode
+        context.expstack.push nnode
       end
 
       def visit_dupn(code, ins, context)
@@ -491,13 +496,17 @@ module YTLJit
       # reput
       
       def visit_topn(code, ins, context)
+        raise
         n = ins[1] + 1
         context.expstack.push context.expstack[-n]
       end
 
       def visit_setn(code, ins, context)
         n = ins[1] + 1
-        context.expstack[-n] = context.expstack.last
+        orgnode = context.expstack.last
+        nnode = MultiplexNode.new(orgnode)
+        context.expstack[-n] = nnode
+        context.expstack[-1] = nnode
       end
 
       # adjuststack

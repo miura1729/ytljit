@@ -896,6 +896,7 @@ LocalVarNode
           finfo.argument_num = argnum
           
           @body = finfo
+          finfo.init_after_construct
           finfo
         end
 
@@ -1283,6 +1284,12 @@ LocalVarNode
           @system_num = nil
           @previous_frame = search_previous_frame(parent)
           @offset_cache = {}
+          @local_area_size = nil
+          @alloca_area_size = 0
+        end
+
+        def init_after_construct
+          @local_area_size = compute_local_area_size
         end
 
         def search_previous_frame(mtop)
@@ -1318,9 +1325,11 @@ LocalVarNode
           @frame_layout.inject(0) {|sum, slot| sum += slot.size}
         end
 
-        def local_area_size
+        def compute_local_area_size
           localnum = @frame_layout.size - @argument_num - @system_num
-          @frame_layout[0, localnum].inject(0) {|sum, slot| sum += slot.size}
+          @frame_layout[0, localnum].inject(0) {|sum, slot| 
+            sum += slot.size
+          }
         end
 
         def real_offset(off)
@@ -1341,7 +1350,7 @@ LocalVarNode
             obyte += @frame_layout[i].size
           end
           
-          obyte - local_area_size
+          obyte - @local_area_size
         end
 
         def offset_arg(n, basereg)
@@ -1360,6 +1369,12 @@ LocalVarNode
           rc
         end
 
+        def alloca(size)
+#          base = -offset_by_byte(0)
+          @alloca_area_size += size
+          -(@local_area_size + @alloca_area_size)
+        end
+
         def collect_candidate_type(context)
           traverse_childlen {|rec|
             context = rec.collect_candidate_type(context)
@@ -1368,7 +1383,7 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          siz = local_area_size
+          siz = @local_area_size + @alloca_area_size
           if  siz != 0 then
             asm = context.assembler
             asm.with_retry do
@@ -1579,7 +1594,6 @@ LocalVarNode
             if vnode then
               cursig = context.to_signature
               same_type(self, vnode, cursig, cursig, context)
-              same_type(vnode, self, cursig, cursig, context)
             end
           end
           context
@@ -1821,6 +1835,61 @@ LocalVarNode
       # Holder of Nodes Assign. These assignes execute parallel potencially.
       class LetNode<BaseNode
         include HaveChildlenMixin
+      end
+
+      # Multiplexer of node (Using YARV stack operation)
+      class MultiplexNode<BaseNode
+        include HaveChildlenMixin
+        include NodeUtil
+
+        def initialize(node)
+          super(node.parent)
+          @node = node
+          @first_compile = true
+          @res_area = nil
+        end
+
+        def traverse_childlen
+          yield @node
+        end
+
+        def collect_info(context)
+          tnode = search_frame_info
+          offset = tnode.alloca(8)
+          @res_area = OpIndirect.new(BPR, offset)
+          @node.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          sig = context.to_signature          
+          same_type(self, @node, sig, sig, context)
+          same_type(@node, self, sig, sig, context)
+          @node.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          if @first_compile then
+            context = @node.compile(context)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(@res_area, context.ret_reg)
+            end
+            context.set_reg_content(@res_area, self)
+            @first_compile = false
+
+            context
+          else
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(RETR, @res_area)
+            end
+            context.set_reg_content(@res_area, self)
+            context.ret_reg = RETR
+            context.ret_node = self
+
+            context
+          end
+        end
       end
 
       # Literal
@@ -2164,7 +2233,7 @@ LocalVarNode
                   p context.to_signature
                   p @name
 #                  p @reciever.func.reciever.class
-#                  p @reciever.instance_eval {@type_list }
+                  p @reciever.instance_eval {@type_list }
 =begin
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
