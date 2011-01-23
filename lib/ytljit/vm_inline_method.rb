@@ -2,6 +2,36 @@ module YTLJit
   module VM
     module ArithmeticOperationUtil
       include AbsArch
+      def decide_type_core_local(tlist, sig, local_cache = {})
+        tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
+        if tlist.size < 2 then
+          return decide_type_core(tlist, local_cache)
+        end
+        aele = @arguments[3].decide_type_once(sig)
+        p aele
+        p @arguments[3].func.name
+        if tlist.include?(aele) then
+          aele
+        else
+          RubyType::DefaultType0.new
+        end
+      end
+      
+      def decide_type_once(sig, local_cache = {})
+        if local_cache[self] then
+          return local_cache[self] 
+        end
+        
+        if @type.equal?(nil) or @type.is_a?(RubyType::DefaultType0) then
+          tlist = type_list(sig).flatten.uniq
+          @type = decide_type_core_local(tlist, sig, local_cache)
+        else
+          @type
+        end
+        
+        @type
+      end
+
       def gen_arithmetic_operation(context, inst, tempreg, resreg)
         context.start_using_reg(tempreg)
         context = gen_eval_self(context)

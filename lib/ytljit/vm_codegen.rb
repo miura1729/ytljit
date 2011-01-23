@@ -325,7 +325,11 @@ LO        |                       |   |  |
       end
 
       def cpustack_setn(offset, val)
-        @stack_content[offset] = val
+        if offset >= -@stack_content.size then
+          @stack_content[offset] = val
+        else
+          # Modify previous stack (maybe as arguments)
+        end
       end
 
       def cpustack_pushn(num)

@@ -52,7 +52,7 @@ module YTLJit
                 raise "foo"
                 return !b
               end
-            } and false then
+            } then
             cnode = cnode.same_klass
           else
             cnode = cnode.next_klass

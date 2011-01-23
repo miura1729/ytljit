@@ -110,7 +110,7 @@ LocalVarNode
             if @my_element_node == nil then
               @my_element_node = BaseNode.new(self)
             end
-            @element_node_list = [[sig, @my_element_node]]
+            @element_node_list = [[sig, @my_element_node, nil]]
           end
         end
       end
@@ -137,7 +137,7 @@ LocalVarNode
             if @my_element_node == nil then
               @my_element_node = BaseNode.new(self)
             end
-            @element_node_list = [[sig, @my_element_node]]
+            @element_node_list = [[sig, @my_element_node, nil]]
           end
         end
       end
@@ -327,10 +327,10 @@ LocalVarNode
           ti_update(dst, src, dsig, ssig, context)
         end
 
-        def add_element_node(sig, enode, context)
+        def add_element_node(sig, enode, index, context)
           slfetnode = @element_node_list
           unless slfetnode.include?(enode)
-            @element_node_list.push [sig, enode]
+            @element_node_list.push [sig, enode, index]
             orgsig = @element_node_list[0][0]
             orgnode = @element_node_list[0][1]
             if orgnode != enode then
@@ -346,17 +346,18 @@ LocalVarNode
           context
         end
 
-        def decide_type_core(tlist)
+        def decide_type_core(tlist, local_cache = {})
           tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
           case tlist.size
           when 0
             RubyType::DefaultType0.new
             
           when 1
+            local_cache[self] = tlist[0]
             if tlist[0].have_element? then
               sig = @element_node_list[0][0]
               node = @element_node_list[0][1]
-              node.decide_type_once(sig)
+              node.decide_type_once(sig, local_cache)
               tlist[0].element_type = node.type
             end
             tlist[0]
@@ -368,18 +369,24 @@ LocalVarNode
             else
               tlist[1]
             end
+
           else
             RubyType::DefaultType0.new
           end
         end
 
-        def decide_type_once(sig)
+        def decide_type_once(sig, local_cache = {})
+          if local_cache[self] then
+            return local_cache[self] 
+          end
+
           if @type.equal?(nil) or @type.is_a?(RubyType::DefaultType0) then
             tlist = type_list(sig).flatten.uniq
-            @type = decide_type_core(tlist)
+            @type = decide_type_core(tlist, local_cache)
           else
             @type
           end
+
           @type
         end
 

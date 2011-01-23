@@ -551,12 +551,12 @@ module YTLJit
               # set element type
               if tt.ruby_type == Range then
                 tt.args = @arguments[3..-1]
-                add_element_node(sig, @arguments[3], context)
+                add_element_node(sig, @arguments[3], [0], context)
               end
 
               if tt.ruby_type == Array then
-                @arguments[3..-1].each do |anode|
-                  add_element_node(sig, anode, context)
+                @arguments[3..-1].each_with_index do |anode, idx|
+                  add_element_node(sig, anode, [idx - 3], context)
                 end
               end
             else
@@ -613,8 +613,6 @@ module YTLJit
           case [slf.ruby_type]
           when [Fixnum], [Float], [String], [Array]
             cursig = context.to_signature
-            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
-            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
@@ -654,8 +652,6 @@ module YTLJit
           case [slf.ruby_type]
           when [Fixnum], [Float], [Array]
             cursig = context.to_signature
-            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
-            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
@@ -677,6 +673,7 @@ module YTLJit
           elsif rrtype == Float then
             context = gen_arithmetic_operation(context, :subsd, XMM4, XMM0)
           else
+            p debug_info
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
@@ -693,8 +690,6 @@ module YTLJit
           cursig = context.to_signature
           case [slf.ruby_type]
           when [Fixnum], [Float]
-            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
-            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
 
@@ -756,8 +751,6 @@ module YTLJit
           case [slf.ruby_type]
           when [Fixnum], [Float]
             cursig = context.to_signature
-            same_type(@arguments[3], @arguments[2], cursig, cursig, context)
-            same_type(@arguments[2], @arguments[3], cursig, cursig, context)
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
@@ -900,12 +893,13 @@ module YTLJit
         include SendUtil
         add_special_send_node :[]
         def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
-            sig = context.to_signature
             @arguments[3].add_type(sig, fixtype)
-            @arguments[2].add_element_node(sig, self, context)
+            cidx = @arguments[3].get_constant_value
+            @arguments[2].add_element_node(sig, self, cidx, context)
             decide_type_once(sig)
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
@@ -918,8 +912,8 @@ module YTLJit
             end
 
           when [Hash]
-            @arguments[2].add_element_node(context.to_signature, self, context)
-
+            cidx = @arguments[3].get_constant_value
+            @arguments[2].add_element_node(sig, self, cidx, context)
           end
 
           context
@@ -930,13 +924,14 @@ module YTLJit
         include SendUtil
         add_special_send_node :[]=
         def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
-            sig = context.to_signature
             val = @arguments[4]
             @arguments[3].add_type(sig, fixtype)
-            @arguments[2].add_element_node(sig, val, context)
+            cidx = @arguments[3].get_constant_value
+            @arguments[2].add_element_node(sig, val, cidx, context)
             decide_type_once(sig)
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
@@ -949,7 +944,8 @@ module YTLJit
             end
 
           when [Hash]
-            @arguments[2].add_element_node(context.to_signature, self, context)
+            cidx = @arguments[3].get_constant_value
+            @arguments[2].add_element_node(sig, self, cidx, context)
           end
 
           context
@@ -1239,8 +1235,8 @@ module YTLJit
           tt = RubyType::BaseType.from_ruby_class(Array)
           add_type(sig, tt)
 
-          @arguments[3..-1].each do |anode|
-            add_element_node(sig, anode, context)
+          @arguments[1..-1].each_with_index do |anode, idx|
+            add_element_node(sig, anode, [idx - 1], context)
           end
 
           context
