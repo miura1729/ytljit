@@ -330,12 +330,24 @@ LocalVarNode
         def add_element_node(sig, enode, index, context)
           slfetnode = @element_node_list
           unless slfetnode.include?(enode)
+            if @element_node_list == nil and index != nil then
+              @element_node_list.push [sig, enode, nil]
+            end
             @element_node_list.push [sig, enode, index]
             orgsig = @element_node_list[0][0]
             orgnode = @element_node_list[0][1]
             if orgnode != enode then
               same_type(orgnode, enode, orgsig, sig, context)
             end
+            if index != nil then
+              @element_node_list.each do |orgsig, orgnode, orgindex|
+                if orgindex == index and
+                    orgnode != enode then
+                  same_type(orgnode, enode, orgsig, sig, context)
+                end
+              end
+            end
+                  
             ti_changed
 #            context.convergent = false
           end

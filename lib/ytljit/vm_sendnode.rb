@@ -904,11 +904,16 @@ module YTLJit
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
+            @arguments[2].element_node_list.each do |ele|
+              if ele[2] == cidx and ele[1] != self then
+                epare = ele
+                break
+              end
+            end
             esig = epare[0]
             enode = epare[1]
             if enode != self then
               same_type(self, enode, sig, esig, context)
-              same_type(enode, self, esig, sig, context)
             end
 
           when [Hash]
@@ -1236,7 +1241,7 @@ module YTLJit
           add_type(sig, tt)
 
           @arguments[1..-1].each_with_index do |anode, idx|
-            add_element_node(sig, anode, [idx - 1], context)
+            add_element_node(sig, anode, [idx], context)
           end
 
           context
