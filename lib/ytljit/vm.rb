@@ -735,8 +735,17 @@ LocalVarNode
           
           @arguments.each_with_index do |arg, argpos|
             context = arg.compile(context)
-            context.ret_node.decide_type_once(context.to_signature)
-            rtype = context.ret_node.type
+            rtype = context.ret_node.decide_type_once(context.to_signature)
+
+            atype = @func.arg_type[argpos]
+            if atype == :"..." or atype == nil then
+              if @func.arg_type.last == :"..." then
+                atype = @func.arg_type[-2]
+              end
+            end
+            if atype == :VALUE then
+              context = rtype.gen_boxing(context)
+            end
 
             casm = context.assembler
             casm.with_retry do 
@@ -2116,14 +2125,18 @@ LocalVarNode
         include NodeUtil
         include SendUtil
 
-        def initialize(parent, name)
+        def initialize(parent, name, atype, rtype = :VALUE)
           super(parent)
           @name = name
           @frame_info = search_frame_info
+          @arg_type = atype
+          @ret_type = rtype
         end
 
         attr :name
         attr :frame_info
+        attr :arg_type
+        attr :ret_type
 
         def collect_candidate_type(context)
           context

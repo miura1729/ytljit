@@ -386,7 +386,7 @@ module YTLJit
         numarg = ins[1]
         nnode = context.expstack[-numarg]
         (numarg - 1).times do |i|
-          func = FixArgCApiNode.new(curnode, "rb_str_append")
+          func = FixArgCApiNode.new(curnode, "rb_str_append", [:VALUE, :VALUE])
           args = [nnode, context.expstack[i - numarg + 1]]
           nnode = gen_arg_node(context, RetStringSendNode, func, args)
         end
@@ -399,7 +399,7 @@ module YTLJit
 
       def visit_tostring(code, ins, context)
         curnode = context.current_node
-        func = FixArgCApiNode.new(curnode, "rb_obj_as_string")
+        func = FixArgCApiNode.new(curnode, "rb_obj_as_string", [:VALUE])
         args = []
         argele = context.expstack.pop
         args.push argele
@@ -426,7 +426,7 @@ module YTLJit
 
       def visit_newarray(code, ins, context)
         curnode = context.current_node
-        func = FixArgCApiNode.new(curnode, "rb_ary_new3")
+        func = FixArgCApiNode.new(curnode, "rb_ary_new3", [:int, :VALUE, :"..."])
         argnum = ins[1]
         argnumnode = LiteralNode.new(nil, argnum)
         args = []

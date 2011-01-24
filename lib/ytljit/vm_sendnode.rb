@@ -723,6 +723,14 @@ module YTLJit
                   asm.imul(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
                 end
+              elsif context.ret_reg.is_a?(OpImmidiateMachineWord) then
+                asm.with_retry do
+                  asm.mov(TMPR, context.ret_reg)
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.imul(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                end
               else
                 asm.with_retry do
                   asm.mov(DBLLOR, TMPR2)
@@ -774,6 +782,13 @@ module YTLJit
               asm = context.assembler
               asm.with_retry do
                 if context.ret_reg == TMPR then
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                elsif context.ret_reg.is_a?(OpImmidiateMachineWord) then
+                  asm.mov(TMPR, context.ret_reg)
                   asm.push(TMPR)
                   asm.mov(DBLLOR, TMPR2)
                   asm.cdq
