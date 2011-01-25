@@ -109,8 +109,7 @@ module YTLJit
           val = context.ret_reg
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
-#          context.start_using_reg(TMPR3)
-          context.start_using_reg(FUNC_FLOAT_ARG[0])
+          context.start_arg_reg(FUNC_FLOAT_ARG)
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
 =begin
           # This is sample of backtrace
@@ -122,7 +121,7 @@ module YTLJit
           end
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbfloatnew, 1, vnode)
-          context.end_using_reg(FUNC_FLOAT_ARG[0])
+          context.end_arg_reg(FUNC_FLOAT_ARG)
 #          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
@@ -159,18 +158,16 @@ module YTLJit
           asm = context.assembler
           val = context.ret_reg
           vnode = context.ret_node
-          context.start_using_reg(TMPR2)
-#          context.start_using_reg(TMPR3)
-          context.start_using_reg(FUNC_ARG[0])
+          context.start_using_reg(TMPR3)
+          context.start_arg_reg
           rbarydup = OpMemAddress.new(address_of("rb_ary_dup"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
           end
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbarydup, 1, vnode)
-          context.end_using_reg(FUNC_ARG[0])
-#          context.end_using_reg(TMPR3)
-          context.end_using_reg(TMPR2)
+          context.end_arg_reg
+          context.end_using_reg(TMPR3)
           context.ret_reg = RETR
 
           context
@@ -202,16 +199,14 @@ module YTLJit
           val = context.ret_reg
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
-#          context.start_using_reg(TMPR3)
-          context.start_using_reg(FUNC_ARG[0])
+          context.start_arg_reg
           rbstrresurrect = OpMemAddress.new(address_of("rb_str_resurrect"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
           end
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbstrresurrect, 1, vnode)
-          context.end_using_reg(FUNC_ARG[0])
-#          context.end_using_reg(TMPR3)
+          context.end_arg_reg
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
 
@@ -246,9 +241,7 @@ module YTLJit
           excoff = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size * 2)
  
           context.start_using_reg(TMPR2)
-          context.start_using_reg(FUNC_ARG[0])
-          context.start_using_reg(FUNC_ARG[1])
-          context.start_using_reg(FUNC_ARG[2])
+          context.start_arg_reg
           asm = context.assembler
           asm.with_retry do
             asm.mov(TMPR2, base)
@@ -271,9 +264,7 @@ module YTLJit
             asm.call_with_arg(rbrangenew, 3)
           end
 
-          context.start_using_reg(FUNC_ARG[2])
-          context.start_using_reg(FUNC_ARG[1])
-          context.start_using_reg(FUNC_ARG[0])
+          context.end_arg_reg
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context

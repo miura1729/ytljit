@@ -13,16 +13,14 @@ module YTLJit
           slfoff = @current_frame_info.offset_arg(2, BPR)
           ivid = ((@name.object_id << 1) / InternalRubyType::RObject.size)
           ivarget = OpMemAddress.new(address_of("rb_ivar_get"))
-          context.start_using_reg(FUNC_ARG[0])
-          context.start_using_reg(FUNC_ARG[1])
+          context.start_arg_reg
           asm = context.assembler
           asm.with_retry do
             asm.mov(FUNC_ARG[0], slfoff)
             asm.mov(FUNC_ARG[1], ivid)
             asm.call_with_arg(ivarget, 2)
           end
-          context.end_using_reg(FUNC_ARG[1])
-          context.end_using_reg(FUNC_ARG[0])
+          context.end_arg_reg
           
           context.ret_reg = RETR
           context.ret_node = self
@@ -50,9 +48,7 @@ module YTLJit
           rtype = @val.decide_type_once(context.to_signature)
           context = rtype.gen_boxing(context)
 
-          context.start_using_reg(FUNC_ARG[0])
-          context.start_using_reg(FUNC_ARG[1])
-          context.start_using_reg(FUNC_ARG[2])
+          context.start_arg_reg
           asm = context.assembler
           asm.with_retry do
             asm.push(TMPR2)
@@ -63,9 +59,7 @@ module YTLJit
             asm.call_with_arg(ivarset, 3)
             asm.pop(TMPR2)
           end
-          context.end_using_reg(FUNC_ARG[2])
-          context.end_using_reg(FUNC_ARG[1])
-          context.end_using_reg(FUNC_ARG[0])
+          context.end_arg_reg
           
           context.ret_reg = RETR
           context.ret_node = self

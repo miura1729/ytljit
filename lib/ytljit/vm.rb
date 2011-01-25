@@ -539,9 +539,7 @@ LocalVarNode
           context.start_using_reg(TMPR2)
           
           context = gen_make_argv(context) do |context, rarg|
-            context.start_using_reg(FUNC_ARG[0])
-            context.start_using_reg(FUNC_ARG[1])
-            context.start_using_reg(FUNC_ARG[2])
+            context.start_arg_reg
             
             context.cpustack_pushn(3 * AsmType::MACHINE_WORD.size)
             casm = context.assembler
@@ -564,10 +562,7 @@ LocalVarNode
             
             context = gen_call(context, fnc, 3)
             context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
-            
-            context.end_using_reg(FUNC_ARG[2])
-            context.end_using_reg(FUNC_ARG[1])
-            context.end_using_reg(FUNC_ARG[0])
+            context.end_arg_reg
             context.end_using_reg(TMPR2)
             context.ret_reg = RETR
             context.set_reg_content(context.ret_reg, self)
@@ -586,9 +581,7 @@ LocalVarNode
           fnc = nil
           numarg = @arguments.size - 2
           
-          numarg.times do |i|
-            context.start_using_reg(FUNC_ARG[i])
-          end
+          context.start_arg_reg
           context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
           
           argpos = 0
@@ -633,9 +626,7 @@ LocalVarNode
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
-          numarg.times do |i|
-            context.end_using_reg(FUNC_ARG[numarg - i - 1])
-          end
+          context.end_arg_reg
           context.end_using_reg(fnc)
           context.ret_reg = RETR
           context.set_reg_content(context.ret_reg, self)
@@ -652,9 +643,7 @@ LocalVarNode
           fnc = nil
           numarg = @arguments.size
           
-          numarg.times do |i|
-            context.start_using_reg(FUNC_ARG_YTL[i])
-          end
+          context.start_arg_reg(FUNC_ARG_YTL)
           context.cpustack_pushn(numarg * 8)
           
           # push prev env
@@ -716,9 +705,7 @@ LocalVarNode
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * 8)
-          numarg.size.times do |i|
-            context.end_using_reg(FUNC_ARG_YTL[numarg - i])
-          end
+          context.end_arg_reg(FUNC_ARG_YTL)
           context.end_using_reg(fnc)
           context
         end
@@ -728,12 +715,11 @@ LocalVarNode
           fnc = context.ret_reg
           numarg = @arguments.size
           
-          numarg.times do |i|
-            context.start_using_reg(FUNC_ARG[i])
-          end
+          context.start_arg_reg
           context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
           
           @arguments.each_with_index do |arg, argpos|
+#            p "#{@func.name} #{argpos}"
             context = arg.compile(context)
             rtype = context.ret_node.decide_type_once(context.to_signature)
 
@@ -758,9 +744,7 @@ LocalVarNode
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
-          numarg.times do |i|
-            context.end_using_reg(FUNC_ARG[numarg - i - 1])
-          end
+          context.end_arg_reg
           context.end_using_reg(fnc)
           context.ret_reg = RETR
           context.set_reg_content(context.ret_reg, self)
@@ -1181,9 +1165,7 @@ LocalVarNode
             asm = context.assembler
             add = lambda { @klass_object.address }
             var_klassclass = OpVarImmidiateAddress.new(add)
-            context.start_using_reg(FUNC_ARG[0])
-            context.start_using_reg(FUNC_ARG[1])
-            context.start_using_reg(FUNC_ARG[2])
+            context.start_arg_reg
             asm.with_retry do
               asm.mov(FUNC_ARG_YTL[0], BPR)
               asm.mov(FUNC_ARG_YTL[1], 4)
@@ -1194,9 +1176,7 @@ LocalVarNode
             context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, self)
             add = cs.var_base_address
             context = gen_call(context, add, 3)
-            context.end_using_reg(FUNC_ARG[2])
-            context.end_using_reg(FUNC_ARG[1])
-            context.end_using_reg(FUNC_ARG[0])
+            context.end_arg_reg
           end
           
           context
@@ -2346,8 +2326,7 @@ LocalVarNode
               meaddrof = OpMemAddress.new(addr)
 
               context.start_using_reg(TMPR2)
-              context.start_using_reg(FUNC_ARG[0])
-              context.start_using_reg(FUNC_ARG[1])
+              context.start_arg_reg
               
               asm = context.assembler
               asm.with_retry do
@@ -2364,8 +2343,7 @@ LocalVarNode
               context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, self)
               context.ret_reg2 = PTMPR
               
-              context.end_using_reg(FUNC_ARG[1])
-              context.end_using_reg(FUNC_ARG[0])
+              context.end_arg_reg
               
               context.ret_node = self
               context.set_reg_content(RETR, self)

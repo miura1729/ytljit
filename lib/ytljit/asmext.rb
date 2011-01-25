@@ -124,7 +124,7 @@ module YTLJit
 
     attr_accessor :used_arg_tab
     attr          :maxargs
-    attr          :area_allocate_pos
+    attr_accessor :area_allocate_pos
 
     def update_maxargs(args)
       if @maxargs < args then

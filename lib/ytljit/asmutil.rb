@@ -107,7 +107,7 @@ module YTLJit
       TMPR2 = OpR10.instance
       TMPR3 = OpR11.instance
       PTMPR = OpRBX.instance
-      THEPR = OpR12.instance    # Temporary Heap pointer
+      THEPR = OpR14.instance    # Temporary Heap pointer
       DBLLOR = OpRAX.instance
       DBLHIR = OpRDX.instance
       RETR = OpRAX.instance

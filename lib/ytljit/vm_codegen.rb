@@ -441,6 +441,29 @@ LO        |                       |   |  |
         end
       end
 
+      def start_arg_reg(kind = FUNC_ARG)
+        asm = assembler
+        gen = asm.generator
+        used_arg_tab = gen.funcarg_info.used_arg_tab
+        if used_arg_tab.last then
+#          p "#{used_arg_tab.last.keys} #{caller[0]} #{@name}"
+          used_arg_tab.last.keys.each do |rno|
+            start_using_reg(kind[rno])
+          end
+        end
+      end
+
+      def end_arg_reg(kind = FUNC_ARG)
+        asm = assembler
+        gen = asm.generator
+        used_arg_tab = gen.funcarg_info.used_arg_tab
+        if used_arg_tab.last then
+          used_arg_tab.last.keys.reverse.each do |rno|
+            end_using_reg(kind[rno])
+          end
+        end
+      end
+
       def to_signature(offset = -1)
         @current_method_signature[offset]
       end

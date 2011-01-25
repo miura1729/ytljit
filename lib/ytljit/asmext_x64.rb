@@ -162,7 +162,7 @@ module YTLJit
     end
 
     def call_with_arg_get_argsize(addr, argnum)
-      argnum * 8
+      ((argnum > 4) ? argnum : 4 )* 8
     end
 
     def call_with_arg(addr, argnum, argsize)
@@ -170,13 +170,15 @@ module YTLJit
 
       orgaddress = @asm.current_address
       code = ""
-      code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
+#      code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
+      code += @asm.update_state(mov(RAX, OpImmidiate32.new(0)))
       code += @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
       if @asm.retry_mode == :change_op then
         return [code, callpos]
       end
 
+      # no argument this not allocate 4 words for callee working
       if argnum != 0 then
         offset = @funcarg_info.area_allocate_pos.pop
         if offset then

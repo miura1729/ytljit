@@ -158,10 +158,12 @@ module YTLJit
 
       org_retry_mode = @retry_mode
       @retry_mode = :change_org
-      while org_base_address != @output_stream.base_address do
+      while org_base_address != @output_stream.base_address
         org_base_address = @output_stream.base_address
         reset
         @output_stream.reset
+        @generator.funcarg_info.used_arg_tab = []
+        @generator.funcarg_info.area_allocate_pos = []
         @asmsend_history.each do |arg|
           send(arg[0], *arg[1])
         end

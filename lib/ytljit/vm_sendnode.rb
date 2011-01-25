@@ -581,7 +581,12 @@ module YTLJit
                 context = @arguments[no].compile(context)
                 dst = OpIndirect.new(breg, off)
                 asm.with_retry do
-                  asm.mov(dst, context.ret_reg)
+                  if context.ret_reg.is_a?(OpRegistor) then
+                    asm.mov(dst, context.ret_reg)
+                  else
+                    asm.mov(TMPR, context.ret_reg)
+                    asm.mov(dst, TMPR)
+                  end
                 end
                 off = off + AsmType::MACHINE_WORD.size
               end
@@ -1152,7 +1157,7 @@ module YTLJit
 
         def compile_call_func(context, fname)
           fadd = OpMemAddress.new(address_of(fname))
-          context.start_using_reg(FUNC_FLOAT_ARG[0])
+          context.start_arg_reg(FUNC_FLOAT_ARG)
           asm = context.assembler
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], context.ret_reg)
@@ -1165,7 +1170,7 @@ module YTLJit
             asm.fstpl(INDIRECT_SPR)
             asm.pop(XMM0)
           end
-          context.end_using_reg(FUNC_FLOAT_ARG[0])
+          context.end_arg_reg(FUNC_FLOAT_ARG)
           context
         end
 
