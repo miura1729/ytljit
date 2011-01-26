@@ -1158,6 +1158,7 @@ module YTLJit
         def compile_call_func(context, fname)
           fadd = OpMemAddress.new(address_of(fname))
           context.start_arg_reg(FUNC_FLOAT_ARG)
+          context.start_arg_reg
           asm = context.assembler
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], context.ret_reg)
@@ -1170,11 +1171,12 @@ module YTLJit
             asm.fstpl(INDIRECT_SPR)
             asm.pop(XMM0)
           end
+          context.end_arg_reg
           context.end_arg_reg(FUNC_FLOAT_ARG)
           context
         end
 
-        def compile(context)
+        def compile2(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type

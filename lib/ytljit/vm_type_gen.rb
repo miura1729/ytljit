@@ -110,6 +110,7 @@ module YTLJit
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
           context.start_arg_reg(FUNC_FLOAT_ARG)
+          context.start_arg_reg
           rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
 =begin
           # This is sample of backtrace
@@ -121,6 +122,7 @@ module YTLJit
           end
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbfloatnew, 1, vnode)
+          context.end_arg_reg
           context.end_arg_reg(FUNC_FLOAT_ARG)
 #          context.end_using_reg(TMPR3)
           context.end_using_reg(TMPR2)

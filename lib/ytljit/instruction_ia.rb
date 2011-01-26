@@ -465,7 +465,8 @@ module YTLJit
 
     def modrm_indirect_off32(regv, rm_reg, rm_disp)
       fstb = 0b10000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
-      if rm_reg.is_a?(OpESP) or rm_reg.is_a?(OpRSP) then
+      if rm_reg.is_a?(OpESP) or 
+          rm_reg.is_a?(OpRSP) or rm_reg.is_a?(OpR12) then
         [[fstb, 0b00100100, rm_disp], "C2L"]
       else
         [[fstb, rm_disp], "CL"]
@@ -474,7 +475,8 @@ module YTLJit
 
     def modrm_indirect_off8(regv, rm_reg, rm_disp)
       fstb = 0b01000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
-      if rm_reg.is_a?(OpESP) or rm_reg.is_a?(OpRSP) then
+      if rm_reg.is_a?(OpESP) or 
+          rm_reg.is_a?(OpRSP) or rm_reg.is_a?(OpR12) then
         [[fstb, 0b00100100, rm_disp], "C3"]
       else
         [[fstb, rm_disp], "CC"]
@@ -498,11 +500,13 @@ module YTLJit
 
       case rmdisp
       when 0
-        if rm.reg.is_a?(OpEBP) or rm.reg.is_a?(OpRBP) then
+        if rm.reg.is_a?(OpEBP) or 
+            rm.reg.is_a?(OpRBP) or rm.reg.is_a?(OpR13) then
           modrm_indirect_off8(regv, rm.reg, 0)
         else
           fstb = 0b00000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-          if rm.reg.is_a?(OpESP) or rm.reg.is_a?(OpRSP)  then
+          if rm.reg.is_a?(OpESP) or 
+              rm.reg.is_a?(OpRSP) or rm.reg.is_a?(OpR12) then
             [[fstb, 0x24], "C2"]
           else
             [[fstb], "C"]
@@ -690,10 +694,11 @@ module YTLJit
     end
 
     def common_setcc(dst, opc, inst)
+      rexseq, rexfmt = rex(nil, dst)
       case dst
       when OpReg8, OpIndirect, OpMem8
         modseq, modfmt = modrm(inst, 0, dst, dst, nil)
-        ([0x0F, opc] + modseq).pack("C2#{modfmt}")
+        (rexseq + [0x0F, opc] + modseq).pack("#{rexfmt}C2#{modfmt}")
       else
         return nosupported_addressing_mode(inst, dst, nil)
       end
@@ -714,16 +719,17 @@ module YTLJit
     end
 
     def common_movssd(dst, src, op, inst)
+      rexseq, rexfmt = rex(dst, src)
       case dst
       when OpRegXMM
         case src
         when OpRegXMM
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          ([op, 0x0F, 0x10] + modseq).pack("C3#{modfmt}")
+          ([op] + rexseq + [0x0F, 0x10] + modseq).pack("C#{rexfmt}C2#{modfmt}")
 
         when OpIndirect
           modseq, modfmt = modrm(inst, dst, src, dst, src)
-          ([op, 0x0F, 0x10] + modseq).pack("C3#{modfmt}")
+          ([op] + rexseq + [0x0F, 0x10] + modseq).pack("C#{rexfmt}C2#{modfmt}")
 
         else
           return nosupported_addressing_mode(inst, dst, src)
@@ -733,7 +739,7 @@ module YTLJit
         case src
         when OpRegXMM
           modseq, modfmt = modrm(inst, src, dst, dst, src)
-          ([op, 0x0F, 0x11] + modseq).pack("C3#{modfmt}")
+          ([op] + rexseq + [0x0F, 0x11] + modseq).pack("C#{rexfmt}C2#{modfmt}")
           
         else
           return nosupported_addressing_mode(inst, dst, src)
@@ -752,7 +758,7 @@ module YTLJit
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
           if op0 then
-            (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+            ([op0] + rexseq + [0x0F, op1] + modseq).pack("C#{rexfmt}C2#{modfmt}")
           else
             (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
           end
@@ -761,7 +767,7 @@ module YTLJit
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(inst, dst, src, dst, src)
           if op0 then
-            (rexseq + [op0, 0x0F, op1] + modseq).pack("#{rexfmt}C3#{modfmt}")
+            ([op0] + rexseq + [0x0F, op1] + modseq).pack("C#{rexfmt}C2#{modfmt}")
           else
             (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
           end

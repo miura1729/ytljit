@@ -643,6 +643,7 @@ LocalVarNode
           fnc = nil
           numarg = @arguments.size
           
+          context.start_arg_reg
           context.start_arg_reg(FUNC_ARG_YTL)
           context.cpustack_pushn(numarg * 8)
           
@@ -705,6 +706,7 @@ LocalVarNode
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * 8)
+          context.end_arg_reg
           context.end_arg_reg(FUNC_ARG_YTL)
           context.end_using_reg(fnc)
           context

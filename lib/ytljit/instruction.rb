@@ -127,7 +127,11 @@ module YTLJit
 
 
     def to_as
-      "#{@disp}(#{@reg.to_as})"
+      if @disp.is_a?(OpImmidiate) then
+        "#{@disp.value}(#{@reg.to_as})"
+      else
+        "#{@disp.value}(#{@reg.to_as})"
+      end
     end
 
     def using(reg)

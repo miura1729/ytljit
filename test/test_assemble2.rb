@@ -5,7 +5,7 @@ include YTLJit
 
 class Integer
   def to_as
-    "$0X#{self.to_s(16)}"
+    "$0x#{self.to_s(16)}"
   end
 end
 
@@ -17,19 +17,23 @@ class InstructionTests < Test::Unit::TestCase
     @cs = CodeSpace.new
     @asm = Assembler.new(@cs, GeneratorExtend)
     @asout = ""
-    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
+#    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
     @regs8 = [AL, CL, DL, BL]
-#    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
-#             R11, R12, R13, R14, R15]
+    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
+             R11, R12, R13, R14, R15]
 
     @xmmregs = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]
     @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
              OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678),
              0, 0x92, 0x8212, 0x12345678]# , 0xffffffff]
     @indirects = []
-    [EBP, EDI, ESI, ESP].each do |reg|
-#    [RBP, RDI, RSI, RSP].each do |reg|
-      [0, 12, 255, 8192, 65535].each do |offset|
+#    [EBP, EDI, ESI, ESP].each do |reg|
+    [RBP, RDI, RSI, RSP, R8, R9, R10, R11, R12].each do |reg|
+     [ 
+#      -65535, -8192, -256, -255, -80, -12, -8, 
+       -80, -8, 0, 8, 
+#       0, 12, 255, 8192, 65535
+     ].each do |offset|
         @indirects.push OpIndirect.new(reg, offset)
       end
     end
@@ -160,7 +164,6 @@ class InstructionTests < Test::Unit::TestCase
       
       ytlres = disasm_ytljit(@cs)
       gasres = disasm_gas(@cs)
-#      print @asout
       ytlres.each_with_index do |lin, i|
         assert_equal(gasres[i], lin)
       end
