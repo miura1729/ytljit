@@ -8,8 +8,6 @@ module YTLJit
           return decide_type_core(tlist, local_cache)
         end
         aele = @arguments[3].decide_type_once(sig)
-        p aele
-        p @arguments[3].func.name
         if tlist.include?(aele) then
           aele
         else

@@ -195,12 +195,22 @@ module YTLJit
       def visit_block_end(code, ins, context)
         curnode = context.current_node
         top = context.top_nodes.last
+        klassnode = context.current_class_node
         if top.class == MethodTopNode then
           if context.macro_method then
             code = top.to_ruby(ToRubyContext.new).ret_code.last
-#            print code
+            #            print code
             proc = eval("lambda" + code)
-            SendNode.get_macro_tab[top.name] = proc
+            if SendNode.get_macro_tab[top.name] == nil then
+              SendNode.get_macro_tab[top.name] = {}
+            end
+            SendNode.get_macro_tab[top.name][:last] = proc
+          else
+            if !SendNode.get_user_defined_method_tab[top.name] then
+              SendNode.get_user_defined_method_tab[top.name] = []
+            end
+            klassobj = klassnode.klass_object
+            SendNode.get_user_defined_method_tab[top.name].push klassobj
           end
         end
       end
@@ -639,32 +649,29 @@ module YTLJit
         arg = arg.reverse
 
         func = MethodSelectNode.new(curnode, ins[1])
-        sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
-        if sn.is_a?(SendEvalNode) then
-          if context.macro_method == nil then
-            context.macro_method = true
+        sn = SendNode.macro_expand(context, func, arg, op_flag, seqno)
+        if sn == nil then
+          sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
+          if sn.is_a?(SendEvalNode) then
+            if context.macro_method == nil then
+              context.macro_method = true
+            end
           end
-        end
-
-        if sn.is_a?(SendNode) then
+          
           sn.debug_info = context.debug_info
           func.set_reciever(sn)
           context.expstack.push sn
-
-        elsif sn.is_a?(Array)
+        else
           # macro(including eval method). execute in compile time and
           # compile eval strings.
           val, evalstr = sn
           evalstr = evalstr.join("\n")
           is = RubyVM::InstructionSequence.compile(
-                   evalstr, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS
-               ).to_a
+                  evalstr, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS).to_a
           ncode = VMLib::InstSeqTree.new(code, is)
           ncode.body.pop        # Chop leave instruction
           translate_main(ncode, context)
-#          context.expstack.push val
-        else
-          raise "Unexcepted data type #{sn.class}"
+          #          context.expstack.push val
         end
 
         context

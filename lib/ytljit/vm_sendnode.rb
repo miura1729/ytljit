@@ -48,6 +48,7 @@ module YTLJit
         @@current_node = nil
         @@special_node_tab = {}
         @@macro_tab = {}
+        @@user_defined_method_tab = {}
         
         def self.node
           @@current_node
@@ -55,6 +56,10 @@ module YTLJit
 
         def self.get_macro_tab
           @@macro_tab
+        end
+
+        def self.get_user_defined_method_tab
+          @@user_defined_method_tab
         end
 
         def self.add_special_send_node(name)
@@ -67,16 +72,43 @@ module YTLJit
           end
         end
 
-        def self.make_send_node(parent, func, arguments, op_flag, seqno)
-          if mproc = @@macro_tab[func.name] then
-            args = []
-            arguments[3..-1].each do |ele|
-              args.push eval(ele.to_ruby(ToRubyContext.new).ret_code.last)
+        def self.macro_expand(context, func, arguments, op_flag, seqno)
+          if @@macro_tab[func.name] and 
+              (op_flag & (0b11 << 3)) != 0 then
+            cclsnode = context.current_class_node
+            if context.current_method_node == nil then
+              cclsnode.make_klassclass_node
+              cclsnode = cclsnode.klassclass_node
             end
-            res = mproc.call(*args)
-            return res
+
+            cclsnode.klass_object.ancestors.each do |ccls|
+              cnode = ClassTopNode.get_class_top_node(ccls)
+              cobj = nil
+              if cnode then
+                cobj = cnode.klass_object
+              end
+
+              if @@user_defined_method_tab[func.name] and
+                  @@user_defined_method_tab[func.name].include?(cobj) then
+                return nil
+              end
+
+              mproc = @@macro_tab[func.name][cobj]
+              if mproc then
+                args = []
+                arguments[3..-1].each do |ele|
+                  argruby = ele.to_ruby(ToRubyContext.new).ret_code.last
+                  args.push eval(argruby)
+                end
+                return mproc.call(*args)
+              end
+            end
           end
 
+          nil
+        end
+
+        def self.make_send_node(parent, func, arguments, op_flag, seqno)
           spcl = @@special_node_tab[func.name]
           newobj = nil
           if spcl then
@@ -333,8 +365,16 @@ module YTLJit
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
-            @new_method.name = arguments[4].value
-            @class_top.get_method_tab[arguments[4].value] = @new_method
+            fname = arguments[4].value
+            @new_method.name = fname
+            @class_top.get_method_tab[fname] = @new_method
+            if @@macro_tab[fname] and 
+                @@macro_tab[fname][:last] then
+              # This function is macro
+              proc = @@macro_tab[fname][:last]
+              @@macro_tab[fname][:last] = nil
+              @@macro_tab[fname][@class_top.klass_object] = proc
+            end
           else
             raise "Not supported not literal method name"
           end
@@ -377,8 +417,16 @@ module YTLJit
           super
           @new_method = arguments[5]
           if arguments[4].is_a?(LiteralNode) then
-            @new_method.name = arguments[4].value
+            fname = arguments[4].value
+            @new_method.name = fname
             @class_top.make_klassclass_node
+            klassclass_node = @class_top.klassclass_node
+            if @@macro_tab[fname] and 
+                @@macro_tab[fname][:last] then
+              proc = @@macro_tab[fname][:last]
+              @@macro_tab[fname][:last] = nil
+              @@macro_tab[fname][klassclass_node.klass_object] = proc
+            end
           else
             raise "Not supported not literal method name"
           end
