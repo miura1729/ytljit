@@ -650,6 +650,7 @@ module YTLJit
               # initialize method not defined
               context = @allocmethod.compile(context)
             end
+            context.ret_node = self
             @body.compile(context)
           else
             super
