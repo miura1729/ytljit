@@ -780,6 +780,23 @@ module YTLJit
         return nosupported_addressing_mode(inst, dst, src)
       end
     end
+
+    def common_cvt(dst, src, op0, op1, inst)
+      if dst.is_a?(OpRegXMM) and
+          (src.is_a?(OpIndirect) or
+           src.is_a?(OpReg32) or
+           src.is_a?(OpReg64)) then
+        rexseq, rexfmt = rex(dst, src)
+        modseq, modfmt = modrm(inst, dst, src, dst, src)
+        if op0 then
+          ([op0] + rexseq + [0x0F, op1] + modseq).pack("C#{rexfmt}C2#{modfmt}")
+        else
+          (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
+        end
+      else
+        return nosupported_addressing_mode(inst, dst, src)
+      end
+    end
   end
   
   class GeneratorIABinary<Generator
@@ -1223,7 +1240,7 @@ module YTLJit
         case src
         when nil
           modseq, modfmt = modrm(:imul, 5, dst, dst, src)
-          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#(modfmt}")
+          return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
           
         when OpReg32, OpMem32, OpIndirect, OpReg64
           modseq, modfmt = modrm(:imul, dst, src, dst, src, src2)
@@ -1365,6 +1382,14 @@ module YTLJit
 
     def comisd(dst, src)
       common_arithxmm(dst, src, 0x66, 0x2F, :comisd)
+    end
+
+    def cvtsi2sd(dst, src)
+      common_cvt(dst, src, 0xf2, 0x2a, :cvtsi2sd)
+    end
+
+    def cvtsi2ss(dst, src)
+      common_cvt(dst, src, 0xf3, 0x2a, :cvtsi2ss)
     end
 
     def int3

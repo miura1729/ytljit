@@ -17,18 +17,18 @@ class InstructionTests < Test::Unit::TestCase
     @cs = CodeSpace.new
     @asm = Assembler.new(@cs, GeneratorExtend)
     @asout = ""
-#    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
+    @regs = [EAX, ECX, EDX, EBX, EBP, EDI, ESI, ESP]
     @regs8 = [AL, CL, DL, BL]
-    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
-             R11, R12, R13, R14, R15]
+#    @regs = [RAX, RCX, RDX, RBX, RBP, RDI, RSI, RSP, R8, R9, R10,
+#             R11, R12, R13, R14, R15]
 
     @xmmregs = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7]
     @lits = [OpImmidiate32.new(0x0), OpImmidiate32.new(0x92),
              OpImmidiate32.new(0x8212), OpImmidiate32.new(0x12345678),
              0, 0x92, 0x8212, 0x12345678]# , 0xffffffff]
     @indirects = []
-#    [EBP, EDI, ESI, ESP].each do |reg|
-    [RBP, RDI, RSI, RSP, R8, R9, R10, R11, R12].each do |reg|
+    [EBP, EDI, ESI, ESP].each do |reg|
+#    [RBP, RDI, RSI, RSP, R8, R9, R10, R11, R12].each do |reg|
      [ 
 #      -65535, -8192, -256, -255, -80, -12, -8, 
        -80, -8, 0, 8, 
@@ -261,6 +261,36 @@ class InstructionTests < Test::Unit::TestCase
       end
 
       # Pattern reg, indirect
+      @indirects.each do |src|
+        @xmmregs.each do |dst|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+#      print @asout
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
+  end
+
+  def test_xmm_cvt
+    [:cvtsi2sd, :cvtsi2ss].each do |mnm|
+
+      # Pattern xmmreg, reg
+      @xmmregs.each do |reg|
+        @regs.each do |src|
+          asm_ytljit(mnm, reg, src)
+          asm_gas(mnm, reg, src)
+        end
+      end
+
+      # Pattern xmmreg, indirect
       @indirects.each do |src|
         @xmmregs.each do |dst|
           asm_ytljit(mnm, dst, src)
