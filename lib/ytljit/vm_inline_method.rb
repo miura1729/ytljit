@@ -2,6 +2,7 @@ module YTLJit
   module VM
     module ArithmeticOperationUtil
       include AbsArch
+=begin
       def decide_type_core_local(tlist, sig, local_cache = {})
         tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
         if tlist.size < 2 then
@@ -29,6 +30,7 @@ module YTLJit
         
         @type
       end
+=end
 
       def gen_arithmetic_operation(context, inst, tempreg, resreg)
         context.start_using_reg(tempreg)

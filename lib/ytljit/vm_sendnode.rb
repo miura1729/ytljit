@@ -668,6 +668,7 @@ module YTLJit
           when [Fixnum], [Float], [String], [Array]
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
 
@@ -676,8 +677,8 @@ module YTLJit
 
 #=begin
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature)
-          rtype = @arguments[2].type
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -707,6 +708,7 @@ module YTLJit
           when [Fixnum], [Float], [Array]
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
 
@@ -714,8 +716,8 @@ module YTLJit
         end
 
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature)
-          rtype = @arguments[2].type
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -745,11 +747,12 @@ module YTLJit
           case [slf.ruby_type]
           when [Fixnum], [Float]
             same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
 
           when [String]
             same_type(self, @arguments[2], cursig, cursig, context)
-            same_type(@arguments[2], self, cursig, cursig, context)
+            fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(context.to_signature, fixtype)
           end
 
@@ -757,9 +760,8 @@ module YTLJit
         end
 
         def compile(context)
-          @arguments[2].type = nil
-          @arguments[2].decide_type_once(context.to_signature)
-          rtype = @arguments[2].type
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -814,6 +816,7 @@ module YTLJit
           when [Fixnum], [Float]
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
             same_type(@arguments[2], self, cursig, cursig, context)
           end
 
@@ -821,9 +824,8 @@ module YTLJit
         end
 
         def compile(context)
-          @arguments[2].type = nil
-          @arguments[2].decide_type_once(context.to_signature)
-          rtype = @arguments[2].type
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then

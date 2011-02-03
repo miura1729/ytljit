@@ -375,11 +375,23 @@ LocalVarNode
             tlist[0]
 
           when 2
-            if tlist[0].ruby_type == tlist[1].ruby_type and
-                tlist[0].boxed then
+            if tlist[0].ruby_type == tlist[1].ruby_type then
+              if tlist[0].boxed then
+                tlist[0]
+              else
+                tlist[1]
+              end
+
+            elsif tlist[0].ruby_type == Float and
+                tlist[1].ruby_type == Fixnum then
               tlist[0]
-            else
+
+            elsif tlist[0].ruby_type == Fixnum and
+                tlist[1].ruby_type == Float then
               tlist[1]
+
+            else 
+              RubyType::DefaultType0.new
             end
 
           else
@@ -395,8 +407,6 @@ LocalVarNode
           if @type.equal?(nil) or @type.is_a?(RubyType::DefaultType0) then
             tlist = type_list(sig).flatten.uniq
             @type = decide_type_core(tlist, local_cache)
-          else
-            @type
           end
 
           @type
