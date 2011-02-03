@@ -907,7 +907,7 @@ module YTLJit
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
-          if rtype.ruby_type.is_a?(RubyType::DefaultType0) or
+          if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -1027,12 +1027,42 @@ module YTLJit
       end
 
       class SendToFNode<SendNode
+        include AbsArch
+
         add_special_send_node :to_f
+
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           floattype = RubyType::BaseType.from_ruby_class(Float)
           add_type(sig, floattype)
           context
+        end
+
+        def compile(context)
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rrtype == Fixnum then
+            context = gen_eval_self(context)
+            context = rtype.gen_unboxing(context)
+            asm = context.assembler
+            if context.ret_reg.is_a?(OpRegistor) or
+                 context.ret_reg.is_a?(OpIndirect) then
+              asm.with_retry do
+                asm.cvtsi2sd(XMM0, context.ret_reg)
+              end
+            else
+              asm.with_retry do
+                asm.mov(TMPR, context.ret_reg)
+                asm.cvtsi2sd(XMM0, TMPR)
+              end
+            end
+            context.ret_node = self
+            context.ret_reg = XMM0
+            context
+          else
+            super(context)
+          end
         end
       end
 
