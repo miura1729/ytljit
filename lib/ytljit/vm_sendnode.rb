@@ -880,8 +880,6 @@ module YTLJit
         include CompareOperationUtil
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
-          same_type(@arguments[3], @arguments[2], cursig, cursig, context)
-          same_type(@arguments[2], @arguments[3], cursig, cursig, context)
           tt = RubyType::BaseType.from_object(true)
           add_type(cursig, tt)
           tt = RubyType::BaseType.from_object(false)

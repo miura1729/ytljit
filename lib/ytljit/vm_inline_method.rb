@@ -32,27 +32,69 @@ module YTLJit
       end
 =end
 
+      def gen_inst_with_conversion(context, dst, inst)
+        asm = context.assembler
+        src = context.ret_reg
+        if dst.is_a?(OpRegXMM) then
+          # Float
+          if src.is_a?(OpRegistor) and
+              !src.is_a?(OpRegXMM) then
+            asm.with_retry do
+              asm.cvtsi2sd(XMM0, src)
+            end
+            context.end_using_reg(src)
+            asm.with_retry do
+              asm.send(inst, dst, XMM0)
+            end
+          elsif src.using(dst) then
+            asm.with_retry do
+              asm.mov(XMM0, src)
+            end
+            context.end_using_reg(src)
+            asm.with_retry do
+              asm.send(inst, dst, XMM0)
+            end
+          elsif src.is_a?(OpImmidiateMachineWord) then
+            asm.with_retry do
+              asm.mov(TMPR, src)
+            end
+            context.end_using_reg(src)
+            asm.with_retry do
+              asm.cvtsi2sd(XMM0, TMPR)
+              asm.send(inst, dst, XMM0)
+            end
+          else
+            asm.with_retry do
+              asm.send(inst, dst, src)
+            end
+            context.end_using_reg(src)
+          end
+        else
+          # Fixnum
+          if src.using(dst) then
+            asm.with_retry do
+              asm.mov(TMPR, src)
+            end
+            context.end_using_reg(src)
+            asm.with_retry do
+              asm.send(inst, dst, TMPR)
+            end
+          else
+            asm.with_retry do
+              asm.send(inst, dst, src)
+            end
+            context.end_using_reg(src)
+          end
+        end
+      end
+
       def gen_arithmetic_operation(context, inst, tempreg, resreg)
         context.start_using_reg(tempreg)
         context = gen_eval_self(context)
         context.ret_node.type = nil
         rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
-        asm = context.assembler
-        if context.ret_reg.using(tempreg) then
-          asm.with_retry do
-            asm.mov(TMPR, context.ret_reg)
-          end
-          context.end_using_reg(context.ret_reg)
-          asm.with_retry do
-            asm.mov(tempreg, TMPR)
-          end
-        else
-          asm.with_retry do
-            asm.mov(tempreg, context.ret_reg)
-          end
-          context.end_using_reg(context.ret_reg)
-        end
+        gen_inst_with_conversion(context, tempreg, :mov)
         context.set_reg_content(tempreg, context.ret_node)
         
         # @argunents[1] is block
@@ -64,20 +106,13 @@ module YTLJit
         rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
           
-        asm = context.assembler
         if block_given? then
           yield(context)
         else
+          # default code
+          gen_inst_with_conversion(context, tempreg, inst)
+          asm = context.assembler
           asm.with_retry do
-            # default code
-            if context.ret_reg.using(tempreg) then
-              asm.mov(TMPR, context.ret_reg)
-              context.end_using_reg(context.ret_reg)
-              asm.send(inst, tempreg, TMPR)
-            else
-              asm.send(inst, tempreg, context.ret_reg)
-              context.end_using_reg(context.ret_reg)
-            end
             asm.mov(resreg, tempreg)
           end
         end
