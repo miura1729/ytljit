@@ -463,7 +463,7 @@ module YTLJit
       # newhash
 
       def visit_newrange(code, ins, context)
-        exclflag = LiteralNode.new(nil, ins[1] == 1)
+        exclflag = LiteralNode.new(nil, ins[1] != 0)
         context.expstack.push exclflag
         newinst_to_sendnode(3, Range, code, ins, context)
       end

@@ -485,9 +485,11 @@ module YTLJit
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
+                tt = tt.to_box
                 add_type(context.to_signature, tt)
               when LiteralNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.value)
+                tt = tt.to_box
                 add_type(context.to_signature, tt)
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
@@ -875,6 +877,23 @@ module YTLJit
         end
       end
 
+      class SendLtLtNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :<<
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
       class SendCompareNode<SendNode
         include SendUtil
         include CompareOperationUtil
@@ -1072,6 +1091,16 @@ module YTLJit
           sig = context.to_signature
           fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
           add_type(sig, fixnumtype)
+          context
+        end
+      end
+
+      class SendChrNode<SendNode
+        add_special_send_node :chr
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          strtype = RubyType::BaseType.from_ruby_class(String)
+          add_type(sig, strtype)
           context
         end
       end

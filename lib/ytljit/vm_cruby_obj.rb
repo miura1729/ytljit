@@ -12,7 +12,10 @@ module YTLJit
         def compile_main(context)
           slfoff = @current_frame_info.offset_arg(2, BPR)
           ivid = ((@name.object_id << 1) / InternalRubyType::RObject.size)
-          ivarget = OpMemAddress.new(address_of("rb_ivar_get"))
+          addr = lambda {
+            address_of("rb_ivar_get")
+          }
+          ivarget = OpVarMemAddress.new(addr)
           context.start_arg_reg
           asm = context.assembler
           asm.with_retry do
@@ -43,7 +46,10 @@ module YTLJit
         def compile_main(context)
           slfoff = @current_frame_info.offset_arg(2, BPR)
           ivid = ((@name.object_id << 1) / InternalRubyType::RObject.size)
-          ivarset = OpMemAddress.new(address_of("rb_ivar_set"))
+          addr = lambda {
+            address_of("rb_ivar_set")
+          }
+          ivarset = OpVarMemAddress.new(addr)
           context = @val.compile(context)
           rtype = @val.decide_type_once(context.to_signature)
           context = rtype.gen_boxing(context)

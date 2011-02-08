@@ -36,9 +36,11 @@ module YTLJit
   end
 
   module OpVarValueMixin
+    @@instances = []
     def initialize(var)
       @var = var
       @refer = []
+      @@instances.push self
     end
 
     def refer
@@ -55,6 +57,10 @@ module YTLJit
 
     def to_immidiate(klass = OpVarImmidiateAddress)
       klass.new(@var)
+    end
+
+    def self.instances
+      @@instances
     end
   end
 

@@ -111,7 +111,10 @@ module YTLJit
           context.start_using_reg(TMPR2)
           context.start_arg_reg(FUNC_FLOAT_ARG)
           context.start_arg_reg
-          rbfloatnew = OpMemAddress.new(address_of("rb_float_new"))
+          addr = lambda {
+            address_of("rb_float_new")
+          }
+          rbfloatnew = OpVarMemAddress.new(addr)
 =begin
           # This is sample of backtrace
           sh = OpMemAddress.new(address_of("ytl_step_handler"))
@@ -162,7 +165,10 @@ module YTLJit
           vnode = context.ret_node
           context.start_using_reg(TMPR3)
           context.start_arg_reg
-          rbarydup = OpMemAddress.new(address_of("rb_ary_dup"))
+          addr = lambda {
+            address_of("rb_ary_dup")
+          }
+          rbarydup = OpVarMemAddress.new(addr)
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
           end
@@ -202,10 +208,13 @@ module YTLJit
           vnode = context.ret_node
           context.start_using_reg(TMPR2)
           context.start_arg_reg
-          rbstrresurrect = OpMemAddress.new(address_of("rb_str_resurrect"))
           asm.with_retry do
             asm.mov(FUNC_ARG[0], val)
           end
+          addr = lambda {
+            address_of("rb_str_resurrect")
+          }
+          rbstrresurrect = OpVarMemAddress.new(addr)
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
           context = gen_call(context, rbstrresurrect, 1, vnode)
           context.end_arg_reg
@@ -237,7 +246,10 @@ module YTLJit
           rtype = args[0].decide_type_once(context.to_signature)
 
           base = context.ret_reg
-          rbrangenew = OpMemAddress.new(address_of("rb_range_new"))
+          addr = lambda {
+            address_of("rb_range_new")
+          }
+          rbrangenew = OpVarMemAddress.new(addr)
           begoff = OpIndirect.new(TMPR2, 0)
           endoff = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size)
           excoff = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size * 2)

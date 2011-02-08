@@ -360,6 +360,15 @@ LocalVarNode
 
         def decide_type_core(tlist, local_cache = {})
           tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
+
+          # This is for sitration of same class and differenc element type.
+          # Last element must be local type not propageted type
+          if tlist.size > 1 and tlist.all? {|e| 
+              e.ruby_type == tlist[0].ruby_type 
+            } then
+            return tlist.last
+          end
+
           case tlist.size
           when 0
             RubyType::DefaultType0.new
@@ -1220,6 +1229,9 @@ LocalVarNode
           @init_node = nil
           init_unwind_proc
           add_code_space(nil, @unwind_proc)
+
+          # Dummy for marshal
+          @op_var_value_instaces = nil
         end
 
         attr_accessor :init_node
@@ -1278,7 +1290,10 @@ LocalVarNode
 
         def compile_init(context)
           ar = @@local_object_area
-          aa = (ar.address + ar.size) & (~0xf)
+          addr = lambda {
+            (ar.address + ar.size) & (~0xf)
+          }
+          aa = OpVarImmidiateAddress.new(addr) 
           asm = context.assembler
           asm.with_retry do
             asm.mov(THEPR, aa)
@@ -1291,6 +1306,18 @@ LocalVarNode
             context = @init_node.compile(context)
           end
           super(context)
+        end
+
+        def code_store_hook
+          @op_var_value_instaces = OpVarValueMixin.instances
+        end
+
+        def update_after_restore
+          @op_var_value_instaces.each do |ins|
+            ins.refer.each do |stfn|
+              stfn.call
+            end
+          end
         end
       end
 
@@ -1891,10 +1918,17 @@ LocalVarNode
           if @first_compile then
             context = @node.compile(context)
             asm = context.assembler
-            asm.with_retry do
-              asm.mov(@res_area, context.ret_reg)
+            if context.ret_reg.is_a?(OpRegistor) then
+              asm.with_retry do
+                asm.mov(@res_area, context.ret_reg)
+              end
+            else
+              asm.with_retry do
+                asm.mov(TMPR, context.ret_reg)
+                asm.mov(@res_area, TMPR)
+              end
             end
-            context.set_reg_content(@res_area, self)
+              context.set_reg_content(@res_area, self)
             @first_compile = false
 
             context
@@ -2140,7 +2174,10 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
-          context.ret_reg = OpMemAddress.new(address_of(@name))
+          addr = lambda { 
+            address_of(@name) 
+          }
+          context.ret_reg = OpVarMemAddress.new(addr)
           context.ret_node = self
           context.set_reg_content(context.ret_reg, self)
           context
@@ -2333,9 +2370,14 @@ LocalVarNode
             if rtype.is_a?(RubyType::DefaultType0) then
               # Can't type inference. Dynamic method search
               mnval = @name.address
-              objclass = OpMemAddress.new(address_of("rb_obj_class"))
-              addr = address_of("ytl_method_address_of_raw")
-              meaddrof = OpMemAddress.new(addr)
+              addr = lambda {
+                address_of("rb_obj_class")
+              }
+              objclass = OpVarMemAddress.new(addr)
+              addr = lambda {
+                address_of("ytl_method_address_of_raw")
+              }
+              addrof = OpVarMemAddress.new(addr)
 
               context.start_using_reg(TMPR2)
               context.start_arg_reg
@@ -2347,7 +2389,7 @@ LocalVarNode
                 asm.call_with_arg(objclass, 1)
                 asm.mov(FUNC_ARG[0], RETR)
                 asm.mov(FUNC_ARG[1], mnval)
-                asm.call_with_arg(meaddrof, 2)
+                asm.call_with_arg(addrof, 2)
                 asm.mov(TMPR2, RETR)
                 asm.pop(PTMPR)
               end
