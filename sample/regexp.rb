@@ -156,7 +156,7 @@ class StateCompiler
       asm.mov(X86::ESI, X86::EAX)
       asm.jmp(cs2.var_base_address)
     end
-    RubyType::rstring_ptr(X86::ESI, @csstart2, @csmain)
+    InternalRubyType::rstring_ptr(X86::ESI, @csstart2, @csmain)
 
     asm = Assembler.new(@csmain)
     cstab =  @state_codespace
