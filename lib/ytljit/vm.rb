@@ -794,6 +794,7 @@ LocalVarNode
       class TopNode<BaseNode
         include HaveChildlenMixin
         include NodeUtil
+        
         def initialize(parent, name = nil)
           super(parent)
           @name = name
@@ -1288,10 +1289,14 @@ LocalVarNode
           super(context, signode, sig)
         end
 
-        def compile_init(context)
+        def get_arena_address
           ar = @@local_object_area
+          (ar.address + ar.size) & (~0xf)
+        end
+
+        def compile_init(context)
           addr = lambda {
-            (ar.address + ar.size) & (~0xf)
+            get_arena_address
           }
           aa = OpVarImmidiateAddress.new(addr) 
           asm = context.assembler

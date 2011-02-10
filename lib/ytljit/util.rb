@@ -55,9 +55,6 @@ module YTLJit
     @@instance_tab = {}
 
     def self.instance(clsobj)
-      if clsobj.is_a?(ClassClassWrapper)
-        clsobj = clsobj.value
-      end
       ins = @@instance_tab[clsobj] 
       if ins == nil then
         ins = ClassClassWrapper.new(clsobj)
@@ -65,6 +62,10 @@ module YTLJit
       end
 
       ins
+    end
+
+    def self.instance_tab
+      @@instance_tab
     end
 
     def initialize(clsobj)
@@ -98,7 +99,7 @@ module YTLJit
     end
     
     def marshal_load(obj)
-      @klass_object = obj
+      @klass_object = obj[0]
       @value = nil
     end
 
