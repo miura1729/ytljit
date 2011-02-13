@@ -615,35 +615,47 @@ module YTLJit
           end
           context
         end
-        
+
+        def compile_range(context)
+          context = gen_alloca(context, 3)
+          asm = context.assembler
+          breg = context.ret_reg
+          
+          off = 0
+          [3, 4, 5].each do |no|
+            context = @arguments[no].compile(context)
+            dst = OpIndirect.new(breg, off)
+            asm.with_retry do
+              if context.ret_reg.is_a?(OpRegistor) then
+                asm.mov(dst, context.ret_reg)
+              else
+                asm.mov(TMPR, context.ret_reg)
+                asm.mov(dst, TMPR)
+              end
+            end
+            off = off + AsmType::MACHINE_WORD.size
+          end
+          
+          context.ret_reg = breg
+          context.ret_node = self
+          context
+        end
+
         def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            if !@is_escape and rrtype.to_s == '#<Class:Range>' then
-              context = gen_alloca(context, 3)
-              asm = context.assembler
-              breg = context.ret_reg
-
-              off = 0
-              [3, 4, 5].each do |no|
-                context = @arguments[no].compile(context)
-                dst = OpIndirect.new(breg, off)
-                asm.with_retry do
-                  if context.ret_reg.is_a?(OpRegistor) then
-                    asm.mov(dst, context.ret_reg)
-                  else
-                    asm.mov(TMPR, context.ret_reg)
-                    asm.mov(dst, TMPR)
-                  end
-                end
-                off = off + AsmType::MACHINE_WORD.size
-              end
+            ctype = decide_type_once(context.to_signature)
+            crtype = ctype.ruby_type
+            if !@is_escape and crtype == Range then
+              compile_range(context)
               
-              context.ret_reg = breg
-              context.ret_node = self
-              context
+            elsif !@is_escape and crtype == Array and
+                element_node_list[1..-1].all? {|e|
+                  e[2]
+                } then
+              context = @initmethod.compile(context)
 
             elsif @initmethod.func.calling_convention(context) then
               context = @initmethod.compile(context)
@@ -987,7 +999,7 @@ module YTLJit
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node(sig, self, cidx, context)
+            @arguments[2].add_element_node_backward([sig, self, cidx, context])
             decide_type_once(sig)
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
@@ -1024,7 +1036,7 @@ module YTLJit
             val = @arguments[4]
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node(sig, val, cidx, context)
+            @arguments[2].add_element_node_backward([sig, val, cidx, context])
             decide_type_once(sig)
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
@@ -1369,6 +1381,12 @@ module YTLJit
           sig = context.to_signature
           tt = RubyType::BaseType.from_ruby_class(Array)
           add_type(sig, tt)
+
+          if element_node_list[1..-1].all? {|e|
+              e[2]
+             } then
+            
+          end
 
           @arguments[1..-1].each_with_index do |anode, idx|
             add_element_node(sig, anode, [idx], context)

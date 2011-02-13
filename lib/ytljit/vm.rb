@@ -110,7 +110,9 @@ LocalVarNode
             if @my_element_node == nil then
               @my_element_node = BaseNode.new(self)
             end
-            @element_node_list = [[sig, @my_element_node, nil]]
+            if @element_node_list == [] then
+              @element_node_list = [[sig, @my_element_node, nil]]
+            end
           end
         end
       end
@@ -137,7 +139,9 @@ LocalVarNode
             if @my_element_node == nil then
               @my_element_node = BaseNode.new(self)
             end
-            @element_node_list = [[sig, @my_element_node, nil]]
+            if @element_node_list == [] then
+              @element_node_list = [[sig, @my_element_node, nil]]
+            end
           end
         end
       end
@@ -327,10 +331,22 @@ LocalVarNode
           ti_update(dst, src, dsig, ssig, context)
         end
 
+        def add_element_node_backward(args, visitnode = {})
+          if visitnode[self] then
+            return
+          end
+
+          add_element_node(*args)
+          visitnode[self] = true
+          @ti_observee.each do |rec|
+            rec.add_element_node_backward(args, visitnode)
+          end
+        end
+
         def add_element_node(sig, enode, index, context)
           slfetnode = @element_node_list
-          unless slfetnode.include?(enode)
-            if @element_node_list == nil and index != nil then
+          unless slfetnode.include?([sig, enode, index])
+            if @element_node_list == [] then
               @element_node_list.push [sig, enode, nil]
             end
             @element_node_list.push [sig, enode, index]

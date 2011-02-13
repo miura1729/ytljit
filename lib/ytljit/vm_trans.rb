@@ -436,7 +436,8 @@ module YTLJit
 
       def visit_newarray(code, ins, context)
         curnode = context.current_node
-        func = FixArgCApiNode.new(curnode, "rb_ary_new3", [:int, :VALUE, :"..."])
+        func = FixArgCApiNode.new(curnode, "rb_ary_new3", 
+                                  [:int, :VALUE, :"..."])
         argnum = ins[1]
         argnumnode = LiteralNode.new(nil, argnum)
         args = []
