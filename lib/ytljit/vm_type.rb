@@ -300,6 +300,10 @@ module YTLJit
         false
       end
 
+      def abnormal?
+        @@base_type_tab[ruby_type].boxed != boxed
+      end
+
       def to_box
         @@boxed_type_tab[ruby_type].instance
       end

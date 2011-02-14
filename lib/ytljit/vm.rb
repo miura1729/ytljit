@@ -343,6 +343,18 @@ LocalVarNode
           end
         end
 
+        def set_escape_node_backward(visitnode = {})
+          if visitnode[self] then
+            return
+          end
+
+          @is_escape = true
+          visitnode[self] = true
+          @ti_observee.each do |rec|
+            rec.set_escape_node_backward(visitnode)
+          end
+        end
+
         def add_element_node(sig, enode, index, context)
           slfetnode = @element_node_list
           unless slfetnode.include?([sig, enode, index])
@@ -401,7 +413,7 @@ LocalVarNode
 
           when 2
             if tlist[0].ruby_type == tlist[1].ruby_type then
-              if tlist[0].boxed then
+              if tlist[0].abnormal? then
                 tlist[0]
               else
                 tlist[1]
@@ -1437,7 +1449,7 @@ LocalVarNode
           rc
         end
 
-        def alloca(size)
+        def static_alloca(size)
 #          base = -offset_by_byte(0)
           @alloca_area_size += size
           -(@local_area_size + @alloca_area_size)
@@ -1609,6 +1621,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @is_escape = true
+          set_escape_node_backward
           context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
@@ -1923,7 +1936,7 @@ LocalVarNode
 
         def collect_info(context)
           tnode = search_frame_info
-          offset = tnode.alloca(8)
+          offset = tnode.static_alloca(8)
           @res_area = OpIndirect.new(BPR, offset)
           @node.collect_info(context)
         end
@@ -2767,16 +2780,18 @@ LocalVarNode
             context.modified_instance_var[@name] = []
           end
           context.modified_instance_var[@name].push self
+          @val.is_escape = true
+          @val.set_escape_node_backward
           @body.collect_info(context)
         end
 
         def collect_candidate_type(context)
-          @is_escape = true
-          @val.is_escape = true
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
+          @val.is_escape = true
+          @val.set_escape_node_backward
           @body.collect_candidate_type(context)
         end
 

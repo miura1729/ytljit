@@ -588,11 +588,9 @@ module YTLJit
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                add_type(sig, tt)
                 
               when LiteralNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.value)
-                add_type(sig, tt)
 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
@@ -602,13 +600,20 @@ module YTLJit
               if tt.ruby_type == Range then
                 tt.args = @arguments[3..-1]
                 add_element_node(sig, @arguments[3], [0], context)
-              end
 
-              if tt.ruby_type == Array then
+              elsif tt.ruby_type == Array then
                 @arguments[3..-1].each_with_index do |anode, idx|
                   add_element_node(sig, anode, [idx - 3], context)
                 end
+                if element_node_list != [] and
+                    element_node_list[1..-1].all? {|e|
+                     e[2]
+                   } then
+                  tt = tt.to_unbox
+                end
               end
+
+              add_type(sig, tt)
             else
               raise "Unkonwn node type #{@arguments[2].class} "
             end
@@ -641,6 +646,22 @@ module YTLJit
           context
         end
 
+        def compile_array(context)
+          siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
+          context = gen_alloca(context, siz)
+          asm = context.assembler
+#=begin
+          asm.with_retry do
+            (siz - 1).times do |i|
+              off = OpIndirect.new(THEPR, i * 8)
+              asm.mov(off, OpImmidiateMachineWord.new(4))
+            end
+          end
+#=end
+          context.ret_node = self
+          context
+        end
+
         def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
@@ -649,13 +670,10 @@ module YTLJit
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
             if !@is_escape and crtype == Range then
-              compile_range(context)
+              return compile_range(context)
               
-            elsif !@is_escape and crtype == Array and
-                element_node_list[1..-1].all? {|e|
-                  e[2]
-                } then
-              context = @initmethod.compile(context)
+            elsif !@is_escape and crtype == Array and !ctype.boxed then
+              return compile_array(context)
 
             elsif @initmethod.func.calling_convention(context) then
               context = @initmethod.compile(context)
@@ -1023,6 +1041,38 @@ module YTLJit
 
           context
         end
+
+        def compile(context)
+          sig = context.to_signature
+          rtype = decide_type_once(sig)
+          rrtype = rtype.ruby_type
+          if !@is_escape and rrtype == Array and !rtype.boxed then
+            context = gen_eval_self(context)
+            context.start_using_reg(TMPR2)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR2, context.ret_reg)
+            end
+            context = @arguments[3].compile(context)
+            asm.with_retry do
+              if context.ret_reg != TMPR then
+                asm.mov(TMPR, context.ret_reg)
+              end
+              asm.add(TMPR, TMPR) # * 2
+              asm.add(TMPR, TMPR) # * 4
+              asm.add(TMPR, TMPR) # * 8
+              asm.add(TMPR2, TMPR)
+              asm.mov(RETR, INDIRECT_TMPR2)
+            end
+            
+            context.end_using_reg(TMPR2)
+            context.ret_reg = RETR
+            context.ret_node = self
+            context
+          else
+            super
+          end
+        end
       end
 
       class SendElementAssignNode<SendNode
@@ -1054,6 +1104,44 @@ module YTLJit
           end
 
           context
+        end
+
+        def compile(context)
+          sig = context.to_signature
+          rtype = decide_type_once(sig)
+          rrtype = rtype.ruby_type
+          if !@is_escape and rrtype == Array and !rtype.boxed then
+            context = gen_eval_self(context)
+            context.start_using_reg(TMPR2)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR2, context.ret_reg)
+            end
+            context = @arguments[3].compile(context)
+            asm.with_retry do
+              if context.ret_reg != TMPR then
+                asm.mov(TMPR, context.ret_reg)
+              end
+              asm.add(TMPR, TMPR) # * 2
+              asm.add(TMPR, TMPR) # * 4
+              asm.add(TMPR, TMPR) # * 8
+              asm.add(TMPR2, TMPR)
+            end
+            context = @arguments[3].compile(context)
+            asm.with_retry do
+              if context.ret_reg != RETR then
+                asm.mov(RETR, context.ret_reg)
+              end
+              asm.mov(INDIRECT_TMPR2, RETR)
+            end
+
+            context.end_using_reg(TMPR2)
+            context.ret_reg = RETR
+            context.ret_node = self
+            context
+          else
+            super
+          end
         end
       end
 
@@ -1377,22 +1465,39 @@ module YTLJit
       end
 
       class RetArraySendNode<RawSendNode
+        include AbsArch
+
         def collect_candidate_type_body(context)
           sig = context.to_signature
           tt = RubyType::BaseType.from_ruby_class(Array)
-          add_type(sig, tt)
-
-          if element_node_list[1..-1].all? {|e|
-              e[2]
-             } then
-            
+          if @element_node_list != [] and 
+              @element_node_list[1..-1].all? {|e|
+                e[2]
+              } then
+            tt = tt.to_unbox
           end
+
+          add_type(sig, tt)
 
           @arguments[1..-1].each_with_index do |anode, idx|
             add_element_node(sig, anode, [idx], context)
           end
 
           context
+        end
+
+        def compile(context)
+          sig = context.to_signature
+          rtype = decide_type_once(sig)
+          rrtype = rtype.ruby_type
+          if !@is_escape and rrtype == Array and !rtype.boxed then
+            siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
+            context = gen_alloca(context, siz)
+            context.ret_node = self
+            context
+          else
+            super
+          end
         end
       end
     end

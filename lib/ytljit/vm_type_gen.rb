@@ -138,17 +138,7 @@ module YTLJit
         end
       end
 
-      module ArrayTypeBoxedCodeGen
-        include AbsArch
-        include CommonCodeGen
-
-        def instance
-          ni = self.dup
-          ni.instance_eval { extend ArrayTypeBoxedCodeGen }
-          ni.init
-          ni
-        end
-
+      module ArrayTypeCommonCodeGen
         def init
           @element_type = nil
         end
@@ -157,6 +147,35 @@ module YTLJit
 
         def have_element?
           true
+        end
+
+        def ==(other)
+          if other then
+            oc = other.ruby_type
+            sc = self.ruby_type
+            sc == oc and
+              @element_type == other.element_type
+          else
+            false
+          end
+        end
+
+        def eql?(other)
+          self.class == other.class and
+          @element_type == other.element_type
+        end
+      end
+
+      module ArrayTypeBoxedCodeGen
+        include AbsArch
+        include CommonCodeGen
+        include ArrayTypeCommonCodeGen
+
+        def instance
+          ni = self.dup
+          ni.instance_eval { extend ArrayTypeBoxedCodeGen }
+          ni.init
+          ni
         end
 
         def gen_copy(context)
@@ -180,48 +199,16 @@ module YTLJit
 
           context
         end
-
-        def ==(other)
-          if other then
-            oc = other.ruby_type
-            sc = self.ruby_type
-            sc == oc and
-              @element_type == other.element_type
-          else
-            false
-          end
-        end
-
-        def eql?(other)
-          self.class == other.class and
-          @element_type == other.element_type
-        end
       end
 
-      module StringTypeBoxedCodeGen
-        include AbsArch
-        include CommonCodeGen
+      module ArrayTypeUnboxedCodeGen
+        include ArrayTypeCommonCodeGen
 
-        def gen_copy(context)
-          asm = context.assembler
-          val = context.ret_reg
-          vnode = context.ret_node
-          context.start_using_reg(TMPR2)
-          context.start_arg_reg
-          asm.with_retry do
-            asm.mov(FUNC_ARG[0], val)
-          end
-          addr = lambda {
-            address_of("rb_str_resurrect")
-          }
-          rbstrresurrect = OpVarMemAddress.new(addr)
-          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_call(context, rbstrresurrect, 1, vnode)
-          context.end_arg_reg
-          context.end_using_reg(TMPR2)
-          context.ret_reg = RETR
-
-          context
+        def instance
+          ni = self.dup
+          ni.instance_eval { extend ArrayTypeUnboxedCodeGen }
+          ni.init
+          ni
         end
       end
 
@@ -287,15 +274,6 @@ module YTLJit
         def ==(other)
           self.class == other.class and
             @args == other.args
-        end
-      end
-
-      module ArrayTypeUnboxedCodeGen
-        include AbsArch
-        include CommonCodeGen
-
-        def have_element?
-          true
         end
       end
     end

@@ -559,9 +559,14 @@ LO        |                       |   |  |
 
       def gen_alloca(context, siz)
         asm = context.assembler
-        siz = siz * AsmType::MACHINE_WORD.size
-        asm.with_retry do
-          asm.sub(THEPR, siz)
+        case siz
+        when Integer
+          siz = siz * 8
+          asm.with_retry do
+            asm.sub(THEPR, siz)
+          end
+        else
+          raise "Not implemented yet variable alloca"
         end
         context.ret_reg = THEPR
         context
