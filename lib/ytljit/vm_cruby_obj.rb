@@ -3,6 +3,7 @@ module YTLJit
     module Node
       class CRubyInstanceVarRefNode<InstanceVarRefNode
         include TypeListWithoutSignature
+        include CommonCodeGen
 
         def initialize(parent, name)
           super
@@ -21,6 +22,9 @@ module YTLJit
           asm.with_retry do
             asm.mov(FUNC_ARG[0], slfoff)
             asm.mov(FUNC_ARG[1], ivid)
+          end
+          context = gen_save_thepr(context)
+          asm.with_retry do
             asm.call_with_arg(ivarget, 2)
           end
           context.end_arg_reg
@@ -37,6 +41,7 @@ module YTLJit
 
       class CRubyInstanceVarAssignNode<InstanceVarAssignNode
         include TypeListWithoutSignature
+        include CommonCodeGen
 
         def initialize(parent, name, val)
           super
@@ -62,6 +67,9 @@ module YTLJit
             asm.mov(FUNC_ARG[0], slfoff)
             asm.mov(FUNC_ARG[1], ivid)
             asm.mov(FUNC_ARG[2], TMPR2)
+          end
+          context = gen_save_thepr(context)
+          asm.with_retry do
             asm.call_with_arg(ivarset, 3)
             asm.pop(TMPR2)
           end

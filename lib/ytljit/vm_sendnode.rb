@@ -608,7 +608,7 @@ module YTLJit
                 if element_node_list != [] and
                     element_node_list[1..-1].all? {|e|
                      e[2]
-                   } then
+                   } and !@is_escape then
                   tt = tt.to_unbox
                 end
               end
@@ -650,14 +650,13 @@ module YTLJit
           siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
           context = gen_alloca(context, siz)
           asm = context.assembler
-#=begin
           asm.with_retry do
             (siz - 1).times do |i|
               off = OpIndirect.new(THEPR, i * 8)
-              asm.mov(off, OpImmidiateMachineWord.new(4))
+              asm.mov(TMPR, OpImmidiateMachineWord.new(4))
+              asm.mov(off, TMPR)
             end
           end
-#=end
           context.ret_node = self
           context
         end
@@ -672,7 +671,7 @@ module YTLJit
             if !@is_escape and crtype == Range then
               return compile_range(context)
               
-            elsif !@is_escape and crtype == Array and !ctype.boxed then
+            elsif crtype == Array and !ctype.boxed then
               return compile_array(context)
 
             elsif @initmethod.func.calling_convention(context) then
@@ -1044,11 +1043,11 @@ module YTLJit
 
         def compile(context)
           sig = context.to_signature
-          rtype = decide_type_once(sig)
+          rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if !@is_escape and rrtype == Array and !rtype.boxed then
-            context = gen_eval_self(context)
+          if rrtype == Array and !rtype.boxed then
             context.start_using_reg(TMPR2)
+            context = gen_eval_self(context)
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, context.ret_reg)
@@ -1068,7 +1067,7 @@ module YTLJit
             context.end_using_reg(TMPR2)
             context.ret_reg = RETR
             context.ret_node = self
-            context
+            @body.compile(context)
           else
             super
           end
@@ -1108,11 +1107,11 @@ module YTLJit
 
         def compile(context)
           sig = context.to_signature
-          rtype = decide_type_once(sig)
+          rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if !@is_escape and rrtype == Array and !rtype.boxed then
-            context = gen_eval_self(context)
+          if rrtype == Array and !rtype.boxed then
             context.start_using_reg(TMPR2)
+            context = gen_eval_self(context)
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, context.ret_reg)
@@ -1127,7 +1126,7 @@ module YTLJit
               asm.add(TMPR, TMPR) # * 8
               asm.add(TMPR2, TMPR)
             end
-            context = @arguments[3].compile(context)
+            context = @arguments[4].compile(context)
             asm.with_retry do
               if context.ret_reg != RETR then
                 asm.mov(RETR, context.ret_reg)
@@ -1138,7 +1137,7 @@ module YTLJit
             context.end_using_reg(TMPR2)
             context.ret_reg = RETR
             context.ret_node = self
-            context
+            @body.compile(context)
           else
             super
           end
@@ -1473,7 +1472,7 @@ module YTLJit
           if @element_node_list != [] and 
               @element_node_list[1..-1].all? {|e|
                 e[2]
-              } then
+              } and !@is_escape then
             tt = tt.to_unbox
           end
 
@@ -1490,7 +1489,7 @@ module YTLJit
           sig = context.to_signature
           rtype = decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if !@is_escape and rrtype == Array and !rtype.boxed then
+          if rrtype == Array and !rtype.boxed then
             siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
             context = gen_alloca(context, siz)
             context.ret_node = self

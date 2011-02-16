@@ -18,6 +18,7 @@ struct CodeSpace {
 };
 
 struct Arena {
+  VALUE *used;
   size_t size;
   VALUE body[1];
 };

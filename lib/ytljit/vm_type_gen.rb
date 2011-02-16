@@ -118,12 +118,14 @@ module YTLJit
 =begin
           # This is sample of backtrace
           sh = OpMemAddress.new(address_of("ytl_step_handler"))
+          context = gen_save_thepr(context)
           context = gen_call(context, sh, 0, vnode)
 =end
           asm.with_retry do
             asm.mov(FUNC_FLOAT_ARG[0], val)
           end
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, vnode)
+          context = gen_save_thepr(context)
           context = gen_call(context, rbfloatnew, 1, vnode)
           context.end_arg_reg
           context.end_arg_reg(FUNC_FLOAT_ARG)
@@ -154,7 +156,8 @@ module YTLJit
             oc = other.ruby_type
             sc = self.ruby_type
             sc == oc and
-              @element_type == other.element_type
+              @element_type == other.element_type and
+              boxed == other.boxed
           else
             false
           end
@@ -162,7 +165,8 @@ module YTLJit
 
         def eql?(other)
           self.class == other.class and
-          @element_type == other.element_type
+            @element_type == other.element_type and
+            boxed == other.boxed
         end
       end
 
@@ -192,6 +196,7 @@ module YTLJit
             asm.mov(FUNC_ARG[0], val)
           end
           context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
+          context = gen_save_thepr(context)
           context = gen_call(context, rbarydup, 1, vnode)
           context.end_arg_reg
           context.end_using_reg(TMPR3)
@@ -232,6 +237,7 @@ module YTLJit
         def gen_boxing(context)
           rtype = args[0].decide_type_once(context.to_signature)
 
+          vnode = context.ret_node
           base = context.ret_reg
           addr = lambda {
             address_of("rb_range_new")
@@ -262,8 +268,9 @@ module YTLJit
 
           asm.with_retry do
             asm.mov(FUNC_ARG[2], excoff)
-            asm.call_with_arg(rbrangenew, 3)
           end
+          context = gen_save_thepr(context)
+          context = gen_call(context, rbrangenew, 3, vnode)
 
           context.end_arg_reg
           context.end_using_reg(TMPR2)
@@ -273,7 +280,8 @@ module YTLJit
         
         def ==(other)
           self.class == other.class and
-            @args == other.args
+            @args == other.args and
+            boxed == other.boxed
         end
       end
     end

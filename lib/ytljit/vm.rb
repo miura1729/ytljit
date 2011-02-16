@@ -607,6 +607,7 @@ LocalVarNode
             end
             context.set_reg_content(FUNC_ARG[2].dst_opecode, context.ret_node)
             
+            context = gen_save_thepr(context)
             context = gen_call(context, fnc, 3)
             context.cpustack_popn(3 * AsmType::MACHINE_WORD.size)
             context.end_arg_reg
@@ -670,6 +671,7 @@ LocalVarNode
             cursrc = cursrc + 1
           end
           
+          context = gen_save_thepr(context)
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
@@ -790,6 +792,7 @@ LocalVarNode
                                     context.ret_node)
           end
           
+          context = gen_save_thepr(context)
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
@@ -1319,12 +1322,18 @@ LocalVarNode
 
         def get_arena_address
           ar = @@local_object_area
+          # 2 means used and size
+          ar.address - AsmType::MACHINE_WORD.size * 2
+        end
+
+        def get_arena_end_address
+          ar = @@local_object_area
           (ar.address + ar.size) & (~0xf)
         end
 
         def compile_init(context)
           addr = lambda {
-            get_arena_address
+            get_arena_end_address
           }
           aa = OpVarImmidiateAddress.new(addr) 
           asm = context.assembler
@@ -2423,6 +2432,9 @@ LocalVarNode
                 asm.call_with_arg(objclass, 1)
                 asm.mov(FUNC_ARG[0], RETR)
                 asm.mov(FUNC_ARG[1], mnval)
+              end
+              context = gen_save_thepr(context)
+              asm.with_retry do
                 asm.call_with_arg(addrof, 2)
                 asm.mov(TMPR2, RETR)
                 asm.pop(PTMPR)

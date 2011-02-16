@@ -170,6 +170,7 @@ module YTLJit
               )
 
     Arena = AsmType::Struct.new(
+              AsmType::MACHINE_WORD, :used,
               AsmType::MACHINE_WORD, :size,
               AsmType::Array.new(AsmType::INT8, 0), :body
             )

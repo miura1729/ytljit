@@ -8,19 +8,18 @@ VALUE ytl_mRuntime;
 VALUE ytl_cArena;
 
 void
-ytl_arena_mark(VALUE obj)
+ytl_arena_mark(struct Arena *raw_arena)
 {
-  int i;
-  int size;
-  struct Arena *raw_arena;
+  VALUE *base;
+  VALUE *start;
+  VALUE *curptr;
 
-  /*
-  raw_arena = (struct Arena *)DATA_PTR(obj);
-  size = raw_arena->size / sizeof(VALUE);
-  for (i = 0; i < size; i++) {
-    rb_gc_mark_maybe(raw_arena->body[i]);
+  start = raw_arena->used;
+  base = raw_arena->body + (raw_arena->size / sizeof(VALUE));
+  for (curptr = start; curptr < base; curptr++) {
+    //    printf("%x \n", *curptr);
+    rb_gc_mark_maybe(*curptr);
   }
-  */
 }
 
 VALUE
@@ -30,6 +29,7 @@ ytl_arena_allocate(VALUE klass)
 
   arena = malloc(ARENA_SIZE);
   arena->size = ARENA_SIZE - sizeof(struct Arena);
+  arena->used = arena->body + (arena->size / sizeof(VALUE));
 
   return Data_Wrap_Struct(klass, ytl_arena_mark, free, (void *)arena);
 }

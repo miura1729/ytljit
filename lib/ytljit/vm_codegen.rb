@@ -572,6 +572,16 @@ LO        |                       |   |  |
         context
       end
 
+      def gen_save_thepr(context)
+        casm = context.assembler
+        arenaaddr = context.top_node.get_arena_address
+        casm.with_retry do
+          casm.mov(TMPR, arenaaddr)
+          casm.mov(INDIRECT_TMPR, THEPR)
+        end
+        context
+      end
+
       def gen_call(context, fnc, numarg, slf = nil)
         casm = context.assembler
 
