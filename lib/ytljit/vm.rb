@@ -307,7 +307,11 @@ LocalVarNode
             context.convergent = false
           end
 
-          dst.is_escape ||= src.is_escape
+          if src.is_escape then
+            if dst.is_escape != true then
+              dst.is_escape = src.is_escape
+            end
+          end
         end
 
         def same_type(dst, src, dsig, ssig, context)
@@ -343,15 +347,17 @@ LocalVarNode
           end
         end
 
-        def set_escape_node_backward(visitnode = {})
+        def set_escape_node_backward(value = true, visitnode = {})
           if visitnode[self] then
             return
           end
 
-          @is_escape = true
+          if @is_escape != true then
+            @is_escape = value
+          end
           visitnode[self] = true
           @ti_observee.each do |rec|
-            rec.set_escape_node_backward(visitnode)
+            rec.set_escape_node_backward(value, visitnode)
           end
         end
 
@@ -1629,12 +1635,18 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @is_escape = true
-          set_escape_node_backward
           context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
           same_type(@value_node, self, cursig, cursig, context)
+
+          rtype = decide_type_once(cursig)
+          rrtype = rtype.ruby_type
+          if !rtype.boxed and rrtype != Fixnum and rrtype != Float then
+            set_escape_node_backward(:export_object)
+          else
+            set_escape_node_backward(:not_export)
+          end
           @body.collect_candidate_type(context)
         end
 
@@ -1705,6 +1717,7 @@ LocalVarNode
           @name = name
           @come_from = {}
           @come_from_val = []
+          @current_signature = nil
           @code_space = CodeSpace.new
           @value_node = PhiNode.new(self)
           @modified_local_var_list = []
@@ -1801,6 +1814,12 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
+          if @current_signature == nil or
+              @current_signature != context.to_signature then
+            @come_from_val = []
+            @current_signature = context.to_signature
+          end
+
           @come_from_val.push context.ret_reg
           
           if @come_from_val.size == 1 then
@@ -2759,7 +2778,7 @@ LocalVarNode
             cursig = context.to_signature
             same_type(self, src, cursig, cursig, context)
           end
-
+          
           context
         end
 
@@ -2792,8 +2811,6 @@ LocalVarNode
             context.modified_instance_var[@name] = []
           end
           context.modified_instance_var[@name].push self
-          @val.is_escape = true
-          @val.set_escape_node_backward
           @body.collect_info(context)
         end
 
@@ -2802,8 +2819,7 @@ LocalVarNode
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
-          @val.is_escape = true
-          @val.set_escape_node_backward
+          @val.set_escape_node_backward(true)
           @body.collect_candidate_type(context)
         end
 

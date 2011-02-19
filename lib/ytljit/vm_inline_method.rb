@@ -173,5 +173,77 @@ module YTLJit
         context
       end
     end
+
+    module UnboxedArrayUtil
+      include AbsArch
+      def gen_ref_element(context, slf, idx)
+        context.start_using_reg(TMPR2)
+        context = slf.compile(context)
+        asm = context.assembler
+        asm.with_retry do
+          asm.mov(TMPR2, context.ret_reg)
+        end
+        context = idx.compile(context)
+        asm.with_retry do
+          if context.ret_reg != TMPR then
+            asm.mov(TMPR, context.ret_reg)
+          end
+          asm.add(TMPR, TMPR) # * 2
+          asm.add(TMPR, TMPR) # * 4
+          asm.add(TMPR, TMPR) # * 8
+          asm.add(TMPR2, TMPR)
+          asm.mov(RETR, INDIRECT_TMPR2)
+        end
+        
+        context.end_using_reg(TMPR2)
+        context.ret_reg = RETR
+        context.ret_node = self
+        context
+      end
+        
+      def gen_set_element(context, slf, idx, val)
+        context.start_using_reg(TMPR2)
+
+        asm = context.assembler
+        if slf then
+          context = slf.compile(context)
+          asm.with_retry do
+            asm.mov(TMPR2, context.ret_reg)
+          end
+        end
+        if idx.is_a?(Fixnum) then
+          idxval = idx
+        else
+          context = idx.compile(context)
+          idxval = context.ret_reg
+        end
+
+        asm.with_retry do
+          if idxval.is_a?(Fixnum) then
+            asm.mov(TMPR, idxval * 8)
+          elsif idxval.is_a?(OpImmidiate)
+            asm.mov(TMPR, idxval.value * 8)
+          else
+            asm.mov(TMPR, idxval)
+            asm.add(TMPR, TMPR) # * 2
+            asm.add(TMPR, TMPR) # * 4
+            asm.add(TMPR, TMPR) # * 8
+          end
+          asm.add(TMPR2, TMPR)
+        end
+        context = val.compile(context)
+        asm.with_retry do
+          if context.ret_reg != RETR then
+            asm.mov(RETR, context.ret_reg)
+          end
+          asm.mov(INDIRECT_TMPR2, RETR)
+        end
+        
+        context.end_using_reg(TMPR2)
+        context.ret_reg = RETR
+        context.ret_node = self
+        context
+      end
+    end
   end
 end

@@ -608,7 +608,7 @@ module YTLJit
                 if element_node_list != [] and
                     element_node_list[1..-1].all? {|e|
                      e[2]
-                   } and !@is_escape then
+                   } then
                   tt = tt.to_unbox
                 end
               end
@@ -668,10 +668,10 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
-            if !@is_escape and crtype == Range then
+            if @is_escape != true and crtype == Range then
               return compile_range(context)
               
-            elsif crtype == Array and !ctype.boxed then
+            elsif crtype == Array and !ctype.boxed and @is_escape != true then
               return compile_array(context)
 
             elsif @initmethod.func.calling_convention(context) then
@@ -1008,6 +1008,7 @@ module YTLJit
 
       class SendElementRefNode<SendNode
         include SendUtil
+        include UnboxedArrayUtil
         add_special_send_node :[]
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
@@ -1045,28 +1046,9 @@ module YTLJit
           sig = context.to_signature
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if rrtype == Array and !rtype.boxed then
-            context.start_using_reg(TMPR2)
-            context = gen_eval_self(context)
-            asm = context.assembler
-            asm.with_retry do
-              asm.mov(TMPR2, context.ret_reg)
-            end
-            context = @arguments[3].compile(context)
-            asm.with_retry do
-              if context.ret_reg != TMPR then
-                asm.mov(TMPR, context.ret_reg)
-              end
-              asm.add(TMPR, TMPR) # * 2
-              asm.add(TMPR, TMPR) # * 4
-              asm.add(TMPR, TMPR) # * 8
-              asm.add(TMPR2, TMPR)
-              asm.mov(RETR, INDIRECT_TMPR2)
-            end
-            
-            context.end_using_reg(TMPR2)
-            context.ret_reg = RETR
-            context.ret_node = self
+          if rrtype == Array and !rtype.boxed and 
+              @arguments[2].is_escape != true then
+            context = gen_ref_element(context, @arguments[2], @arguments[3])
             @body.compile(context)
           else
             super
@@ -1076,6 +1058,7 @@ module YTLJit
 
       class SendElementAssignNode<SendNode
         include SendUtil
+        include UnboxedArrayUtil
         add_special_send_node :[]=
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
@@ -1109,34 +1092,12 @@ module YTLJit
           sig = context.to_signature
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if rrtype == Array and !rtype.boxed then
-            context.start_using_reg(TMPR2)
-            context = gen_eval_self(context)
-            asm = context.assembler
-            asm.with_retry do
-              asm.mov(TMPR2, context.ret_reg)
-            end
-            context = @arguments[3].compile(context)
-            asm.with_retry do
-              if context.ret_reg != TMPR then
-                asm.mov(TMPR, context.ret_reg)
-              end
-              asm.add(TMPR, TMPR) # * 2
-              asm.add(TMPR, TMPR) # * 4
-              asm.add(TMPR, TMPR) # * 8
-              asm.add(TMPR2, TMPR)
-            end
-            context = @arguments[4].compile(context)
-            asm.with_retry do
-              if context.ret_reg != RETR then
-                asm.mov(RETR, context.ret_reg)
-              end
-              asm.mov(INDIRECT_TMPR2, RETR)
-            end
-
-            context.end_using_reg(TMPR2)
-            context.ret_reg = RETR
-            context.ret_node = self
+          if rrtype == Array and !rtype.boxed and 
+              @arguments[2].is_escape != true then
+            context = gen_set_element(context, 
+                                      @arguments[2], 
+                                      @arguments[3], 
+                                      @arguments[4])
             @body.compile(context)
           else
             super
@@ -1277,7 +1238,7 @@ module YTLJit
         def compile(context)
           rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
-          if rrtype == Range and !rtype.boxed then
+          if rrtype == Range and !rtype.boxed and @is_escape != true then
             context = @arguments[2].compile(context)
             slotoff = OpIndirect.new(TMPR, arg_offset)
             asm = context.assembler
@@ -1465,6 +1426,7 @@ module YTLJit
 
       class RetArraySendNode<RawSendNode
         include AbsArch
+        include UnboxedArrayUtil
 
         def collect_candidate_type_body(context)
           sig = context.to_signature
@@ -1472,7 +1434,7 @@ module YTLJit
           if @element_node_list != [] and 
               @element_node_list[1..-1].all? {|e|
                 e[2]
-              } and !@is_escape then
+              } then
             tt = tt.to_unbox
           end
 
@@ -1489,11 +1451,28 @@ module YTLJit
           sig = context.to_signature
           rtype = decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if rrtype == Array and !rtype.boxed then
+          if rrtype == Array and !rtype.boxed and @is_escape != true then
             siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
             context = gen_alloca(context, siz)
+
+            context.start_arg_reg(TMPR2)
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR2, THEPR)
+            end
+
+            @arguments[1..-1].each_with_index do |anode, idx|
+              context = gen_set_element(context, nil, idx, anode)
+            end
+
+            asm.with_retry do
+              asm.mov(RETR, TMPR2)
+            end
+            context.end_arg_reg(TMPR2)
+
+            context.ret_reg = RETR
             context.ret_node = self
-            context
+            @body.compile(context)
           else
             super
           end
