@@ -215,6 +215,10 @@ module YTLJit
           ni.init
           ni
         end
+
+        def gen_boxing(context)
+          context
+        end
       end
 
       module RangeTypeUnboxedCodeGen
