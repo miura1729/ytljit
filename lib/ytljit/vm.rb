@@ -270,6 +270,14 @@ LocalVarNode
           src.each do |sele|
             if !res.include? sele then
               res.push sele
+=begin
+            elsif sele.have_element? and false then
+              res.each do |dele|
+                if dele == sele and dele.element_type == nil then
+                  dele.element_type = sele.element_type
+                end
+              end
+=end
             end
           end
 
@@ -1690,7 +1698,7 @@ LocalVarNode
           super(parent)
           @local_label = parent
         end
-
+        
         def collect_candidate_type(context)
           @local_label.come_from.values.each do |vnode|
             if vnode then
@@ -1704,14 +1712,15 @@ LocalVarNode
         def compile(context)
           context = super(context)
           context.ret_node = self
-          context.ret_reg = RETR
-          context.set_reg_content(RETR, self)
+          context.ret_reg = @local_label.res_area
           context
         end
       end
 
       class LocalLabel<BaseNode
         include HaveChildlenMixin
+        include NodeUtil
+
         def initialize(parent, name)
           super(parent)
           @name = name
@@ -1719,13 +1728,15 @@ LocalVarNode
           @come_from_val = []
           @current_signature = nil
           @code_space = CodeSpace.new
-          @value_node = PhiNode.new(self)
+          @value_node = nil
           @modified_local_var_list = []
+          @res_area = nil
         end
 
         attr          :name
         attr          :come_from
-        attr          :value_node
+        attr_accessor :value_node
+        attr          :res_area
 
         def traverse_childlen
           yield @value_node
@@ -1766,6 +1777,9 @@ LocalVarNode
           modlocvar = context.modified_local_var.last.map {|ele| ele.dup}
           @modified_local_var_list.push modlocvar
           if @modified_local_var_list.size == 1 then
+            tnode = search_frame_info
+            offset = tnode.static_alloca(8)
+            @res_area = OpIndirect.new(BPR, offset)
             @body.collect_info(context)
           elsif @modified_local_var_list.size == @come_from.size then
             context.merge_local_var(@modified_local_var_list)
@@ -1781,13 +1795,11 @@ LocalVarNode
             context = valnode.compile(context)
             asm = context.assembler
             if !context.ret_reg.is_a?(OpRegXMM) then
-              if RETR != context.ret_reg then
-                asm.with_retry do
-                  asm.mov(RETR, context.ret_reg)
-                end
-                context.set_reg_content(RETR, context.ret_node)
-                context.ret_reg = RETR
+              asm.with_retry do
+                asm.mov(TMPR, context.ret_reg)
+                asm.mov(@res_area, TMPR)
               end
+              context.ret_reg = TMPR
             end
           end
 
@@ -1864,8 +1876,8 @@ LocalVarNode
           context = @jmp_to_node.compile_block_value(context, self)
 
           jmptocs = @jmp_to_node.code_space
-          context = @cond.compile(context)
           curas = context.assembler
+          context = @cond.compile(context)
           curas.with_retry do
             if context.ret_reg != TMPR then
               curas.mov(TMPR, context.ret_reg)

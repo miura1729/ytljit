@@ -709,7 +709,7 @@ module YTLJit
 #=begin
         def compile(context)
           @type = nil
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -748,7 +748,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -792,7 +792,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -856,7 +856,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then

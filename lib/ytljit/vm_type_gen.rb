@@ -156,7 +156,8 @@ module YTLJit
             oc = other.ruby_type
             sc = self.ruby_type
             sc == oc and
-              @element_type == other.element_type and
+              (other.element_type == nil or
+               @element_type == other.element_type) and
               boxed == other.boxed
           else
             false

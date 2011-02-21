@@ -131,6 +131,7 @@ module YTLJit
         nllab = context.local_label_tab[label]
         if nllab == nil then
           nllab = LocalLabel.new(curnode, label)
+          nllab.value_node = PhiNode.new(nllab)
           nllab.debug_info = context.debug_info
           context.local_label_tab[label] = nllab
         end
@@ -164,7 +165,7 @@ module YTLJit
           jmpnode.body = nllab
           context.expstack.push nllab.value_node
         end
-        
+
         context.current_node = nllab
       end
 
