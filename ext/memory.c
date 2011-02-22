@@ -8,55 +8,160 @@ VALUE ytl_mRuntime;
 VALUE ytl_cArena;
 
 void
-ytl_arena_mark(struct Arena *raw_arena)
+ytl_arena_mark(struct ArenaHeader *arenah)
 {
   VALUE *base;
   VALUE *start;
-  VALUE *curptr;
+  struct ArenaBody *bodyptr;
+  struct ArenaBody *next_bodyptr;
+  struct ArenaBody *lastbodyptr;
+  VALUE *bodyeleptr;
+  int appear;
 
-  start = raw_arena->used;
-  base = raw_arena->body + (raw_arena->size / sizeof(VALUE));
-  for (curptr = start; curptr < base; curptr++) {
-    //    printf("%x \n", *curptr);
-    rb_gc_mark_maybe(*curptr);
+  lastbodyptr = (struct ArenaBody *)(((uintptr_t)arenah->lastptr) & (~(ARENA_SIZE - 1)));
+  appear = 0;
+
+  for (bodyptr = arenah->body; bodyptr; bodyptr = next_bodyptr) {
+    if (bodyptr == lastbodyptr) {
+      start = arenah->lastptr;
+      appear = 1;
+    } 
+    else if (appear)  {
+      start = bodyptr->body;
+    }
+    else {
+      arenah->body = bodyptr->next;
+      next_bodyptr = bodyptr->next;
+      free(bodyptr);
+      continue;
+    }
+
+    base = bodyptr->body + (bodyptr->size / sizeof(VALUE));
+    for (bodyeleptr = start; bodyeleptr < base; bodyeleptr++) {
+      rb_gc_mark_maybe(*bodyeleptr);
+    }
+    next_bodyptr = bodyptr->next;
   }
+}
+
+void
+ytl_arena_free(struct ArenaHeader *arenah)
+{
+  VALUE *base;
+  VALUE *start;
+  struct ArenaBody *curptr;
+  struct ArenaBody *curptr_next;
+  
+  for (curptr = arenah->body; curptr; curptr = curptr_next) {
+    curptr_next = curptr->next;
+    free(curptr);
+  }
+  
+  free(arenah);
+}
+
+struct ArenaBody *
+ytl_arena_allocate_body()
+{
+  void *newmem;
+  struct ArenaBody *abody;
+
+#if !defined(__CYGWIN__)
+  if (posix_memalign(&newmem, ARENA_SIZE, ARENA_SIZE)) {
+    rb_raise(rb_eNoMemError, "Can't allocate arena area");
+  }
+  abody = (CodeSpaceArena *)newmem;
+#else
+  if (!(abody = memalign(ARENA_SIZE, ARENA_SIZE))) {
+    rb_raise(rb_eNoMemError, "Can't allocate arena area");
+  }
+#endif
+
+  abody->size = ARENA_SIZE - sizeof(struct ArenaBody);
+  abody->next = 0;
+  return abody;
 }
 
 VALUE
 ytl_arena_allocate(VALUE klass)
 {
-  struct Arena *arena;
+  struct ArenaHeader *arenah;
+  struct ArenaBody *arenab;
 
-  arena = malloc(ARENA_SIZE);
-  arena->size = ARENA_SIZE - sizeof(struct Arena);
-  arena->used = arena->body + (arena->size / sizeof(VALUE));
+  arenah = malloc(sizeof(struct ArenaHeader));
+  arenah->body = ytl_arena_allocate_body();
+  arenab = arenah->body;
+  arenab->header = arenah;
+  arenah->lastptr = arenab->body + (arenab->size / sizeof(VALUE));
 
-  return Data_Wrap_Struct(klass, ytl_arena_mark, free, (void *)arena);
+  return Data_Wrap_Struct(klass, ytl_arena_mark, ytl_arena_free, 
+			  (void *)arenah);
+}
+
+char *
+ytl_arena_alloca(int size)
+{
+  char *stptr;
+  uintptr_t lsp;
+
+#ifdef __x86_64__
+  asm("mov %%r14, %0;"
+      : "=r"(stptr));
+
+#elif  __CYGWIN__
+  asm("mov %%edi, %0;"
+      : "=r"(stptr));
+
+#elif  __i386__
+  asm("mov %%edi, %0;"
+      : "=r"(stptr));
+#else
+#error "only i386 or x86-64 is supported"
+#endif
+
+  size = size * 8;
+  lsp = (uintptr_t)stptr;
+  if ((lsp & (ARENA_SIZE - 1)) < ((lsp - size - 64) & (ARENA_SIZE - 1))) {
+    struct ArenaHeader *arenah;
+    struct ArenaBody *arenab;
+    struct ArenaBody *oldbody;
+
+    oldbody = (struct ArenaBody *)(lsp & (~(ARENA_SIZE -1)));
+    arenah  = oldbody->header;
+    arenab = arenah->body = ytl_arena_allocate_body();
+    arenab->next = oldbody;
+    arenab->header = arenah;
+    arenah->lastptr = arenab->body + (arenab->size / sizeof(VALUE));
+    stptr = (char *)arenah->lastptr;
+  }
+  stptr -= size;
+
+  return stptr;
 }
 
 VALUE
 ytl_arena_ref(VALUE self, VALUE offset)
 {
-  struct Arena *raw_arena;
+  struct ArenaHeader *arenah;
   int raw_offset;
 
-  Data_Get_Struct(self, struct Arena, raw_arena);
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
   raw_offset = FIX2INT(offset);
 
-  return ULONG2NUM(raw_arena->body[raw_offset]);
+  return ULONG2NUM(arenah->body->body[raw_offset]);
 }
 
 VALUE
 ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
 {
-  struct Arena *raw_arena;
+  struct ArenaHeader *arenah;
 
   int raw_offset;
 
-  Data_Get_Struct(self, struct Arena, raw_arena);
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
   raw_offset = NUM2ULONG(offset);
 
-  raw_arena->body[raw_offset] = FIX2INT(src);
+  arenah->body->body[raw_offset] = FIX2INT(src);
 
   return src;
 }
@@ -64,35 +169,49 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
 VALUE
 ytl_arena_size(VALUE self)
 {
-  struct Arena *raw_arena;
+  struct ArenaHeader *arenah;
+  struct ArenaBody *arenab;
 
-  int raw_offset;
+  int totsize;
 
-  Data_Get_Struct(self, struct Arena, raw_arena);
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
+  totsize = 0;
+  for (arenab = arenah->body; arenab; arenab = arenab->next) {
+    totsize += arenab->size;
+  }
 
-  return INT2FIX(raw_arena->size);
+  return INT2FIX(totsize);
 }
 
 VALUE
 ytl_arena_address(VALUE self)
 {
-  struct Arena *raw_arena;
+  struct ArenaHeader *arenah;
 
-  Data_Get_Struct(self, struct Arena, raw_arena);
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
 
-  return ULONG2NUM((uintptr_t)raw_arena->body);
+  return ULONG2NUM((uintptr_t)arenah->body->body);
 }
 
+VALUE
+ytl_arena_raw_address(VALUE self)
+{
+  struct ArenaHeader *arenah;
+
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
+
+  return ULONG2NUM((uintptr_t)arenah);
+}
 
 VALUE
 ytl_arena_to_s(VALUE self)
 {
-  struct Arena *raw_arena;
+  struct ArenaHeader *arenah;
 
-  Data_Get_Struct(self, struct Arena, raw_arena);
+  Data_Get_Struct(self, struct ArenaHeader, arenah);
 
   return rb_sprintf("#<Arena %p size=%d body=%p>", 
 		    (void *)self, 
-		    raw_arena->size,
-		    (void *)raw_arena->body);
+		    ytl_arena_size(self) / 2,
+		    (void *)arenah->body->body);
 }

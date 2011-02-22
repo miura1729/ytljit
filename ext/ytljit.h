@@ -2,7 +2,8 @@
 #define INIT_CODE_SPACE_SIZE 64
 #define VALUE_SPACE_SIZE (8 * 1024)
 
-#define ARENA_SIZE 256 * 1024 /* 256 Kbytes */
+#define CODE_SPACE_SIZE (16 * 1024) /* 16 Kbytes */
+#define ARENA_SIZE (256 * 1024) /* 256 Kbytes */
 
 #define OPEN_CHECK(COND)                                        \
 do {                                                            \
@@ -17,9 +18,15 @@ struct CodeSpace {
   char body[1];
 };
 
-struct Arena {
-  VALUE *used;
+struct ArenaHeader {
+  VALUE *lastptr;
+  struct ArenaBody *body;
+};
+
+struct ArenaBody {
   size_t size;
+  struct ArenaBody *next;
+  struct ArenaHeader *header;
   VALUE body[1];
 };
 
@@ -28,9 +35,11 @@ VALUE ytl_code_space_allocate(VALUE);
 VALUE ytl_code_value_allocate(VALUE);
 
 VALUE ytl_arena_allocate(VALUE);
+char *ytl_arena_alloca(int);
 VALUE ytl_arena_emit(VALUE, VALUE, VALUE);
 VALUE ytl_arena_ref(VALUE, VALUE);
 VALUE ytl_arena_size(VALUE);
+VALUE ytl_arena_raw_address(VALUE);
 VALUE ytl_arena_address(VALUE);
 VALUE ytl_arena_to_s(VALUE);
 

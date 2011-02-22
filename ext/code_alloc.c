@@ -34,11 +34,11 @@ typedef struct {
   uint64_t bitmap[1];
 }  CodeSpaceArena;
 
-#define ARENA_SIZE 16 * 1024
+#define CODE_SPACE_SIZE 16 * 1024
 
 /* 2 * 64 means header and gatekeeper */
 #define BITMAP_SIZE(ALOCSIZ) \
-  (((ARENA_SIZE) * 8 - 2 * 64) / ((ALOCSIZ) * 8 + 1))
+  (((CODE_SPACE_SIZE) * 8 - 2 * 64) / ((ALOCSIZ) * 8 + 1))
 
 /* Last "+ 1" means gatekeeper */
 #define HEADER_SIZE(ALOCSIZ) \
@@ -76,15 +76,15 @@ alloc_arena(size_t aloclogsiz, CodeSpaceArena *prev_csa)
   int rest_size;
   
 #if !defined(__CYGWIN__)
-  if (posix_memalign(&newmem, ARENA_SIZE, ARENA_SIZE)) {
+  if (posix_memalign(&newmem, CODE_SPACE_SIZE, CODE_SPACE_SIZE)) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
-  if(mprotect(newmem, ARENA_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+  if(mprotect(newmem, CODE_SPACE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
     rb_raise(rb_eNoMemError, "mprotect failed");
   }
   arena = (CodeSpaceArena *)newmem;
 #else
-  if (!(arena = memalign(ARENA_SIZE, ARENA_SIZE))) {
+  if (!(arena = memalign(CODE_SPACE_SIZE, CODE_SPACE_SIZE))) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
 #endif
@@ -219,7 +219,7 @@ csfree(void *chunk)
   int logsize;
   int alocsize;
 
-  arena = (CodeSpaceArena *)(((uintptr_t)chunk) & (~(ARENA_SIZE - 1)));
+  arena = (CodeSpaceArena *)(((uintptr_t)chunk) & (~(CODE_SPACE_SIZE - 1)));
   logsize = arena->next_and_size & 0xf;
   alocsize = 16 << logsize;
 
@@ -262,7 +262,7 @@ init_csarena()
 #endif
 
   /* Check page_size is valid */
-  if ((ARENA_SIZE / page_size) * page_size != ARENA_SIZE) {
+  if ((CODE_SPACE_SIZE / page_size) * page_size != CODE_SPACE_SIZE) {
     rb_raise(rb_eNoMemError, "Not support this architecture");
   }
 

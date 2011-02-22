@@ -561,9 +561,17 @@ LO        |                       |   |  |
         asm = context.assembler
         case siz
         when Integer
-          siz = siz * 8
+          add = lambda { 
+            address_of("ytl_arena_alloca")
+          }
+          alloca = OpVarMemAddress.new(add)
           asm.with_retry do
-            asm.sub(THEPR, siz)
+            asm.mov(TMPR, siz)
+            asm.mov(FUNC_ARG[0], TMPR)
+          end
+          context = gen_call(context, alloca, 1)
+          asm.with_retry do
+            asm.mov(THEPR, RETR)
           end
         else
           raise "Not implemented yet variable alloca"

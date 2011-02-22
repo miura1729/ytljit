@@ -1337,12 +1337,12 @@ LocalVarNode
         def get_arena_address
           ar = @@local_object_area
           # 2 means used and size
-          ar.address - AsmType::MACHINE_WORD.size * 2
+          ar.raw_address
         end
 
         def get_arena_end_address
           ar = @@local_object_area
-          (ar.address + ar.size) & (~0xf)
+          (ar.body_address + ar.size) & (~0xf)
         end
 
         def compile_init(context)
