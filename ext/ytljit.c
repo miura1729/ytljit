@@ -524,6 +524,60 @@ ytl_step_handler()
 #endif
 }
 
+VALUE 
+ytl_ivar_get_boxing(VALUE slf, int off)
+{
+  VALUE *ivptr;
+  VALUE rval;
+
+  ivptr = ROBJECT_IVPTR(slf);
+  rval = ivptr[off];
+  if (rval != Qundef) {
+    return rval;
+  }
+  else {
+    return Qnil;
+  }
+}
+
+VALUE 
+ytl_ivar_set_boxing(VALUE slf, int off, VALUE val)
+{
+  int len;
+  int i;
+
+  /* Copy from variable.c in ruby1.9 */
+  len = ROBJECT_NUMIV(slf);
+  if (len <= off) {
+    VALUE *ptr = ROBJECT_IVPTR(slf);
+    if (off < ROBJECT_EMBED_LEN_MAX) {
+      RBASIC(slf)->flags |= ROBJECT_EMBED;
+      ptr = ROBJECT(slf)->as.ary;
+      for (i = 0; i < ROBJECT_EMBED_LEN_MAX; i++) {
+	ptr[i] = Qundef;
+      }
+    }
+    else {
+      VALUE *newptr;
+      long newsize = (off+1) + (off+1)/4; /* (index+1)*1.25 */
+      if (RBASIC(slf)->flags & ROBJECT_EMBED) {
+	newptr = ALLOC_N(VALUE, newsize);
+	MEMCPY(newptr, ptr, VALUE, len);
+	RBASIC(slf)->flags &= ~ROBJECT_EMBED;
+	ROBJECT(slf)->as.heap.ivptr = newptr;
+      }
+      else {
+	REALLOC_N(ROBJECT(slf)->as.heap.ivptr, VALUE, newsize);
+	newptr = ROBJECT(slf)->as.heap.ivptr;
+      }
+      for (; len < newsize; len++)
+	newptr[len] = Qundef;
+      ROBJECT(slf)->as.heap.numiv = newsize;
+    }
+  }
+  ROBJECT_IVPTR(slf)[off] = val;
+}
+
 void 
 Init_ytljit_ext() 
 {

@@ -1624,6 +1624,18 @@ LocalVarNode
 
       class ClassEndNode<MethodEndNode
         include MethodEndCodeGen
+
+        def initialize(parent)
+          super(parent)
+          @modified_instance_var = nil
+        end
+
+        attr :modified_instance_var
+
+        def collect_info(context)
+          @modified_instance_var = context.modified_instance_var
+          context
+        end
       end
 
       # Set result of method/block
@@ -2760,15 +2772,21 @@ LocalVarNode
       class InstanceVarRefCommonNode<VariableRefCommonNode
         include NodeUtil
 
-        def initialize(parent, name)
+        def initialize(parent, name, mnode)
           super(parent)
           @name = name
+          @method_node = mnode
+          mname = nil
+          if @method_node then
+            mname = @method_node.get_constant_value
+          end
+          @method_name = mname
           @class_top = search_class_top
         end
       end
 
       class InstanceVarRefNode<InstanceVarRefCommonNode
-        def initialize(parent, name)
+        def initialize(parent, name, mnode)
           super
           @var_type_info = nil
         end
@@ -2806,8 +2824,8 @@ LocalVarNode
 
       class InstanceVarAssignNode<InstanceVarRefCommonNode
         include HaveChildlenMixin
-        def initialize(parent, name, val)
-          super(parent, name)
+        def initialize(parent, name, mnode, val)
+          super(parent, name, mnode)
           val.parent = self
           @val = val
         end
@@ -2831,7 +2849,9 @@ LocalVarNode
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
-          @val.set_escape_node_backward(true)
+          if cursig[2].boxed then
+            @val.set_escape_node_backward(true)
+          end
           @body.collect_candidate_type(context)
         end
 
