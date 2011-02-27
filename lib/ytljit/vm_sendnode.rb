@@ -936,7 +936,7 @@ module YTLJit
           context
         end
 
-        def commmon_compile_compare(context, rtype, fixcmp, flocmp)
+        def common_compile_compare(context, rtype, fixcmp, flocmp)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_compare_operation(context, :cmp, fixcmp, 
@@ -963,45 +963,85 @@ module YTLJit
           context.ret_node.type = nil
           srtype = context.ret_node.decide_type_once(context.to_signature)
           context = srtype.gen_unboxing(context)
-          if rrtype == Fixnum then
-            context = compile_compare(context, rtype)
-
-          elsif rrtype == Float then
+          if rrtype == Fixnum or rrtype == Float then
             context = compile_compare(context, rtype)
 
           else
-            raise "Unkown method #{rtype.ruby_type} #{@func.name}"
+            tcon = compile_compare_nonnum(context, rtype)
+            if tcon then
+              context = tcon
+            else
+              context = super(context)
+            end
           end
 
           @body.compile(context)
         end
       end
 
+      def compile_compare_nonnum(context, rtype)
+        nil
+      end
+
       class SendGtNode<SendCompareNode
         add_special_send_node :<
         def compile_compare(context, rtype)
-          commmon_compile_compare(context, rtype, :setg, :seta)
+          common_compile_compare(context, rtype, :setg, :seta)
         end
       end
 
       class SendGeNode<SendCompareNode
         add_special_send_node :<=
         def compile_compare(context, rtype)
-          commmon_compile_compare(context, rtype, :setge, :setae)
+          common_compile_compare(context, rtype, :setge, :setae)
         end
       end
 
       class SendLtNode<SendCompareNode
         add_special_send_node :>
         def compile_compare(context, rtype)
-          commmon_compile_compare(context, rtype, :setl, :setb)
+          common_compile_compare(context, rtype, :setl, :setb)
         end
       end
 
       class SendLeNode<SendCompareNode
         add_special_send_node :>=
         def compile_compare(context, rtype)
-          commmon_compile_compare(context, rtype, :setle, :setbe)
+          common_compile_compare(context, rtype, :setle, :setbe)
+        end
+      end
+
+      class SendEqNode<SendCompareNode
+        add_special_send_node :==
+        def compile_compare(context, rtype)
+          common_compile_compare(context, rtype, :setnz, :setnz)
+        end
+
+        def compile_compare_nonnum(context, rtype)
+          if rtype.include_nil? then
+            context = @arguments[2].compile(context)
+            gen_compare_operation(context, :cmp, :setnz, 
+                                  TMPR2, TMPR, RETR, false)
+          else
+            nil
+          end
+        end
+      end
+
+      class SendEqNode<SendCompareNode
+        add_special_send_node :!=
+        def compile_compare(context, rtype)
+          common_compile_compare(context, rtype, :setz, :setz)
+        end
+
+        def compile_compare_nonnum(context, rtype)
+          if rtype.ruby_type == Array and !rtype.boxed then
+            context = @arguments[2].compile(context)
+            gen_compare_operation(context, :cmp, :setz, 
+                                  TMPR2, TMPR, RETR)
+          else
+            nil
+          end
         end
       end
 

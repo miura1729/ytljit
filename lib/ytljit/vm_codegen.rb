@@ -642,12 +642,14 @@ LO        |                       |   |  |
       include AbsArch
       include CommonCodeGen
 
-      def gen_make_argv(context)
+      def gen_make_argv(context, rarg = nil, argcomphook = nil)
         casm = context.assembler
-        rarg = @arguments[3..-1]
+        if rarg == nil then
+          rarg = @arguments[3..-1]
+        end
+        cursig = context.to_signature
 
         # make argv
-        casm = context.assembler
         argbyte = rarg.size * AsmType::MACHINE_WORD.size
         casm.with_retry do
           casm.sub(SPR, argbyte)
@@ -655,11 +657,15 @@ LO        |                       |   |  |
         context.cpustack_pushn(argbyte)
 
         rarg.each_with_index do |arg, i|
-          context = arg.compile(context)
-          context.ret_node.decide_type_once(context.to_signature)
-          rtype = context.ret_node.type
+          rtype = nil
+          if argcomphook then
+            rtype = argcomphook.call(context, arg, i)
+          else
+            context = arg.compile(context)
+            context.ret_node.decide_type_once(cursig)
+            rtype = context.ret_node.type
+          end
           context = rtype.gen_boxing(context)
-          casm = context.assembler
           dst = OpIndirect.new(SPR, i * AsmType::MACHINE_WORD.size)
           if context.ret_reg.is_a?(OpRegistor) or 
               context.ret_reg.is_a?(OpImmidiate32) or 
@@ -689,7 +695,6 @@ LO        |                       |   |  |
         context = yield(context, rarg)
 
         # adjust stack
-        casm = context.assembler
         casm.with_retry do
           casm.add(SPR, argbyte)
         end

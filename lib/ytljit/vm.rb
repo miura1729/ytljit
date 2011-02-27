@@ -375,17 +375,20 @@ LocalVarNode
             if @element_node_list == [] then
               @element_node_list.push [sig, enode, nil]
             end
-            @element_node_list.push [sig, enode, index]
-            orgsig = @element_node_list[0][0]
-            orgnode = @element_node_list[0][1]
-            if orgnode != enode then
-              same_type(orgnode, enode, orgsig, sig, context)
-            end
-            if index != nil then
-              @element_node_list.each do |orgsig, orgnode, orgindex|
-                if orgindex == index and
-                    orgnode != enode then
-                  same_type(orgnode, enode, orgsig, sig, context)
+            newele = [sig, enode, index]
+            if !@element_node_list.include?(newele)
+              @element_node_list.push newele
+              orgsig = @element_node_list[0][0]
+              orgnode = @element_node_list[0][1]
+              if orgnode != enode then
+                same_type(orgnode, enode, orgsig, sig, context)
+              end
+              if index != nil then
+                @element_node_list.each do |orgsig, orgnode, orgindex|
+                  if orgindex == index and
+                      orgnode != enode then
+                    # same_type(orgnode, enode, orgsig, sig, context)
+                  end
                 end
               end
             end
@@ -418,10 +421,18 @@ LocalVarNode
           when 1
             local_cache[self] = tlist[0]
             if tlist[0].have_element? then
-              sig = @element_node_list[0][0]
-              node = @element_node_list[0][1]
-              node.decide_type_once(sig, local_cache)
-              tlist[0].element_type = node.type
+              etype = {}
+              @element_node_list.each do |ele|
+                sig = ele[0]
+                node = ele[1]
+                tt = node.decide_type_once(sig, local_cache)
+                etype[ele[2]] ||= []
+                curidx = etype[ele[2]]
+                if !curidx.include?(tt) then
+                  curidx.push tt
+                end
+              end
+              tlist[0].element_type = etype
             end
             tlist[0]
 

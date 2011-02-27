@@ -13,6 +13,11 @@ module YTLJit
           false
         end
 
+        # Can represent nil by this format
+        def include_nil?
+          true
+        end
+
         def gen_boxing(context)
           context
         end
@@ -33,6 +38,10 @@ module YTLJit
       module FixnumTypeUnboxedCodeGen
         include AbsArch
         include CommonCodeGen
+
+        def include_nil?
+          false
+        end
 
         def gen_boxing(context)
           asm = context.assembler
@@ -135,6 +144,10 @@ module YTLJit
           context
         end
 
+        def include_nil?
+          false
+        end
+
         def gen_unboxing(context)
           context
         end
@@ -209,6 +222,7 @@ module YTLJit
 
       module ArrayTypeUnboxedCodeGen
         include ArrayTypeCommonCodeGen
+        include SendNodeCodeGen
 
         def instance
           ni = self.dup
@@ -218,6 +232,61 @@ module YTLJit
         end
 
         def gen_boxing(context)
+          return context
+          cursig = context.to_signature
+          asm = context.assembler
+          val = context.ret_reg
+          vnode = context.ret_node
+          etypel = []
+          vnode.element_node_list[1..-1].each do |a|
+            if a[2] then
+              curidx = a[2][0]
+              if etypel[curidx] == nil then
+                etypel[curidx] = a[1].decide_type_once(cursig)
+              end
+            end
+          end
+          siz = etypel.size
+
+          context.start_using_reg(TMPR3)
+          context.start_using_reg(TMPR2)
+          asm.with_retry do
+            asm.mov(TMPR3, val)
+          end
+
+          argcomp = lambda {|context, arg, idx|
+            eleacc = OpIndirect.new(TMPR3, idx * AsmType::MACHINE_WORD.size)
+            asm.with_retry do
+              asm.mov(TMPR2, eleacc)
+            end
+            context.ret_reg = TMPR2
+            arg
+          }
+
+          context = gen_make_argv(context, etypel, argcomp) do |context, rarg|
+            context.start_arg_reg
+            context.cpustack_pushn(2 * AsmType::MACHINE_WORD.size)
+
+            addr = lambda {
+              address_of("rb_ary_new4")
+            }
+            rbarynew = OpVarMemAddress.new(addr)
+            asm.with_retry do
+              asm.mov(FUNC_ARG[0], siz)
+              asm.mov(FUNC_ARG[1], TMPR2)
+            end
+
+            context = gen_save_thepr(context)
+            context = gen_call(context, rbarynew, 2, vnode)
+            context.cpustack_popn(2 * AsmType::MACHINE_WORD.size)
+            context.end_arg_reg
+            context.ret_reg = RETR
+            context.set_reg_content(context.ret_reg, vnode)
+            context
+          end
+
+          context.end_using_reg(TMPR2)
+          context.end_using_reg(TMPR3)
           context
         end
       end

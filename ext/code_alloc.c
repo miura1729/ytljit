@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 #include <stdlib.h>
 #include "ruby.h"
+#include "ytljit.h"
 
 
 /* CodeSpaceArena is memory area for allocate codespace
@@ -34,7 +35,6 @@ typedef struct {
   uint64_t bitmap[1];
 }  CodeSpaceArena;
 
-#define CODE_SPACE_SIZE 16 * 1024
 
 /* 2 * 64 means header and gatekeeper */
 #define BITMAP_SIZE(ALOCSIZ) \
@@ -64,19 +64,14 @@ static CodeSpaceArena *arena_search_tab[ALOCSIZLOG_MAX];
 
 static size_t page_size;
 
-CodeSpaceArena *
-alloc_arena(size_t aloclogsiz, CodeSpaceArena *prev_csa)
+static CodeSpaceArena *
+raw_alloc_arena(size_t size)
 {
-  uint64_t rbitmap;
   CodeSpaceArena *arena;
   void *newmem;
-  int allocsiz;
-  int bitmap_size;
-  int allff_size;
-  int rest_size;
-  
+
 #if !defined(__CYGWIN__)
-  if (posix_memalign(&newmem, CODE_SPACE_SIZE, CODE_SPACE_SIZE)) {
+  if (posix_memalign(&newmem, CODE_SPACE_SIZE, size)) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
   if(mprotect(newmem, CODE_SPACE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
@@ -84,11 +79,25 @@ alloc_arena(size_t aloclogsiz, CodeSpaceArena *prev_csa)
   }
   arena = (CodeSpaceArena *)newmem;
 #else
-  if (!(arena = memalign(CODE_SPACE_SIZE, CODE_SPACE_SIZE))) {
+  if (!(arena = memalign(CODE_SPACE_SIZE, size))) {
     rb_raise(rb_eNoMemError, "Can't allocate code space area");
   }
 #endif
+
+  return arena;
+}
+
+static CodeSpaceArena *
+alloc_arena(size_t aloclogsiz, CodeSpaceArena *prev_csa)
+{
+  uint64_t rbitmap;
+  CodeSpaceArena *arena;
+  int allocsiz;
+  int bitmap_size;
+  int allff_size;
+  int rest_size;
   
+  arena = raw_alloc_arena(CODE_SPACE_SIZE);
   arena->next_and_size = ((uintptr_t)prev_csa) | aloclogsiz;
 
   /* fill bitmap: 1 means free */
@@ -202,8 +211,15 @@ csalloc(int size)
   void *res;
   
   logsize = bytes_to_bucket(size);
-  res = search_free_chunk(arena_search_tab[logsize]);
-  //  fprintf(stderr, "%x \n", res);
+  if (logsize < 10) {
+    /* Small code space (less than 8192 bytes) */
+    res = search_free_chunk(arena_search_tab[logsize]);
+  }
+  else {
+    res = raw_alloc_arena(16 << logsize);
+    ((struct CodeSpace *)res)->next_and_size = 0xf;
+  }
+
   return res;
 }
 
@@ -221,6 +237,12 @@ csfree(void *chunk)
 
   arena = (CodeSpaceArena *)(((uintptr_t)chunk) & (~(CODE_SPACE_SIZE - 1)));
   logsize = arena->next_and_size & 0xf;
+  if (logsize == 0xf) {
+    /* Large area */
+    free(arena);
+    return;
+  }
+
   alocsize = 16 << logsize;
 
   alocoff = csarena_allocarea_tab[logsize];

@@ -70,7 +70,7 @@ ytl_arena_allocate_body()
   if (posix_memalign(&newmem, ARENA_SIZE, ARENA_SIZE)) {
     rb_raise(rb_eNoMemError, "Can't allocate arena area");
   }
-  abody = (CodeSpaceArena *)newmem;
+  abody = (struct ArenaBody *)newmem;
 #else
   if (!(abody = memalign(ARENA_SIZE, ARENA_SIZE))) {
     rb_raise(rb_eNoMemError, "Can't allocate arena area");
@@ -210,8 +210,9 @@ ytl_arena_to_s(VALUE self)
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
 
-  return rb_sprintf("#<Arena %p size=%d body=%p>", 
+  return rb_sprintf("#<Arena %p size=%d body=%p last=%p>", 
 		    (void *)self, 
 		    ytl_arena_size(self) / 2,
-		    (void *)arenah->body->body);
+		    (void *)arenah->body->body,
+		    (void *)arenah->lastptr);
 }

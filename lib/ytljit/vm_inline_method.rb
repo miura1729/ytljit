@@ -133,7 +133,7 @@ module YTLJit
 
     module CompareOperationUtil
       def gen_compare_operation(context, cinst, sinst, 
-                                tempreg, tempreg2, resreg)
+                                tempreg, tempreg2, resreg, dounbox = true)
         context.start_using_reg(tempreg)
         asm = context.assembler
         asm.with_retry do
@@ -149,7 +149,9 @@ module YTLJit
         context = aele.compile(context)
         context.ret_node.type = nil
         rtype = context.ret_node.decide_type_once(context.to_signature)
-        context = rtype.gen_unboxing(context)
+        if dounbox then
+          context = rtype.gen_unboxing(context)
+        end
           
         asm = context.assembler
         asm.with_retry do

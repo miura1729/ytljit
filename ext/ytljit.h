@@ -13,6 +13,7 @@ do {                                                            \
  } while(0)
 
 struct CodeSpace {
+  uintptr_t next_and_size;
   size_t  size;
   size_t  used;
   char body[1];
