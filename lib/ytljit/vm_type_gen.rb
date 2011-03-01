@@ -291,9 +291,35 @@ module YTLJit
         end
       end
 
+      module RangeTypeCommonCodeGen
+        def init
+          @args = nil
+          @element_type = nil
+        end
+
+        attr_accessor :args
+        attr_accessor :element_type
+
+        def have_element?
+          true
+        end
+      end
+
+      module RangeTypeBoxedCodeGen
+        include RangeTypeCommonCodeGen
+
+        def instance
+          ni = self.dup
+          ni.instance_eval { extend RangeTypeBoxedCodeGen }
+          ni.init
+          ni
+        end
+      end
+
       module RangeTypeUnboxedCodeGen
         include AbsArch
         include CommonCodeGen
+        include RangeTypeCommonCodeGen
 
         def instance
           ni = self.dup
@@ -301,12 +327,6 @@ module YTLJit
           ni.init
           ni
         end
-
-        def init
-          @args = nil
-        end
-
-        attr_accessor :args
 
         def gen_boxing(context)
           rtype = args[0].decide_type_once(context.to_signature)

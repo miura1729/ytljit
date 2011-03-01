@@ -1101,6 +1101,7 @@ module YTLJit
         add_special_send_node :[]=
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
+          rtype = nil
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
@@ -1110,7 +1111,7 @@ module YTLJit
             @arguments[2].add_element_node_backward([sig, val, cidx, context])
             decide_type_once(sig)
             @arguments[2].type = nil
-            @arguments[2].decide_type_once(sig)
+            rtype = @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
             esig = epare[0]
             enode = epare[1]
@@ -1118,10 +1119,14 @@ module YTLJit
               same_type(self, enode, sig, esig, context)
               same_type(enode, self, esig, sig, context)
             end
+            if rtype.boxed then
+              @arguments[3].set_escape_node_backward(true)
+            end
 
           when [Hash]
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node(sig, self, cidx, context)
+            @arguments[3].set_escape_node_backward(true)
           end
 
           context
@@ -1383,7 +1388,7 @@ module YTLJit
           context
         end
 
-        def compile2(context)
+        def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type

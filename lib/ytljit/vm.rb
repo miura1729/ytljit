@@ -1967,6 +1967,7 @@ LocalVarNode
           curas = context.assembler
           curas.with_retry do
             curas.jmp(jmptocs.var_base_address)
+            curas.ud2
           end
 
           oldcs = context.set_code_space(jmptocs)
@@ -2073,7 +2074,22 @@ LocalVarNode
           when Range
             @type = @type.to_box
             add_type(sig, @type)
-
+            if @type.args == nil then
+              @type.args = []
+              ele = @value.first
+              fstnode = LiteralNode.new(self, ele)
+              context = fstnode.collect_candidate_type(context)
+              @type.args.push fstnode
+              ele = @value.last
+              sndnode = LiteralNode.new(self, ele)
+              @type.args.push sndnode
+              context = sndnode.collect_candidate_type(context)
+              ele = @value.exclude_end?
+              exclnode = LiteralNode.new(self, ele)
+              @type.args.push exclnode
+              context = exclnode.collect_candidate_type(context)
+              add_element_node(sig, fstnode, [0], context)
+            end
           else
             add_type(sig, @type)
           end

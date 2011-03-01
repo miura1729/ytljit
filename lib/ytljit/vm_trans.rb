@@ -495,7 +495,20 @@ module YTLJit
       end
 
       def visit_dupn(code, ins, context)
-        raise "foo"
+        res = []
+        n = ins[1]
+        n.times do
+          orgnode = context.expstack.pop
+          nnode = MultiplexNode.new(orgnode)
+          res.push nnode
+        end
+        res = res.reverse
+        res.each do |ele|
+          context.expstack.push ele
+        end
+        res.each do |ele|
+          context.expstack.push ele
+        end
       end
 
       def visit_swap(code, ins, context)

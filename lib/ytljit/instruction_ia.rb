@@ -1395,5 +1395,9 @@ module YTLJit
     def int3
       [0xcc].pack("C")
     end
+
+    def ud2
+      [0x0f, 0x0b].pack("CC")
+    end
   end
 end
