@@ -831,56 +831,7 @@ LocalVarNode
         end
       end
 
-      class DummyNode
-        def collect_info(context)
-          context
-        end
-
-        def collect_candidate_type(context)
-          context
-        end
-
-        def compile(context)
-          # Not need super because this is dummy
-          context
-        end
-      end
-
-      # The top of top node
-      class TopNode<BaseNode
-        include HaveChildlenMixin
-        include NodeUtil
-        
-        def initialize(parent, name = nil)
-          super(parent)
-          @name = name
-          @code_spaces = [] # [[nil, CodeSpace.new]]
-          @orig_modified_local_var = []
-          @yield_node = []
-          if @parent then
-            @classtop = search_class_top
-          else
-            @classtop = self
-          end
-          @end_nodes = []
-          @signature_cache = []
-        end
-
-        attr_accessor :name
-        attr          :end_nodes
-        attr          :orig_modified_local_var
-        attr          :yield_node
-
-        attr          :signature_cache
-
-        def modified_instance_var
-          search_end.modified_instance_var
-        end
-
-        def traverse_childlen
-          yield @body
-        end
-
+      module MultipleCodeSpaceUtil
         def find_cs_by_signature(sig)
           @code_spaces.each do |csig, val|
             if csig == sig then
@@ -901,6 +852,60 @@ LocalVarNode
             @code_spaces.push [sig, cs]
             return cs
           end
+        end
+      end
+
+      class DummyNode
+        def collect_info(context)
+          context
+        end
+
+        def collect_candidate_type(context)
+          context
+        end
+
+        def compile(context)
+          # Not need super because this is dummy
+          context
+        end
+      end
+
+      # The top of top node
+      class TopNode<BaseNode
+        include HaveChildlenMixin
+        include NodeUtil
+        include MultipleCodeSpaceUtil
+        
+        def initialize(parent, name = nil)
+          super(parent)
+          @name = name
+          @code_spaces = [] # [[nil, CodeSpace.new]]
+          @orig_modified_local_var = []
+          @yield_node = []
+          if @parent then
+            @classtop = search_class_top
+          else
+            @classtop = self
+          end
+          @end_nodes = []
+          @signature_cache = []
+          @exception_table = nil
+        end
+
+        attr_accessor :name
+        attr          :end_nodes
+        attr          :orig_modified_local_var
+        attr          :yield_node
+
+        attr          :signature_cache
+        attr_accessor :exception_table
+
+        def modified_instance_var
+          search_end.modified_instance_var
+        end
+
+        def traverse_childlen
+          yield @body
         end
 
         def add_arg_to_args(args, addnum)
@@ -1312,7 +1317,7 @@ LocalVarNode
         def init_unwind_proc
           asm = Assembler.new(@unwind_proc)
           # Make linkage of frame pointer
-          finfo = OpIndirect.new(TMPR3, AsmType::MACHINE_WORD.size)
+          finfo = OpIndirect.new(TMPR3, AsmType::MACHINE_WORD.size * 2)
           retadd = OpIndirect.new(TMPR3, AsmType::MACHINE_WORD.size)
           asm.with_retry do
             asm.mov(TMPR3, BPR)
@@ -1320,6 +1325,7 @@ LocalVarNode
             asm.mov(TMPR, finfo)
             asm.mov(TMPR3, INDIRECT_TMPR3)
             asm.mov(TMPR2, retadd) # Return address store by call inst.
+            asm.ret
           end
         end
         
@@ -1385,6 +1391,28 @@ LocalVarNode
               stfn.call
             end
           end
+        end
+      end
+
+      class ExceptionTopNode<TopNode
+        def initialize(parent, name = nil)
+          super
+          @code_space = CodeSpace.new
+        end
+
+        def collect_info(context)
+          @body.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          @body.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          oldcs = context.set_code_space(@code_space)
+          context = @body.compile(context)
+          context.set_codespace(oldcs)
+          context
         end
       end
 
@@ -1743,6 +1771,7 @@ LocalVarNode
       class LocalLabel<BaseNode
         include HaveChildlenMixin
         include NodeUtil
+        include MultipleCodeSpaceUtil
 
         def initialize(parent, name)
           super(parent)
@@ -1750,7 +1779,7 @@ LocalVarNode
           @come_from = {}
           @come_from_val = []
           @current_signature = nil
-          @code_space = CodeSpace.new
+          @code_spaces = []
           @value_node = nil
           @modified_local_var_list = []
           @res_area = nil
@@ -1830,6 +1859,15 @@ LocalVarNode
           context
         end
 
+        def code_space(sig)
+          cs = find_cs_by_signature(sig)
+          if cs == nil then
+            cs = CodeSpace.new
+            @code_spaces.push [sig, cs]
+          end
+          cs
+        end
+
         def traverse_block_value(comefrom, &block)
           valnode = @come_from[comefrom]
           if valnode then
@@ -1840,12 +1878,12 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, sender = nil)
-          if @come_from.keys[0] == sender then
-            @body.collect_candidate_type(context)
+           if @come_from.keys[0] == sender then
+             @body.collect_candidate_type(context)
           else
             context
           end
-        end
+       end
 
         def compile(context)
           context = super(context)
@@ -1895,10 +1933,11 @@ LocalVarNode
         end
 
         def compile(context)
+          sig = context.to_signature
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
+          jmptocs = @jmp_to_node.code_space(sig)
 
-          jmptocs = @jmp_to_node.code_space
           curas = context.assembler
           context = @cond.compile(context)
           curas.with_retry do
@@ -1960,14 +1999,15 @@ LocalVarNode
         end
 
         def compile(context)
+          sig = context.to_signature
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
+          jmptocs = @jmp_to_node.code_space(sig)
 
-          jmptocs = @jmp_to_node.code_space
           curas = context.assembler
           curas.with_retry do
             curas.jmp(jmptocs.var_base_address)
-            curas.ud2
+            curas.ud2   # Maybe no means but this line may be useful
           end
 
           oldcs = context.set_code_space(jmptocs)

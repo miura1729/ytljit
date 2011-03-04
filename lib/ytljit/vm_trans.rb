@@ -19,7 +19,11 @@ module YTLJit
         @vmtab = []
 
         @expstack = []
+
         @local_label_tab = {}
+        @local_label_list = []
+
+        @exception_table = {}
 
         @not_reached_pos = false
 
@@ -43,6 +47,9 @@ module YTLJit
 
       attr          :expstack
       attr          :local_label_tab
+      attr          :local_label_list
+
+      attr          :exception_table
 
       attr_accessor :not_reached_pos
 
@@ -149,6 +156,7 @@ module YTLJit
 
       def visit_symbol(code, ins, context)
         context.current_local_label = ins
+        context.local_label_list.push ins
 
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins)
@@ -188,8 +196,26 @@ module YTLJit
         (arg_size - locals.size).times do 
           locals.push nil
         end
-        
         cnode = mtopnode.construct_frame_info(locals, arg_size, args)
+        exptab = code.header['exception_table']
+        if exptab.size != 0 then
+          exptab.each do |tag, body, st, ed, cont, sp|
+            context.exception_table[tag] ||= []
+            nbody = nil
+            if body then
+              ncontext = YARVContext.new
+              nbody = ExceptionTopNode.new(mtopnode)
+              ncontext.current_node = nbody
+              ncontext.top_nodes.push nbody
+              ncontext.current_file_name = context.current_file_name
+              ncontext.current_class_node = context.current_class_node
+              tr = self.class.new([VMLib::InstSeqTree.new(code, body)])
+              tr.translate(ncontext)
+            end
+            context.exception_table[tag].push [st, ed, cont, nbody]
+          end
+        end
+
         context.current_node = cnode
       end
 
@@ -197,6 +223,7 @@ module YTLJit
         curnode = context.current_node
         top = context.top_nodes.last
         klassnode = context.current_class_node
+        top.exception_table = context.exception_table
         if top.class == MethodTopNode then
           if context.macro_method then
             code = top.to_ruby(ToRubyContext.new).ret_code.last

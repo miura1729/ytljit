@@ -1155,7 +1155,7 @@ module YTLJit
       case addr2
       when Integer
         offset = addr2 - @asm.current_address - 2
-        if offset > -128 and offset < 127 then
+        if offset > -128 and offset < 127 and false then
           [0xeb, offset].pack("C2")
         else
           offset = addr2 - @asm.current_address - 5

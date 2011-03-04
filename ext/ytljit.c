@@ -262,7 +262,7 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
     void *new_cs = csalloc(newsize);
 
     //*(struct CodeSpace *)new_cs = *(struct CodeSpace *)raw_cs;
-    memcpy(new_cs, raw_cs, newsize / 2);
+    //memcpy(new_cs, raw_cs, newsize / 2);
     csfree(raw_cs);
     raw_cs = new_cs;
     raw_cs->size = newsize - sizeof(struct CodeSpace);
