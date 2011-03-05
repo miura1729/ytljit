@@ -141,6 +141,8 @@ module YTLJit
 
           @result_cache = nil
           @method_signature = []
+
+          @current_exception_table = nil
         end
 
         attr_accessor :func
@@ -153,6 +155,8 @@ module YTLJit
         attr          :modified_instance_var
         attr_accessor :result_cache
         attr          :seq_no
+
+        attr_accessor :current_exception_table
 
         def traverse_childlen
           @arguments.each do |arg|

@@ -853,6 +853,15 @@ LocalVarNode
             return cs
           end
         end
+
+        def get_code_space(sig)
+          cs = find_cs_by_signature(sig)
+          if cs == nil then
+            cs = CodeSpace.new
+            @code_spaces.push [sig, cs]
+          end
+          cs
+        end
       end
 
       class DummyNode
@@ -999,6 +1008,15 @@ LocalVarNode
           context.yield_node.push []
           context = @body.collect_info(context)
           @yield_node = context.yield_node.pop
+          if @exception_table then
+            @exception_table.each do |kind, lst|
+              lst.each do |st, ed, cnt, body|
+                if body then
+                  context = body.collect_info(context)
+                end
+              end
+            end
+          end
           context
         end
 
@@ -1016,6 +1034,16 @@ LocalVarNode
           
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
+
+          if @exception_table then
+            @exception_table.each do |kind, lst|
+              lst.each do |st, ed, cnt, body|
+                if body then
+                  context = body.collect_candidate_type(context)
+                end
+              end
+            end
+          end
           context.pop_signature
 
           @end_nodes.each do |enode|
@@ -1052,6 +1080,16 @@ LocalVarNode
             context = gen_method_prologue(context)
             context = compile_init(context)
             context = @body.compile(context)
+
+            if @exception_table then
+              @exception_table.each do |kind, lst|
+                lst.each do |st, ed, cnt, body|
+                  if body then
+                    context = body.compile(context)
+                  end
+                end
+              end
+            end
             context.current_method_signature.pop
           end
 
@@ -1395,9 +1433,13 @@ LocalVarNode
       end
 
       class ExceptionTopNode<TopNode
+        include HaveChildlenMixin
+        include NodeUtil
+        include MultipleCodeSpaceUtil
+
         def initialize(parent, name = nil)
           super
-          @code_space = CodeSpace.new
+          @code_spaces = []
         end
 
         def collect_info(context)
@@ -1409,9 +1451,11 @@ LocalVarNode
         end
 
         def compile(context)
-          oldcs = context.set_code_space(@code_space)
+          sig = context.to_signature
+          cs = get_code_space(sig)
+          oldcs = context.set_code_space(cs)
           context = @body.compile(context)
-          context.set_codespace(oldcs)
+          context.set_code_space(oldcs)
           context
         end
       end
@@ -1859,15 +1903,6 @@ LocalVarNode
           context
         end
 
-        def code_space(sig)
-          cs = find_cs_by_signature(sig)
-          if cs == nil then
-            cs = CodeSpace.new
-            @code_spaces.push [sig, cs]
-          end
-          cs
-        end
-
         def traverse_block_value(comefrom, &block)
           valnode = @come_from[comefrom]
           if valnode then
@@ -1936,7 +1971,7 @@ LocalVarNode
           sig = context.to_signature
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
-          jmptocs = @jmp_to_node.code_space(sig)
+          jmptocs = @jmp_to_node.get_code_space(sig)
 
           curas = context.assembler
           context = @cond.compile(context)
@@ -2002,7 +2037,7 @@ LocalVarNode
           sig = context.to_signature
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
-          jmptocs = @jmp_to_node.code_space(sig)
+          jmptocs = @jmp_to_node.get_code_space(sig)
 
           curas = context.assembler
           curas.with_retry do

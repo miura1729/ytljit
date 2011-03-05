@@ -78,6 +78,21 @@ module YTLJit
          mname,
          @current_line_no]
       end
+
+      def current_exception_table
+        result = {}
+        @exception_table.each do |kind, lst|
+          lst.each do |st, ed, cnt, body|
+            if @local_label_list.include?(st) and
+                !@local_label_list.include?(ed) then
+              result[kind] = [st, ed, cnt, body]
+              break
+            end
+          end
+        end
+
+        result
+      end
     end
 
     class YARVTranslatorBase
@@ -694,6 +709,7 @@ module YTLJit
         sn = SendNode.macro_expand(context, func, arg, op_flag, seqno)
         if sn == nil then
           sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
+          sn.current_exception_table = context.current_exception_table
           if sn.is_a?(SendEvalNode) then
             if context.macro_method == nil then
               context.macro_method = true
@@ -759,6 +775,7 @@ module YTLJit
         args = args.reverse
 
         nnode = SendNode.new(curnode, func, args, op_flag, seqno)
+        nnode.current_exception_table = context.current_exception_table
         nnode.debug_info = context.debug_info
         func.parent = nnode
         context.expstack.push nnode
