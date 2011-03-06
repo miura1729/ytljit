@@ -2065,7 +2065,7 @@ LocalVarNode
         def initialize(node)
           super(node.parent)
           @node = node
-          @first_compile = true
+          @compiled_by_signature = []
           @res_area = nil
         end
 
@@ -2088,7 +2088,8 @@ LocalVarNode
         end
 
         def compile(context)
-          if @first_compile then
+          sig = context.to_signature
+          if !@compiled_by_signature.include?(sig) then
             context = @node.compile(context)
             asm = context.assembler
             if context.ret_reg.is_a?(OpRegistor) then
@@ -2101,8 +2102,8 @@ LocalVarNode
                 asm.mov(@res_area, TMPR)
               end
             end
-              context.set_reg_content(@res_area, self)
-            @first_compile = false
+            context.set_reg_content(@res_area, self)
+            @compiled_by_signature.push sig
 
             context
           else

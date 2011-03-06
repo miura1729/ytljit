@@ -1032,7 +1032,7 @@ module YTLJit
         end
       end
 
-      class SendEqNode<SendCompareNode
+      class SendNeqNode<SendCompareNode
         add_special_send_node :!=
         def compile_compare(context, rtype)
           common_compile_compare(context, rtype, :setz, :setz)
@@ -1392,7 +1392,7 @@ module YTLJit
           context
         end
 
-        def compile(context)
+        def compile2(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type

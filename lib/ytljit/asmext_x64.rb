@@ -171,7 +171,7 @@ module YTLJit
       orgaddress = @asm.current_address
       code = ""
 #      code += @asm.update_state(mov(RAX, OpImmidiate32.new(argnum)))
-      code += @asm.update_state(mov(RAX, OpImmidiate32.new(0)))
+#      code += @asm.update_state(mov(RAX, OpImmidiate32.new(0)))
       code += @asm.update_state(call(addr))
       callpos = @asm.current_address - @asm.output_stream.base_address
       if @asm.retry_mode == :change_op then
