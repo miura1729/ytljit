@@ -3,11 +3,15 @@ module YTLJit
     class YARVContext
       include Node
 
-      def initialize
-        @the_top = TopTopNode.new(nil, Object)
+      def initialize(oldcontext = nil)
+        if oldcontext and false then
+          @the_top = oldcontext.the_top
+        else
+          @the_top = TopTopNode.new(nil, Object)
+        end
         @top_nodes = [@the_top]
         @current_file_name = nil
-        @current_class_node = the_top
+        @current_class_node = @the_top
         @current_method_node = nil
 
         @enc_label = ""
@@ -218,7 +222,7 @@ module YTLJit
             context.exception_table[tag] ||= []
             nbody = nil
             if body then
-              ncontext = YARVContext.new
+              ncontext = YARVContext.new(context)
               nbody = ExceptionTopNode.new(mtopnode)
               ncontext.current_node = nbody
               ncontext.top_nodes.push nbody
@@ -401,7 +405,7 @@ module YTLJit
       def visit_putiseq(code, ins, context)
         body = VMLib::InstSeqTree.new(code, ins[1])
         curnode = context.current_node
-        ncontext = YARVContext.new
+        ncontext = YARVContext.new(context)
 
         case body.header['type']
         when :block
@@ -635,7 +639,7 @@ module YTLJit
         context.current_class_node.constant_tab[name] = cnode
         
         body = VMLib::InstSeqTree.new(code, ins[2])
-        ncontext = YARVContext.new
+        ncontext = YARVContext.new(context)
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
@@ -679,7 +683,7 @@ module YTLJit
         # block
         if blk_iseq then
           body = VMLib::InstSeqTree.new(code, blk_iseq)
-          ncontext = YARVContext.new
+          ncontext = YARVContext.new(context)
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = context.current_class_node
           ncontext.current_method_node = context.current_method_node

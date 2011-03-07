@@ -1327,8 +1327,6 @@ LocalVarNode
           @frame_struct_array = []
           @unwind_proc = CodeSpace.new
           @init_node = nil
-          init_unwind_proc
-          add_code_space(nil, @unwind_proc)
 
           # Dummy for marshal
           @op_var_value_instaces = nil
@@ -1355,15 +1353,20 @@ LocalVarNode
         def init_unwind_proc
           asm = Assembler.new(@unwind_proc)
           # Make linkage of frame pointer
-          finfo = OpIndirect.new(TMPR3, AsmType::MACHINE_WORD.size * 2)
-          retadd = OpIndirect.new(TMPR3, AsmType::MACHINE_WORD.size)
           asm.with_retry do
-            asm.mov(TMPR3, BPR)
-            asm.mov(TMPR3, INDIRECT_TMPR3)
-            asm.mov(TMPR, finfo)
-            asm.mov(TMPR3, INDIRECT_TMPR3)
-            asm.mov(TMPR2, retadd) # Return address store by call inst.
-            asm.ret
+            asm.mov(SPR, BPR)
+            asm.pop(BPR)
+            # must be asm.pop(THEPR)? Maybe not because release caller
+            asm.pop(TMPR)   # Dummy pop THEPR
+            asm.pop(TMPR2)   # exception handler
+            asm.mov(SPR, BPR)
+            asm.pop(BPR) # Return address store by call inst.
+            asm.pop(TMPR) # return address
+            asm.add(TMPR2, TMPR3)  # TMPR3 store offset of exception handler
+            asm.mov(TMPR, INDIRECT_TMPR2)
+            asm.and(TMPR, TMPR)
+            asm.jz(@unwind_proc.var_base_address)
+            asm.jmp(TMPR)
           end
         end
         
@@ -1376,6 +1379,9 @@ LocalVarNode
         def collect_info(context)
           if @init_node then
             context = @init_node.collect_info(context)
+          else
+            init_unwind_proc
+            add_code_space(nil, @unwind_proc)
           end
           super(context)
         end
