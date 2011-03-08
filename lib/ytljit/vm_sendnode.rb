@@ -963,13 +963,13 @@ module YTLJit
             return super(context)
           end
 
-          context = gen_eval_self(context)
-          context.ret_node.type = nil
-          srtype = context.ret_node.decide_type_once(context.to_signature)
-          context = srtype.gen_unboxing(context)
           if rrtype == Fixnum or rrtype == Float then
+            context = gen_eval_self(context)
+            context.ret_node.type = nil
+            srtype = context.ret_node.decide_type_once(context.to_signature)
+            context = srtype.gen_unboxing(context)
             context = compile_compare(context, rtype)
-
+            
           else
             tcon = compile_compare_nonnum(context, rtype)
             if tcon then
@@ -1018,13 +1018,13 @@ module YTLJit
       class SendEqNode<SendCompareNode
         add_special_send_node :==
         def compile_compare(context, rtype)
-          common_compile_compare(context, rtype, :setnz, :setnz)
+          common_compile_compare(context, rtype, :setz, :setz)
         end
 
         def compile_compare_nonnum(context, rtype)
           if rtype.include_nil? then
-            context = @arguments[2].compile(context)
-            gen_compare_operation(context, :cmp, :setnz, 
+            context = gen_eval_self(context)
+            gen_compare_operation(context, :cmp, :setz, 
                                   TMPR2, TMPR, RETR, false)
           else
             nil
@@ -1035,14 +1035,14 @@ module YTLJit
       class SendNeqNode<SendCompareNode
         add_special_send_node :!=
         def compile_compare(context, rtype)
-          common_compile_compare(context, rtype, :setz, :setz)
+          common_compile_compare(context, rtype, :setnz, :setnz)
         end
 
         def compile_compare_nonnum(context, rtype)
-          if rtype.ruby_type == Array and !rtype.boxed then
-            context = @arguments[2].compile(context)
-            gen_compare_operation(context, :cmp, :setz, 
-                                  TMPR2, TMPR, RETR)
+          if rtype.include_nil? then
+            context = gen_eval_self(context)
+            gen_compare_operation(context, :cmp, :setnz,
+                                  TMPR2, TMPR, RETR, false)
           else
             nil
           end
