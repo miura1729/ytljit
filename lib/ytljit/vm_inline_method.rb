@@ -185,14 +185,25 @@ module YTLJit
         asm.with_retry do
           asm.mov(TMPR2, context.ret_reg)
         end
-        context = idx.compile(context)
+        if idx.is_a?(Fixnum) then
+          idxval = idx
+        else
+          context = idx.compile(context)
+          idxval = context.ret_reg
+        end
         asm.with_retry do
-          if context.ret_reg != TMPR then
-            asm.mov(TMPR, context.ret_reg)
+          if idxval.is_a?(Fixnum) then
+            asm.mov(TMPR, idxval * 8)
+          elsif idxval.is_a?(OpImmidiate)
+            asm.mov(TMPR, idxval.value * 8)
+          else
+            if idxval != TMPR then
+              asm.mov(TMPR, idxval)
+            end
+            asm.add(TMPR, TMPR) # * 2
+            asm.add(TMPR, TMPR) # * 4
+            asm.add(TMPR, TMPR) # * 8
           end
-          asm.add(TMPR, TMPR) # * 2
-          asm.add(TMPR, TMPR) # * 4
-          asm.add(TMPR, TMPR) # * 8
           asm.add(TMPR2, TMPR)
           asm.mov(RETR, INDIRECT_TMPR2)
         end
