@@ -1312,9 +1312,14 @@ LocalVarNode
         include MethodTopCodeGen
         @@frame_struct_tab = {}
         @@local_object_area = Runtime::Arena.new
+        @@unwind_proc = CodeSpace.new
 
         def self.get_frame_struct_tab
           @@frame_struct_tab
+        end
+
+        def self.get_unwind_proc
+          @@unwind_proc
         end
 
         def initialize(parent, klassobj, name = :top)
@@ -1325,7 +1330,6 @@ LocalVarNode
           @id.push 0
 
           @frame_struct_array = []
-          @unwind_proc = CodeSpace.new
           @init_node = nil
 
           # Dummy for marshal
@@ -1351,7 +1355,7 @@ LocalVarNode
         end
 
         def init_unwind_proc
-          asm = Assembler.new(@unwind_proc)
+          asm = Assembler.new(@@unwind_proc)
           # Make linkage of frame pointer
           asm.with_retry do
             asm.mov(SPR, BPR)
@@ -1363,10 +1367,10 @@ LocalVarNode
             asm.pop(BPR) # Return address store by call inst.
             asm.pop(TMPR) # return address
             asm.add(TMPR2, TMPR3)  # TMPR3 store offset of exception handler
-            asm.mov(TMPR, INDIRECT_TMPR2)
-            asm.and(TMPR, TMPR)
-            asm.jz(@unwind_proc.var_base_address)
-            asm.jmp(TMPR)
+            asm.mov(TMPR2, INDIRECT_TMPR2)
+            asm.and(TMPR2, TMPR2)
+            asm.jz(@@unwind_proc.var_base_address)
+            asm.jmp(TMPR2)
           end
         end
         
@@ -1381,7 +1385,7 @@ LocalVarNode
             context = @init_node.collect_info(context)
           else
             init_unwind_proc
-            add_code_space(nil, @unwind_proc)
+            add_code_space(nil, @@unwind_proc)
           end
           super(context)
         end
@@ -2054,6 +2058,66 @@ LocalVarNode
           oldcs = context.set_code_space(jmptocs)
           context = @jmp_to_node.compile(context)
           context.set_code_space(oldcs)
+          context
+        end
+      end
+
+      class ThrowNode<BaseNode
+        include HaveChildlenMixin
+        include MethodEndCodeGen
+        include NodeUtil
+
+        def initialize(parent, state, exceptobj)
+          super(parent)
+          @state = state
+          @exception_object = exceptobj
+        end
+
+        def traverse_childlen
+          yield @exception_object
+        end
+
+        def collect_info(context)
+          @exception_object.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          @exception_object.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          asm = context.assembler
+          if @state == 2 then # break
+            context = @exception_object.compile(context)
+            asm.with_retry do
+              if context.ret_reg != RETR then
+                asm.mov(RETR, context.ret_reg)                
+              end
+            end
+            # two epilogue means block and method which is called with block
+            context = gen_method_epilogue(context)
+            context = gen_method_epilogue(context)
+            asm.with_retry do
+              asm.ret
+            end
+          elsif @state == 1 then # return
+            if context.ret_reg != RETR then
+              asm.mov(RETR, context.ret_reg)                
+            end
+            tnode = search_frame_info
+            finfo = tnode
+            depth = 0
+            while finfo.parent.is_a?(BlockTopNode)
+              finfo = finfo.previous_frame
+              # two epilogue means block and method which is called with block
+              context = gen_method_epilogue(context)
+              context = gen_method_epilogue(context)
+            end
+            context = gen_method_epilogue(context)
+            asm.with_retry do
+              asm.ret
+            end
+          end
           context
         end
       end

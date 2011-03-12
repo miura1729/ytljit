@@ -20,6 +20,7 @@ module YTLJit
         @current_local_label = nil
 
         @current_node = @the_top
+
         @vmtab = []
 
         @expstack = []
@@ -47,6 +48,7 @@ module YTLJit
       attr_accessor :current_local_label
 
       attr_accessor :current_node
+
       attr          :vmtab
 
       attr          :expstack
@@ -187,7 +189,7 @@ module YTLJit
 
           val = context.expstack.pop
           nllab.come_from[jmpnode] = val
-        
+
           curnode.body = jmpnode
           jmpnode.body = nllab
           context.expstack.push nllab.value_node
@@ -294,8 +296,14 @@ module YTLJit
           curcode = curcode.parent
         end
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
-        node = LocalVarRefNode.new(context.current_node, offset, dep)
-        node.debug_info = context.debug_info
+        node = nil
+        if curcode.header['type'] == :ensure and offset == 3 then
+          node = LiteralNode.new(context.current_node, nil)
+          node.debug_info = context.debug_info
+        else
+          node = LocalVarRefNode.new(context.current_node, offset, dep)
+          node.debug_info = context.debug_info
+        end
         context.expstack.push node
       end
 
@@ -826,6 +834,12 @@ module YTLJit
       end
       
       def visit_throw(code, ins, context)
+        curnode = context.current_node
+        exceptobj = context.expstack.pop
+
+        thnode = ThrowNode.new(curnode, ins[1], exceptobj)
+        curnode.body = thnode
+        context.current_node = thnode
       end
 
       def visit_jump(code, ins, context)
