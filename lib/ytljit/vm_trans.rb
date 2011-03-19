@@ -55,7 +55,7 @@ module YTLJit
       attr          :local_label_tab
       attr          :local_label_list
 
-      attr          :exception_table
+      attr_accessor :exception_table
 
       attr_accessor :not_reached_pos
 
@@ -90,7 +90,8 @@ module YTLJit
         @exception_table.each do |kind, lst|
           lst.each do |st, ed, cnt, body|
             if @local_label_list.include?(st) and
-                !@local_label_list.include?(ed) then
+                !@local_label_list.include?(ed) and 
+                body then
               result[kind] = [st, ed, cnt, body]
               break
             end
@@ -219,6 +220,7 @@ module YTLJit
         end
         cnode = mtopnode.construct_frame_info(locals, arg_size, args)
         exptab = code.header['exception_table']
+        context.exception_table = {}
         if exptab.size != 0 then
           exptab.each do |tag, body, st, ed, cont, sp|
             context.exception_table[tag] ||= []
@@ -226,10 +228,12 @@ module YTLJit
             if body then
               ncontext = YARVContext.new(context)
               nbody = ExceptionTopNode.new(mtopnode)
+              nbody.debug_info = context.debug_info
               ncontext.current_node = nbody
               ncontext.top_nodes.push nbody
               ncontext.current_file_name = context.current_file_name
               ncontext.current_class_node = context.current_class_node
+              ncontext.current_method_node = context.current_method_node
               tr = self.class.new([VMLib::InstSeqTree.new(code, body)])
               tr.translate(ncontext)
             end
@@ -273,6 +277,9 @@ module YTLJit
         end
         
         dep
+      end
+
+      def visit_nop(code, ins, context)
       end
 
       def visit_getlocal(code, ins, context)
@@ -826,6 +833,8 @@ module YTLJit
           nnode = ClassEndNode.new(srnode)
         when :top
           nnode = ClassEndNode.new(srnode)
+        else
+          raise "unkown type #{code.header['type']}"
         end
         nnode.debug_info = context.debug_info
 

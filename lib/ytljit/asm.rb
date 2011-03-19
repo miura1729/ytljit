@@ -182,6 +182,13 @@ module YTLJit
       unless off = @@value_table_cache[val] then
         off = @@value_table_entity.current_pos
         @@value_table_entity.emit([val.value].pack("Q"))
+        stfunc = lambda {
+          oldpos = @@value_table_entity.current_pos
+          @@value_table_entity.current_pos = off
+          @@value_table_entity.emit([val.value].pack("Q"))
+          @@value_table_entity.current_pos = oldpos
+        }
+        val.add_refer(stfunc)
         @@value_table_cache[val] = off
       end
 

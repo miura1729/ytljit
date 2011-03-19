@@ -716,13 +716,37 @@ LocalVarNode
         def compile_ytl(context)
           fnc = nil
           numarg = @arguments.size
+          sig = context.to_signature
           
           context.start_arg_reg
           context.start_arg_reg(FUNC_ARG_YTL)
           context.cpustack_pushn(numarg * 8)
-          
-          # push prev env
+
           casm = context.assembler
+          # construct and set exception handler in current frame
+          fstentry = nil
+          if @current_exception_table then
+            [:ensure].each do |kind|
+              ent = nil
+              if entbase = @current_exception_table[kind] then
+                ent = entbase[3]
+              end
+              if ent then
+                csadd = ent.get_code_space(sig).var_base_immidiate_address
+              else
+                csadd = TopTopNode.get_nothing_proc.var_base_immidiate_address
+              end
+              entry = casm.add_value_entry(csadd)
+              fstentry ||= entry.to_immidiate
+            end
+            handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
+            casm.with_retry do
+              casm.mov(TMPR, fstentry)
+              casm.mov(handoff, TMPR)
+            end
+          end
+
+          # push prev env
           if @func.is_a?(YieldNode) then
             prevenv = @frame_info.offset_arg(0, BPR)
             casm.with_retry do 
@@ -1044,6 +1068,7 @@ LocalVarNode
               end
             end
           end
+
           context.pop_signature
 
           @end_nodes.each do |enode|
@@ -1313,6 +1338,7 @@ LocalVarNode
         @@frame_struct_tab = {}
         @@local_object_area = Runtime::Arena.new
         @@unwind_proc = CodeSpace.new
+        @@nothing_proc = CodeSpace.new
 
         def self.get_frame_struct_tab
           @@frame_struct_tab
@@ -1320,6 +1346,11 @@ LocalVarNode
 
         def self.get_unwind_proc
           @@unwind_proc
+        end
+
+
+        def self.get_nothing_proc
+          @@nothing_proc
         end
 
         def initialize(parent, klassobj, name = :top)
@@ -1371,6 +1402,12 @@ LocalVarNode
             asm.and(TMPR2, TMPR2)
             asm.jz(@@unwind_proc.var_base_address)
             asm.jmp(TMPR2)
+          end
+
+          asm = Assembler.new(@@nothing_proc)
+          # Make linkage of frame pointer
+          asm.with_retry do
+            asm.ret
           end
         end
         
@@ -1446,6 +1483,7 @@ LocalVarNode
         include HaveChildlenMixin
         include NodeUtil
         include MultipleCodeSpaceUtil
+        include MethodEndCodeGen
 
         def initialize(parent, name = nil)
           super
@@ -1465,6 +1503,11 @@ LocalVarNode
           cs = get_code_space(sig)
           oldcs = context.set_code_space(cs)
           context = @body.compile(context)
+          context = gen_method_epilogue(context)
+          asm = context.assembler
+          asm.with_retry do
+            asm.ret
+          end
           context.set_code_space(oldcs)
           context
         end
@@ -2085,9 +2128,27 @@ LocalVarNode
           @exception_object.collect_candidate_type(context)
         end
 
+        def gen_unwind(context)
+        end
+
+        def compile_unwind(context)
+          asm = context.assembler
+          context = gen_method_epilogue(context)
+          handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
+          ensureoff = OpIndirect.new(TMPR, 0)
+          asm.with_retry do
+            asm.mov(TMPR, handoff)
+            asm.call(ensureoff)
+          end
+          context
+        end
+
         def compile(context)
           asm = context.assembler
-          if @state == 2 then # break
+          if @state == 0 then
+            context = @exception_object.compile(context)
+            
+          elsif @state == 2 then # break
             context = @exception_object.compile(context)
             asm.with_retry do
               if context.ret_reg != RETR then
@@ -2096,10 +2157,12 @@ LocalVarNode
             end
             # two epilogue means block and method which is called with block
             context = gen_method_epilogue(context)
-            context = gen_method_epilogue(context)
+            # Not gen_method_epilogue because may need to ensure proc.
+            context = compile_unwind(context)
             asm.with_retry do
               asm.ret
             end
+
           elsif @state == 1 then # return
             if context.ret_reg != RETR then
               asm.mov(RETR, context.ret_reg)                
@@ -2111,9 +2174,9 @@ LocalVarNode
               finfo = finfo.previous_frame
               # two epilogue means block and method which is called with block
               context = gen_method_epilogue(context)
-              context = gen_method_epilogue(context)
+              context = compile_unwind(context)
             end
-            context = gen_method_epilogue(context)
+            context = compile_unwind(context)
             asm.with_retry do
               asm.ret
             end
