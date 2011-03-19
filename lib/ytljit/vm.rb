@@ -1503,7 +1503,6 @@ LocalVarNode
           cs = get_code_space(sig)
           oldcs = context.set_code_space(cs)
           context = @body.compile(context)
-          context = gen_method_epilogue(context)
           asm = context.assembler
           asm.with_retry do
             asm.ret
@@ -1623,15 +1622,18 @@ LocalVarNode
         def compile(context)
           context = super(context)
           siz = @local_area_size + @alloca_area_size
-          if  siz != 0 then
+          if siz != 0 and !(@parent.is_a?(ExceptionTopNode)) then
             asm = context.assembler
             asm.with_retry do
               asm.sub(SPR, siz)
             end
+            context.cpustack_pushn(siz)
+            context = @body.compile(context)
+            context.cpustack_popn(siz)
+          else
+            context = @body.compile(context)
           end
-          context.cpustack_pushn(siz)
-          context = @body.compile(context)
-          context.cpustack_popn(siz)
+
           context
         end
       end
@@ -2133,14 +2135,13 @@ LocalVarNode
 
         def compile_unwind(context)
           asm = context.assembler
-          context = gen_method_epilogue(context)
           handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
           ensureoff = OpIndirect.new(TMPR, 0)
           asm.with_retry do
             asm.mov(TMPR, handoff)
             asm.call(ensureoff)
           end
-          context
+          gen_method_epilogue(context)
         end
 
         def compile(context)
@@ -2157,7 +2158,7 @@ LocalVarNode
             end
             # two epilogue means block and method which is called with block
             context = gen_method_epilogue(context)
-            # Not gen_method_epilogue because may need to ensure proc.
+            # instead of gen_method_epilogue because may need to ensure proc.
             context = compile_unwind(context)
             asm.with_retry do
               asm.ret
