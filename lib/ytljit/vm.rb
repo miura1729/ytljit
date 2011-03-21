@@ -744,6 +744,7 @@ LocalVarNode
               casm.mov(TMPR, fstentry)
               casm.mov(handoff, TMPR)
             end
+            context.set_reg_content(handoff, nil)
           end
 
           # push prev env
@@ -2156,6 +2157,7 @@ LocalVarNode
                 asm.mov(RETR, context.ret_reg)                
               end
             end
+            context.set_reg_content(RETR, context.ret_node)
             # two epilogue means block and method which is called with block
             context = gen_method_epilogue(context)
             # instead of gen_method_epilogue because may need to ensure proc.
@@ -2168,6 +2170,7 @@ LocalVarNode
             if context.ret_reg != RETR then
               asm.mov(RETR, context.ret_reg)                
             end
+            context.set_reg_content(RETR, context.ret_node)
             tnode = search_frame_info
             finfo = tnode
             depth = 0
@@ -2230,11 +2233,13 @@ LocalVarNode
               asm.with_retry do
                 asm.mov(@res_area, context.ret_reg)
               end
+              context.set_reg_content(@res_area, context.ret_node)
             else
               asm.with_retry do
                 asm.mov(TMPR, context.ret_reg)
                 asm.mov(@res_area, TMPR)
               end
+              context.set_reg_content(@res_area, context.ret_node)
             end
             context.set_reg_content(@res_area, self)
             @compiled_by_signature.push sig
@@ -2245,7 +2250,7 @@ LocalVarNode
             asm.with_retry do
               asm.mov(RETR, @res_area)
             end
-            context.set_reg_content(@res_area, self)
+            context.set_reg_content(RETR, self)
             context.ret_reg = RETR
             context.ret_node = self
 
@@ -2461,6 +2466,7 @@ LocalVarNode
             asm.mov(PTMPR, prevenv)
             asm.mov(PTMPR, slfarg)
           end
+          context.set_reg_content(PTMPR, nil)
           context.ret_reg2 = PTMPR
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
@@ -2713,6 +2719,8 @@ LocalVarNode
                 asm.mov(FUNC_ARG[0], RETR)
                 asm.mov(FUNC_ARG[1], mnval)
               end
+              context.set_reg_content(FUNC_ARG[0], nil)
+              context.set_reg_content(FUNC_ARG[1], nil)
               context = gen_save_thepr(context)
               asm.with_retry do
                 asm.call_with_arg(addrof, 2)
@@ -2726,8 +2734,8 @@ LocalVarNode
               context.end_arg_reg
               
               context.ret_node = self
-              context.set_reg_content(RETR, self)
-              context.set_reg_content(TMPR2, self)
+              context.set_reg_content(RETR, nil)
+              context.set_reg_content(TMPR2, nil)
               context.set_reg_content(PTMPR, @reciever)
               context.ret_reg = TMPR2
 

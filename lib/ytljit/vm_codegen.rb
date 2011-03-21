@@ -79,12 +79,16 @@ LO        |                       |   |  |
         @modified_local_var = []
         @modified_instance_var = Hash.new
         @yield_node = []
+
+        # Options from user
+        @options = {}
       end
 
       attr          :top_node
       attr_accessor :modified_local_var
       attr_accessor :modified_instance_var
       attr_accessor :yield_node
+      attr_accessor :options
 
       def merge_local_var(lvlist)
         res = nil
@@ -112,6 +116,8 @@ LO        |                       |   |  |
         @current_method = [tnode]
         @convergent = false
         @visited_top_node = {}
+        # Options from user
+        @options = {}
       end
 
       def to_signature(offset = -1, cache = {})
@@ -227,6 +233,7 @@ LO        |                       |   |  |
       attr          :current_method_signature_node
       attr_accessor :convergent
       attr_accessor :visited_top_node
+      attr_accessor :options
     end
 
     class CompileContext

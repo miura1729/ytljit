@@ -140,7 +140,6 @@ module YTLJit
           asm.mov(tempreg, context.ret_reg)
         end
         context.set_reg_content(tempreg, context.ret_node)
-        context.set_reg_content(tempreg, context.ret_node)
         
         # @arguments[1] is block
         # @arguments[2] is self
@@ -158,9 +157,11 @@ module YTLJit
           if context.ret_reg != tempreg2 then
             asm.mov(tempreg2, context.ret_reg)
           end
+          context.set_reg_content(tempreg2, context.ret_node)
           asm.send(cinst, tempreg2, tempreg)
           asm.send(sinst, resreg)
           asm.add(resreg, resreg)
+          context.set_reg_content(resreg, context.ret_node)
         end
         context.end_using_reg(tempreg)
         

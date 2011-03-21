@@ -609,10 +609,11 @@ module YTLJit
                 @arguments[3..-1].each_with_index do |anode, idx|
                   add_element_node(sig, anode, [idx - 3], context)
                 end
-                if element_node_list != [] and
-                    element_node_list[1..-1].all? {|e|
-                     e[2]
-                   } then
+                if context.options[:compile_array_as_uboxed] and
+                    element_node_list != [] and
+                      element_node_list[1..-1].all? {|e|
+                        e[2]
+                      } then
                   tt = tt.to_unbox
                 end
               end
@@ -1479,10 +1480,11 @@ module YTLJit
         def collect_candidate_type_body(context)
           sig = context.to_signature
           tt = RubyType::BaseType.from_ruby_class(Array)
-          if @element_node_list != [] and 
-              @element_node_list[1..-1].all? {|e|
-                e[2]
-              } then
+          if context.options[:compile_array_as_uboxed] and
+              @element_node_list != [] and 
+                @element_node_list[1..-1].all? {|e|
+                  e[2]
+                } then
             tt = tt.to_unbox
           end
 
