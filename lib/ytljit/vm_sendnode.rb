@@ -477,6 +477,21 @@ module YTLJit
         add_special_send_node :eval
       end
 
+      class SendIncludeNode<SendNode
+        add_special_send_node :include
+
+        def collect_candidate_type_regident(context, slf)
+          slfnode = @arguments[2]
+          rtype = slfnode.decide_type_once(context.to_signature)
+          add_type(context.to_signature, rtype)
+          
+          clstop =  slfnode.search_class_top
+          curmod = @arguments[3].value_node
+          clstop.add_before_search_module(:parm, curmod)
+          context
+        end
+      end
+
       class SendAllocateNode<SendNode
         add_special_send_node :allocate
 

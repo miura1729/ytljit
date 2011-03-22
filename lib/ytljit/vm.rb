@@ -1178,6 +1178,8 @@ LocalVarNode
 
         def initialize(parent, klassobj, name = nil)
           super(parent, name)
+          @before_search_module = []
+          @after_search_module = []
           @constant_tab = {}
           @method_tab = {}
           @klass_object = klassobj
@@ -1195,6 +1197,8 @@ LocalVarNode
         attr :method_tab
         attr :klassclass
         attr :klassclass_node
+        attr :before_search_module
+        attr :after_search_module
 
         def collect_info(context)
           context.modified_local_var.push [{}]
@@ -1237,15 +1241,44 @@ LocalVarNode
           end
         end
 
+        def add_before_search_module(scope, mod)
+          clsnode = @@class_top_tab[@klass_object]
+          clsnode.before_search_module.each do |scope, modnode|
+            if modnode == mod then
+              return
+            end
+          end
+          clsnode.before_search_module.push [scope, mod]
+        end
+
         def search_method_with_super(name, klassobj = @klass_object)
           clsnode = @@class_top_tab[klassobj]
           if clsnode then
+            clsnode.before_search_module.each do |scope, mod|
+              mtab = mod.get_method_tab
+              if val = mtab[name] then
+                return [val, mod]
+              end
+            end
+
             mtab = clsnode.get_method_tab
             if val = mtab[name] then
               return [val, clsnode]
             end
-            
-            return search_method_with_super(name, klassobj.superclass)
+
+            clsnode.after_search_module.each do |scope, mod|
+              mtab = mod.get_method_tab
+              if val = mtab[name] then
+                return [val, mod]
+              end
+            end
+
+            if klassobj.is_a?(Class) then
+              return search_method_with_super(name, klassobj.superclass)
+            else
+              # klassobj is Module
+              return search_method_with_super(name, Object)
+            end
           end
 
           [nil, nil]
@@ -2579,6 +2612,10 @@ LocalVarNode
               if recobj.is_a?(ClassClassWrapper) then
                 recobj = recobj.value
               end
+              if recobj and !recobj.is_a?(Class) then
+                # recobj is Module
+                recobj = Object
+              end
               if recobj then
                 addr = recobj.method_address_of(@name)
                 if addr then
@@ -2664,6 +2701,10 @@ LocalVarNode
               recobj = @reciever.klass_object
               if recobj.is_a?(ClassClassWrapper) then
                 recobj = recobj.value
+              end
+              if recobj and !recobj.is_a?(Class) then
+                # recobj is Module
+                recobj = Object
               end
               if recobj then
                 addr = lambda {
