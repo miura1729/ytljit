@@ -77,8 +77,7 @@ module YTLJit
               (op_flag & (0b11 << 3)) != 0 then
             cclsnode = context.current_class_node
             if context.current_method_node == nil then
-              cclsnode.make_klassclass_node
-              cclsnode = cclsnode.klassclass_node
+              cclsnode = cclsnode.make_klassclass_node
             end
 
             cclsnode.klass_object.ancestors.each do |ccls|
@@ -423,8 +422,7 @@ module YTLJit
           if arguments[4].is_a?(LiteralNode) then
             fname = arguments[4].value
             @new_method.name = fname
-            @class_top.make_klassclass_node
-            klassclass_node = @class_top.klassclass_node
+            klassclass_node = @class_top.make_klassclass_node
             if @@macro_tab[fname] and 
                 @@macro_tab[fname][:last] then
               proc = @@macro_tab[fname][:last]
@@ -477,18 +475,33 @@ module YTLJit
         add_special_send_node :eval
       end
 
-      class SendIncludeNode<SendNode
-        add_special_send_node :include
-
+      class SendIncludeCommonNode<SendNode
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
           rtype = slfnode.decide_type_once(context.to_signature)
           add_type(context.to_signature, rtype)
-          
-          clstop =  slfnode.search_class_top
-          curmod = @arguments[3].value_node
-          clstop.add_before_search_module(:parm, curmod)
+          modnode = @arguments[3].value_node
+
+          add_search_module(slfnode, modnode)
           context
+        end
+      end
+
+      class SendIncludeNode<SendIncludeCommonNode
+        add_special_send_node :include
+
+        def add_search_module(slfnode, modnode)
+          clstop =  slfnode.search_class_top
+          clstop.add_after_search_module(:parm, modnode)
+        end
+      end
+
+      class SendExtendNode<SendIncludeCommonNode
+        add_special_send_node :extend
+
+        def add_search_module(slfnode, modnode)
+          clsclstop =  slfnode.search_class_top.make_klassclass_node
+          clsclstop.add_after_search_module(:parm, modnode)
         end
       end
 

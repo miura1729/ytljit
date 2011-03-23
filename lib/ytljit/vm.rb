@@ -1220,6 +1220,7 @@ LocalVarNode
             clsclsnode.body = DummyNode.new
             @klassclass_node = clsclsnode
           end
+          @klassclass_node
         end
 
         def get_method_tab(klassobj = @klass_object)
@@ -1249,6 +1250,16 @@ LocalVarNode
             end
           end
           clsnode.before_search_module.push [scope, mod]
+        end
+
+        def add_after_search_module(scope, mod)
+          clsnode = @@class_top_tab[@klass_object]
+          clsnode.after_search_module.each do |scope, modnode|
+            if modnode == mod then
+              return
+            end
+          end
+          clsnode.before_search_module.unshift [scope, mod]
         end
 
         def search_method_with_super(name, klassobj = @klass_object)
@@ -2577,8 +2588,7 @@ LocalVarNode
             @reciever = @parent.class_top
             if @reciever == @parent.search_top and 
                 !@reciever.is_a?(TopTopNode) then
-              @reciever.make_klassclass_node
-              @reciever = @reciever.klassclass_node
+              @reciever = @reciever.make_klassclass_node
             end
           else
             @reciever = sendnode.arguments[2]
