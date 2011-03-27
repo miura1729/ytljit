@@ -200,7 +200,6 @@ module YTLJit
           asm = context.assembler
           val = context.ret_reg
           vnode = context.ret_node
-          context.start_using_reg(TMPR3)
           context.start_arg_reg
           addr = lambda {
             address_of("rb_ary_dup")
@@ -213,9 +212,34 @@ module YTLJit
           context = gen_save_thepr(context)
           context = gen_call(context, rbarydup, 1, vnode)
           context.end_arg_reg
-          context.end_using_reg(TMPR3)
           context.ret_reg = RETR
 
+          context
+        end
+      end
+
+      module StringTypeBoxedCodeGen
+        include AbsArch
+        include CommonCodeGen
+
+        def gen_copy(context)
+          asm = context.assembler
+          val = context.ret_reg
+          vnode = context.ret_node
+          context.start_arg_reg
+          addr = lambda {
+            address_of("rb_str_dup")
+          }
+          rbstrdup = OpVarMemAddress.new(addr)
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], val)
+          end
+          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
+          context = gen_save_thepr(context)
+          context = gen_call(context, rbstrdup, 1, vnode)
+          context.end_arg_reg
+          context.ret_reg = RETR
+          
           context
         end
       end
