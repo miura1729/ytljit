@@ -2706,7 +2706,12 @@ LocalVarNode
             if mtop then
               sig = @parent.signature(context)
               cs = mtop.find_cs_by_signature(sig)
-              context.ret_reg = cs.var_base_address
+              if cs then
+                context.ret_reg = cs.var_base_address
+              else
+                # Maybe not reached program
+                context.ret_reg = 0
+              end
             else
               recobj = @reciever.klass_object
               if recobj.is_a?(ClassClassWrapper) then
