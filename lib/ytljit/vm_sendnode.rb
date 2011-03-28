@@ -660,8 +660,11 @@ module YTLJit
           breg = context.ret_reg
           
           off = 0
+          sig = context.to_signature
           [3, 4, 5].each do |no|
             context = @arguments[no].compile(context)
+            rtype = @arguments[no].decide_type_once(sig)
+            context = rtype.gen_unboxing(context)
             dst = OpIndirect.new(breg, off)
             asm.with_retry do
               if context.ret_reg.is_a?(OpRegistor) then
@@ -1313,7 +1316,8 @@ module YTLJit
         end
 
         def compile(context)
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          sig = context.to_signature
+          rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
           if rrtype == Range and !rtype.boxed and @is_escape != true then
             context = @arguments[2].compile(context)

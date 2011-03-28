@@ -195,6 +195,20 @@ module YTLJit
       @@value_table_entity.var_base_address(off)
     end
 
+    def add_value_entry_no_cache(val)
+      off = @@value_table_entity.current_pos
+      @@value_table_entity.emit([val.value].pack("Q"))
+      stfunc = lambda {
+        oldpos = @@value_table_entity.current_pos
+        @@value_table_entity.current_pos = off
+        @@value_table_entity.emit([val.value].pack("Q"))
+        @@value_table_entity.current_pos = oldpos
+      }
+      val.add_refer(stfunc)
+
+      @@value_table_entity.var_base_address(off)
+    end
+
     def add_var_value_retry_func(mn, args)
       if args.any? {|e| e.is_a?(OpVarValueMixin) } and 
          @retry_mode == false then

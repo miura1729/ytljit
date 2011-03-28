@@ -2356,6 +2356,10 @@ LocalVarNode
           context
         end
 
+        def compile_get_constant(context)
+          compile(context)
+        end
+
         def compile(context)
           context = super(context)
 
@@ -2988,6 +2992,7 @@ LocalVarNode
           super(parent, offset, depth)
           val.parent = self
           @val = val
+          @var_from = nil
         end
 
         def traverse_childlen
@@ -2997,19 +3002,23 @@ LocalVarNode
 
         def collect_info(context)
           context = @val.collect_info(context)
-          top = @frame_info.parent
+          top = @frame_info
+          @depth.times do |i|
+            top = top.previous_frame
+          end
+          @var_from = top.parent
 
           nodepare = nil
           if @depth > 0 then 
-            nodepare = top.orig_modified_local_var[-@depth]
+            nodepare = @var_from.orig_modified_local_var[-@depth]
           end
           if nodepare then
             nodepare = nodepare[@offset]
           end
           if nodepare then
-            nodepare.push [top, self]
+            nodepare.push [@var_from, self]
           else
-            nodepare = [[top, self]]
+            nodepare = [[@var_from, self]]
           end
             
           context.modified_local_var.last[-@depth - 1][@offset] = nodepare
@@ -3020,8 +3029,9 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
-          same_type(self, @val, cursig, cursig, context)
-#          same_type(@val, self, cursig, cursig, context)
+          varcursig = context.to_signature(@var_from)
+          same_type(self, @val, varcursig, cursig, context)
+#          same_type(@val, self, cursig, varcursig, context)
           @body.collect_candidate_type(context)
         end
 
@@ -3029,7 +3039,8 @@ LocalVarNode
           context = super(context)
           context = @val.compile(context)
 
-          decide_type_once(context.to_signature)
+          sig = context.to_signature(-@depth - 1)
+          decide_type_once(sig)
           if @type.boxed then
             @val.decide_type_once(context.to_signature)
             rtype = @val.type
@@ -3218,7 +3229,7 @@ LocalVarNode
             context.ret_reg  = OpVarImmidiateAddress.new(objadd)
 
           else
-            context = @value_node.compile(context)
+            context = @value_node.compile_get_constant(context)
           end
           
           context.ret_node = self
@@ -3238,14 +3249,21 @@ LocalVarNode
           super(parent)
           @name = name
           @class_top = klass # .search_class_top
+          
+          pvalue = nil
           @value = value
+          @value_node = value
+          if !value.is_a?(LiteralNode) then
+            @value_node = self
+          end
 
           if klass.is_a?(ClassTopNode) then
-            klass.constant_tab[@name] = @value
+            klass.constant_tab[@name] = @value_node
           else
             pp klass.class
             raise "Not Implemented yet for set constant for dynamic class"
           end
+          @constant_area = nil
         end
 
         def traverse_childlen
@@ -3253,6 +3271,9 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
+          sig = context.to_signature
+          context = @value.collect_candidate_type(context)
+          same_type(self, @value, sig, sig, context)
           @body.collect_candidate_type(context)
         end
         
@@ -3260,7 +3281,34 @@ LocalVarNode
           @value.type
         end
 
+        def compile_get_constant(context)
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(RETR, @constant_area)
+          end
+          context.ret_reg = RETR
+          context.ret_node = self
+          context
+        end
+
         def compile(context)
+          if !@value.is_a?(LiteralNode) then
+            asm = context.assembler
+            valproc = lambda { 4 }
+            varnilval = OpVarMemAddress.new(valproc)
+            @constant_area = asm.add_value_entry_no_cache(varnilval)
+            @constant_area = @constant_area.to_immidiate
+            context = @value.compile(context)
+            
+            asm.with_retry do
+              asm.push(TMPR2)
+              asm.mov(TMPR, context.ret_reg)
+              asm.mov(TMPR2, @constant_area)
+              asm.mov(INDIRECT_TMPR2, TMPR)
+              asm.pop(TMPR2)
+            end
+          end
+
           @body.compile(context)
         end
       end
