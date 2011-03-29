@@ -210,8 +210,8 @@ LO        |                       |   |  |
         end
 
         res = cursignode.map { |enode|
-          cursignode = @current_method_signature_node[offset]
-          sig = to_signature_aux3(cursignode, offset - 1, cache)
+          cursignode2 = @current_method_signature_node[offset]
+          sig = to_signature_aux3(cursignode2, offset - 1, cache)
           enode.decide_type_once(sig)
         }
         cache[cursignode] = res

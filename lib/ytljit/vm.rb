@@ -443,6 +443,14 @@ LocalVarNode
               else
                 tlist[1]
               end
+              
+            elsif tlist[0].ruby_type == NilClass then
+              # nil-able type
+              tlist[1]
+
+            elsif tlist[1].ruby_type == NilClass then
+              # nil-able type
+              tlist[0]
 
             elsif tlist[0].ruby_type == Float and
                 tlist[1].ruby_type == Fixnum then
@@ -3283,10 +3291,16 @@ LocalVarNode
 
         def compile_get_constant(context)
           asm = context.assembler
-          asm.with_retry do
-            asm.mov(RETR, @constant_area)
+          rtype = decide_type_once(context.to_signature)
+          retr = RETR
+          if rtype.ruby_type == Float and !rtype.boxed then
+            retr = XMM0
           end
-          context.ret_reg = RETR
+          asm.with_retry do
+            asm.mov(TMPR, @constant_area)
+            asm.mov(retr, INDIRECT_TMPR)
+          end
+          context.ret_reg = retr
           context.ret_node = self
           context
         end
@@ -3299,12 +3313,17 @@ LocalVarNode
             @constant_area = asm.add_value_entry_no_cache(varnilval)
             @constant_area = @constant_area.to_immidiate
             context = @value.compile(context)
+            rtype = decide_type_once(context.to_signature)
+            tmpr = TMPR
+            if rtype.ruby_type == Float and !rtype.boxed then
+              tmpr = XMM0
+            end
             
             asm.with_retry do
               asm.push(TMPR2)
-              asm.mov(TMPR, context.ret_reg)
+              asm.mov(tmpr, context.ret_reg)
               asm.mov(TMPR2, @constant_area)
-              asm.mov(INDIRECT_TMPR2, TMPR)
+              asm.mov(INDIRECT_TMPR2, tmpr)
               asm.pop(TMPR2)
             end
           end
