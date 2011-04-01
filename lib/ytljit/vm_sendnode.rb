@@ -1093,7 +1093,6 @@ module YTLJit
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node_backward([sig, self, cidx, context])
-            decide_type_once(sig)
             @arguments[2].type = nil
             @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
@@ -1149,6 +1148,12 @@ module YTLJit
             @arguments[2].type = nil
             rtype = @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
+            @arguments[2].element_node_list.each do |ele|
+              if ele[2] == cidx and ele[1] != self then
+                epare = ele
+                break
+              end
+            end
             esig = epare[0]
             enode = epare[1]
             if enode != self then
@@ -1283,6 +1288,9 @@ module YTLJit
           end
           context.ret_node = self
 
+          if rtype.boxed then
+            context = rtype.to_unbox.gen_boxing(context)
+          end
           @body.compile(context)
         end
       end
@@ -1319,6 +1327,7 @@ module YTLJit
           sig = context.to_signature
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
+          decide_type_once(sig)
           if rrtype == Range and !rtype.boxed and @is_escape != true then
             context = @arguments[2].compile(context)
             slotoff = OpIndirect.new(TMPR, arg_offset)

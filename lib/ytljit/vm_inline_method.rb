@@ -124,7 +124,7 @@ module YTLJit
         
         decide_type_once(context.to_signature)
         if @type.boxed then
-          context = @type.gen_boxing(context)
+          context = @type.to_unbox.gen_boxing(context)
         end
         
         context
@@ -169,9 +169,6 @@ module YTLJit
         context.ret_reg = resreg
         
         decide_type_once(context.to_signature)
-        if @type.boxed then
-          context = @type.gen_boxing(context)
-        end
         
         context
       end
@@ -212,6 +209,7 @@ module YTLJit
         context.end_using_reg(TMPR2)
         context.ret_reg = RETR
         context.ret_node = self
+
         context
       end
         
@@ -246,6 +244,11 @@ module YTLJit
           asm.add(TMPR2, TMPR)
         end
         context = val.compile(context)
+        rtype = val.decide_type_once(context.to_signature)
+        if rtype.boxed then
+          context = rtype.gen_unboxing(context)
+        end
+
         asm.with_retry do
           if context.ret_reg != RETR then
             asm.mov(RETR, context.ret_reg)

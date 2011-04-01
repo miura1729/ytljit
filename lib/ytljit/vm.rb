@@ -446,11 +446,11 @@ LocalVarNode
               
             elsif tlist[0].ruby_type == NilClass then
               # nil-able type
-              tlist[1]
+              tlist[1].to_box
 
             elsif tlist[1].ruby_type == NilClass then
               # nil-able type
-              tlist[0]
+              tlist[0].to_box
 
             elsif tlist[0].ruby_type == Float and
                 tlist[1].ruby_type == Fixnum then
@@ -661,6 +661,7 @@ LocalVarNode
         def compile_c_fixarg(context)
           fnc = nil
           numarg = @arguments.size - 2
+          sig = context.to_signature
           
           context.start_arg_reg
           context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
@@ -690,7 +691,7 @@ LocalVarNode
             else
               # other arg.
               context = arg.compile(context)
-              context.ret_node.decide_type_once(context.to_signature)
+              context.ret_node.decide_type_once(sig)
               rtype = context.ret_node.type
               context = rtype.gen_boxing(context)
               casm = context.assembler
@@ -713,7 +714,7 @@ LocalVarNode
           context.ret_reg = RETR
           context.set_reg_content(context.ret_reg, self)
           
-          decide_type_once(context.to_signature)
+          decide_type_once(sig)
           if !@type.boxed then 
             context = @type.to_box.gen_unboxing(context)
           end
@@ -816,6 +817,7 @@ LocalVarNode
           context.end_arg_reg
           context.end_arg_reg(FUNC_ARG_YTL)
           context.end_using_reg(fnc)
+
           context
         end
 
@@ -3049,10 +3051,11 @@ LocalVarNode
 
           sig = context.to_signature(-@depth - 1)
           decide_type_once(sig)
+          rtype = @val.decide_type_once(context.to_signature)
           if @type.boxed then
-            @val.decide_type_once(context.to_signature)
-            rtype = @val.type
             context = rtype.gen_boxing(context)
+          else
+            context = rtype.gen_unboxing(context)
           end
 
           valr = context.ret_reg
