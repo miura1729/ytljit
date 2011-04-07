@@ -134,6 +134,11 @@ LO        |                       |   |  |
             if sigc.size == 1 then
               return sigc[0]
             else
+              p offset.signature_cache
+              p i
+              p offset.debug_info
+              p @current_method.map {|e| e.debug_info}
+              p @current_method.map {|e| e.class}
               raise "I can't type inference..."
             end
           end
@@ -152,6 +157,7 @@ LO        |                       |   |  |
         end
 
         if curmethod.is_a?(Node::ClassTopNode) then
+          # Can't pass block when entering a class definition
           rsig = to_signature_aux(cursignode, offset, cache)
           cache[cursignode] = rsig
           rsig
@@ -191,13 +197,15 @@ LO        |                       |   |  |
           res.push ele.type
         end
 
-        if mt and (ynode = mt.yield_node[0]) then
+        ynode = mt.yield_node[0]
+        if ynode then
           yargs = ynode.arguments
-          push_signature(args, mt)
+          push_signature(yargs, ynode.frame_info.parent)
           ysig = to_signature_aux3(yargs, -1, cache)
           args[1].type = nil
-          args[1].decide_type_once(ysig)
-          res[1] = args[1].type
+          res[1] = args[1].decide_type_once(ysig)
+#          p res
+#          p res[1]
           pop_signature
         end
         
@@ -209,14 +217,18 @@ LO        |                       |   |  |
           return res
         end
 
-        res = cursignode.map { |enode|
+        node = @current_method[offset]
+        if node.is_a?(Node::ClassTopNode) then
+          node.signature_cache[0]
+        else
           cursignode2 = @current_method_signature_node[offset]
           sig = to_signature_aux3(cursignode2, offset - 1, cache)
-          enode.decide_type_once(sig)
-        }
-        cache[cursignode] = res
-        
-        res
+          res = cursignode.map { |enode|
+            enode.decide_type_once(sig)
+          }
+          cache[cursignode] = res
+          res
+        end
       end
 
       def push_signature(signode, method)

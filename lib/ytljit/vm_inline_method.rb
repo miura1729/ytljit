@@ -244,10 +244,6 @@ module YTLJit
           asm.add(TMPR2, TMPR)
         end
         context = val.compile(context)
-        rtype = val.decide_type_once(context.to_signature)
-        if rtype.boxed then
-          context = rtype.gen_unboxing(context)
-        end
 
         asm.with_retry do
           if context.ret_reg != RETR then

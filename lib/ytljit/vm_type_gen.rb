@@ -179,6 +179,7 @@ module YTLJit
 
         def eql?(other)
           self.class == other.class and
+            other.have_element? and
             @element_type == other.element_type and
             boxed == other.boxed
         end

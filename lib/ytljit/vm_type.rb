@@ -245,6 +245,10 @@ module YTLJit
         @ruby_type
       end
 
+      def abnormal?
+        @@base_type_tab[ruby_type].boxed != boxed
+      end
+
       attr_writer :ruby_type
     end
 
@@ -298,10 +302,6 @@ module YTLJit
     class RubyTypeUnboxed<BaseType
       def boxed
         false
-      end
-
-      def abnormal?
-        @@base_type_tab[ruby_type].boxed != boxed
       end
 
       def to_box

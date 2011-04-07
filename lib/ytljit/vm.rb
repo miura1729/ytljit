@@ -176,7 +176,7 @@ LocalVarNode
           @element_node_list = []
           @my_element_node = nil
           @type_inference_proc = cs
-          @type_cache = nil
+          @decided_signature = nil
           @is_escape = false
 
           @ti_observer = {}
@@ -409,7 +409,8 @@ LocalVarNode
           # This is for sitration of same class and differenc element type.
           # Last element must be local type not propageted type
           if tlist.size > 1 and tlist.all? {|e| 
-              e.ruby_type == tlist[0].ruby_type 
+              e.ruby_type == tlist[0].ruby_type and
+              e.boxed == tlist[0].boxed
             } then
             return tlist.last
           end
@@ -474,8 +475,22 @@ LocalVarNode
             return local_cache[self] 
           end
 
-          if @type.equal?(nil) or @type.is_a?(RubyType::DefaultType0) then
+=begin
+          if @decided_signature and @decided_signature != sig then
+            p sig
+            p @decided_signature
+            p debug_info
+            p self.class
+            p caller[0]
+            @decided_signature = sig
+          end
+=end
+
+          if  # @decided_signature != sig or
+              @type.equal?(nil) or 
+              @type.is_a?(RubyType::DefaultType0) then
             tlist = type_list(sig).flatten.uniq
+            @decided_signature = sig
             @type = decide_type_core(tlist, local_cache)
           end
 
@@ -588,27 +603,23 @@ LocalVarNode
         def signature(context, args = @arguments)
           res = []
           cursig = context.to_signature
-          args[0].decide_type_once(cursig)
-          res.push args[0].type
+          res.push args[0].decide_type_once(cursig)
 
           mt, slf = get_send_method_node(cursig)
           if mt and (ynode = mt.yield_node[0]) then
             context.push_signature(args, mt)
             args[1].type = nil
-            args[1].decide_type_once(ynode.signature(context))
-            res.push args[1].type
+            res.push args[1].decide_type_once(ynode.signature(context))
             context.pop_signature
           else
-            args[1].decide_type_once(cursig)
-            res.push args[1].type
-            args[2].decide_type_once(cursig)
-            slf = args[2].type
+            res.push args[1].decide_type_once(cursig)
+            slf = args[2].decide_type_once(cursig)
           end
           res.push slf
 
           args[3..-1].each do |ele|
-            ele.decide_type_once(cursig)
-            res.push ele.type
+#            ele.type = nil
+            res.push ele.decide_type_once(cursig)
           end
 
           res
@@ -1338,6 +1349,7 @@ LocalVarNode
           end
 
           context.visited_top_node[self] = true
+          @signature_cache.push sig
           
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
@@ -2657,7 +2669,16 @@ LocalVarNode
               end
             end
           else
-            rtype = @reciever.decide_type_once(context.to_signature)
+#            sig = @parent.signature(context)
+            sig = context.to_signature
+=begin
+            p @name
+            p @parent.debug_info
+            p context.to_signature
+            p sig
+            p @parent.arguments[2].class
+=end
+            rtype = @reciever.decide_type_once(sig)
             rklass = rtype.ruby_type_raw
             knode = ClassTopNode.get_class_top_node(rklass)
             if knode and knode.search_method_with_super(@name)[0] then
@@ -2681,7 +2702,7 @@ LocalVarNode
                   mth = rklass.instance_method(@name)
                 rescue NameError
                   p @parent.debug_info
-                  p context.to_signature
+                  p sig
                   p @name
 #                  p @reciever.func.reciever.class
                   p @reciever.instance_eval {@type_list }
@@ -3020,7 +3041,8 @@ LocalVarNode
 
           nodepare = nil
           if @depth > 0 then 
-            nodepare = @var_from.orig_modified_local_var[-@depth]
+#            nodepare = @var_from.orig_modified_local_var[-@depth]
+            nodepare = context.modified_local_var.last[-@depth - 1]
           end
           if nodepare then
             nodepare = nodepare[@offset]
@@ -3288,9 +3310,9 @@ LocalVarNode
           @body.collect_candidate_type(context)
         end
         
-        def type
-          @value.type
-        end
+#        def type
+#          @value.type
+#        end
 
         def compile_get_constant(context)
           asm = context.assembler

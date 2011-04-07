@@ -334,6 +334,8 @@ module YTLJit
           when :ytl
             context = compile_ytl(context)
 
+          when nil
+
           else
             raise "Unsupported calling conversion #{callconv}"
           end
