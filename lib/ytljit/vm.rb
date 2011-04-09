@@ -935,7 +935,6 @@ LocalVarNode
           super(parent)
           @name = name
           @code_spaces = [] # [[nil, CodeSpace.new]]
-          @orig_modified_local_var = []
           @yield_node = []
           if @parent then
             @classtop = search_class_top
@@ -949,7 +948,6 @@ LocalVarNode
 
         attr_accessor :name
         attr          :end_nodes
-        attr          :orig_modified_local_var
         attr          :yield_node
 
         attr          :signature_cache
@@ -1176,9 +1174,6 @@ LocalVarNode
 
       class BlockTopNode<MethodTopNode
         def collect_info(context)
-          @orig_modified_local_var = context.modified_local_var.last.map {|e|
-            e.dup
-          }
           context.modified_local_var.last.push Hash.new
           context = @body.collect_info(context)
           context.modified_local_var.last.pop
@@ -3041,7 +3036,6 @@ LocalVarNode
 
           nodepare = nil
           if @depth > 0 then 
-#            nodepare = @var_from.orig_modified_local_var[-@depth]
             nodepare = context.modified_local_var.last[-@depth - 1]
           end
           if nodepare then

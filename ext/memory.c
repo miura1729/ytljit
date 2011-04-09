@@ -30,8 +30,8 @@ ytl_arena_mark(struct ArenaHeader *arenah)
       start = bodyptr->body;
     }
     else {
-      arenah->body = bodyptr->next;
       next_bodyptr = bodyptr->next;
+      arenah->body = next_bodyptr;
       free(bodyptr);
       continue;
     }
@@ -60,20 +60,36 @@ ytl_arena_free(struct ArenaHeader *arenah)
   free(arenah);
 }
 
+#define DO_RETRY                                               \
+do {                                                           \
+  if (retry_mode) {                                            \
+    rb_raise(rb_eNoMemError, "Can't allocate arena area");     \
+  }                                                            \
+  else {                                                       \
+    retry_mode = 1;                                            \
+    rb_gc();                                                   \
+    goto retry;                                                \
+  }                                                            \
+} while(0)
+
+
 struct ArenaBody *
 ytl_arena_allocate_body()
 {
   void *newmem;
   struct ArenaBody *abody;
+  int retry_mode = 0;
+
+ retry:
 
 #if !defined(__CYGWIN__)
   if (posix_memalign(&newmem, ARENA_SIZE, ARENA_SIZE)) {
-    rb_raise(rb_eNoMemError, "Can't allocate arena area");
+    DO_RETRY;
   }
   abody = (struct ArenaBody *)newmem;
 #else
   if (!(abody = memalign(ARENA_SIZE, ARENA_SIZE))) {
-    rb_raise(rb_eNoMemError, "Can't allocate arena area");
+    DO_RETRY;
   }
 #endif
 
@@ -103,6 +119,10 @@ ytl_arena_alloca(int size)
 {
   char *stptr;
   uintptr_t lsp;
+  struct ArenaHeader *arenah;
+  struct ArenaBody *oldbody;
+  struct ArenaBody *bodyptr;
+  struct ArenaBody *next_bodyptr;
 
 #ifdef __x86_64__
   asm("mov %%r14, %0;"
@@ -119,17 +139,25 @@ ytl_arena_alloca(int size)
 #error "only i386 or x86-64 is supported"
 #endif
 
-  size = size * 8;
   lsp = (uintptr_t)stptr;
-  if ((lsp & (ARENA_SIZE - 1)) < ((lsp - size - 64) & (ARENA_SIZE - 1))) {
-    struct ArenaHeader *arenah;
-    struct ArenaBody *arenab;
-    struct ArenaBody *oldbody;
+  oldbody = (struct ArenaBody *)(lsp & (~(ARENA_SIZE -1)));
+  arenah  = oldbody->header;
+  size = size * 8;
 
-    oldbody = (struct ArenaBody *)(lsp & (~(ARENA_SIZE -1)));
-    arenah  = oldbody->header;
+  for (bodyptr = arenah->body; bodyptr != oldbody; bodyptr = next_bodyptr) {
+    next_bodyptr = bodyptr->next;
+    arenah->body = next_bodyptr;
+    free(bodyptr);
+  }
+
+  if ((lsp & (ARENA_SIZE - 1)) < ((lsp - size - 64) & (ARENA_SIZE - 1))) {
+    struct ArenaBody *arenab;
+
+    arenah->lastptr = (void *)stptr;
     arenab = arenah->body = ytl_arena_allocate_body();
-    arenab->next = oldbody;
+    if (arenab != oldbody) {
+      arenab->next = oldbody;
+    }
     arenab->header = arenah;
     arenah->lastptr = arenab->body + (arenab->size / sizeof(VALUE));
     stptr = (char *)arenah->lastptr;
