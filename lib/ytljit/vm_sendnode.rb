@@ -636,15 +636,23 @@ module YTLJit
                 add_element_node(sig, @arguments[3], [0], context)
 
               elsif tt.ruby_type == Array then
-                @arguments[3..-1].each_with_index do |anode, idx|
-                  add_element_node(sig, anode, [idx - 3], context)
-                end
                 if context.options[:compile_array_as_uboxed] and
-                    element_node_list != [] and
-                      element_node_list[1..-1].all? {|e|
+                    @element_node_list.size > 1 and
+                      @element_node_list[1..-1].all? {|e|
                         e[2]
                       } then
                   tt = tt.to_unbox
+                end
+                if @arguments[4] then
+                  siz = @arguments[3].get_constant_value
+                  if siz and false then
+                    # Here is buggy yet Fix me
+                    siz[0].times do |i|
+                      add_element_node(sig, @arguments[4], [i], context)
+                    end
+                  else
+                    add_element_node(sig, @arguments[4], nil, context)
+                  end
                 end
               end
 
@@ -684,7 +692,7 @@ module YTLJit
           context
         end
 
-        def compile_array(context)
+        def compile_array_unboxed(context)
           siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
           context = gen_alloca(context, siz)
           asm = context.assembler
@@ -709,8 +717,9 @@ module YTLJit
             if @is_escape != true and crtype == Range then
               return compile_range(context)
               
-            elsif crtype == Array and !ctype.boxed and @is_escape != true then
-              return compile_array(context)
+            elsif crtype == Array and
+                !ctype.boxed and @is_escape != true then
+              return compile_array_unboxed(context)
 
             elsif @initmethod.func.calling_convention(context) then
               context = @initmethod.compile(context)
@@ -1524,7 +1533,7 @@ module YTLJit
           sig = context.to_signature
           tt = RubyType::BaseType.from_ruby_class(Array)
           if context.options[:compile_array_as_uboxed] and
-              @element_node_list != [] and 
+              @element_node_list.size > 1 and 
                 @element_node_list[1..-1].all? {|e|
                   e[2]
                 } then
