@@ -3241,7 +3241,6 @@ LocalVarNode
           if @value_node.is_a?(ClassTopNode) then
             add_type(context.to_signature, @value_node.type)
           else
-            context = @value_node.collect_candidate_type(context)
             cursig = context.to_signature
             same_type(self, @value_node, cursig, cursig, context)
           end
