@@ -36,7 +36,7 @@ VALUE ytl_code_space_allocate(VALUE);
 VALUE ytl_code_value_allocate(VALUE);
 
 VALUE ytl_arena_allocate(VALUE);
-char *ytl_arena_alloca(int);
+char *ytl_arena_alloca(char *, int);
 VALUE ytl_arena_emit(VALUE, VALUE, VALUE);
 VALUE ytl_arena_ref(VALUE, VALUE);
 VALUE ytl_arena_size(VALUE);

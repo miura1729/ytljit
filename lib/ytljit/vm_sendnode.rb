@@ -286,7 +286,7 @@ module YTLJit
           mt, slf = get_send_method_node(cursig)
           if mt then
             same_type(self, mt, cursig, signat, context)
-            same_type(mt, self, signat, cursig, context)
+#            same_type(mt, self, signat, cursig, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
@@ -747,7 +747,6 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
-            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -787,7 +786,6 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
-            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -826,7 +824,6 @@ module YTLJit
           when [Fixnum], [Float]
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
-            same_type(@arguments[2], self, cursig, cursig, context)
 
           when [String]
             same_type(self, @arguments[2], cursig, cursig, context)
@@ -895,7 +892,6 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
-            same_type(@arguments[2], self, cursig, cursig, context)
           end
 
           context
@@ -1103,22 +1099,15 @@ module YTLJit
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node_backward([sig, self, cidx, context])
-            @arguments[2].type = nil
-            @arguments[2].decide_type_once(sig)
-            epare = @arguments[2].element_node_list[0]
-            @arguments[2].element_node_list.each do |ele|
-              if ele[2] == cidx and ele[1] != self then
-                epare = ele
-                break
-              end
-            end
-            esig = epare[0]
-            enode = epare[1]
-            if enode != self then
-              same_type(self, enode, sig, esig, context)
-            end
 
+            etype = slf.element_type[cidx] || slf.element_type[nil]
+#            p slf.element_type
+#            p sig
+#            p debug_info
+            if etype then
+              add_type(sig, etype[0])
+            end
+            
           when [Hash]
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node(sig, self, cidx, context)
@@ -1152,6 +1141,7 @@ module YTLJit
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             val = @arguments[4]
+            val.is_escape = :export_object
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node_backward([sig, val, cidx, context])

@@ -183,6 +183,10 @@ module YTLJit
             @element_type == other.element_type and
             boxed == other.boxed
         end
+
+        def inspect
+          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type} (#{@element_type.inspect})}"
+        end
       end
 
       module ArrayTypeBoxedCodeGen

@@ -585,10 +585,11 @@ LO        |                       |   |  |
           }
           alloca = OpVarMemAddress.new(add)
           asm.with_retry do
+            asm.mov(FUNC_ARG[0], THEPR)
             asm.mov(TMPR, siz)
-            asm.mov(FUNC_ARG[0], TMPR)
+            asm.mov(FUNC_ARG[1], TMPR)
           end
-          context = gen_call(context, alloca, 1)
+          context = gen_call(context, alloca, 2)
           asm.with_retry do
             asm.mov(THEPR, RETR)
           end

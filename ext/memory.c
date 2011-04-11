@@ -115,29 +115,13 @@ ytl_arena_allocate(VALUE klass)
 }
 
 char *
-ytl_arena_alloca(int size)
+ytl_arena_alloca(char *stptr, int size)
 {
-  char *stptr;
   uintptr_t lsp;
   struct ArenaHeader *arenah;
   struct ArenaBody *oldbody;
   struct ArenaBody *bodyptr;
   struct ArenaBody *next_bodyptr;
-
-#ifdef __x86_64__
-  asm("mov %%r14, %0;"
-      : "=r"(stptr));
-
-#elif  __CYGWIN__
-  asm("mov %%edi, %0;"
-      : "=r"(stptr));
-
-#elif  __i386__
-  asm("mov %%edi, %0;"
-      : "=r"(stptr));
-#else
-#error "only i386 or x86-64 is supported"
-#endif
 
   lsp = (uintptr_t)stptr;
   oldbody = (struct ArenaBody *)(lsp & (~(ARENA_SIZE -1)));

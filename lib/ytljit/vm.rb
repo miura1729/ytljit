@@ -403,7 +403,7 @@ LocalVarNode
           context
         end
 
-        def decide_type_core(tlist, local_cache = {})
+        def decide_type_core(tlist, cursig, local_cache = {})
           tlist = tlist.select {|e| e.class != RubyType::DefaultType0 }
 
           # This is for sitration of same class and differenc element type.
@@ -425,12 +425,14 @@ LocalVarNode
               etype = {}
               @element_node_list.each do |ele|
                 sig = ele[0]
-                node = ele[1]
-                tt = node.decide_type_once(sig, local_cache)
-                etype[ele[2]] ||= []
-                curidx = etype[ele[2]]
-                if !curidx.include?(tt) then
-                  curidx.push tt
+                if sig == cursig then
+                  node = ele[1]
+                  tt = node.decide_type_once(sig, local_cache)
+                  etype[ele[2]] ||= []
+                  curidx = etype[ele[2]]
+                  if !curidx.include?(tt) then
+                    curidx.push tt
+                  end
                 end
               end
               tlist[0].element_type = etype
@@ -491,7 +493,7 @@ LocalVarNode
               @type.is_a?(RubyType::DefaultType0) then
             tlist = type_list(sig).flatten.uniq
             @decided_signature = sig
-            @type = decide_type_core(tlist, local_cache)
+            @type = decide_type_core(tlist, sig, local_cache)
           end
 
           @type
@@ -1104,7 +1106,7 @@ LocalVarNode
           @code_spaces.each do |sig, cs|
             print sig, " -> "
             tl = type_list(sig).flatten.uniq
-            print decide_type_core(tl).inspect, "\n"
+            print decide_type_core(tl, sig).inspect, "\n"
             pp tl
 #            print "CodeSpace 0x#{cs.base_address.to_s(16)}\n"
             print "CodeSpace #{cs.inspect}\n"
@@ -2699,7 +2701,7 @@ LocalVarNode
                   p @parent.debug_info
                   p sig
                   p @name
-#                  p @reciever.func.reciever.class
+                  p @reciever.class
                   p @reciever.instance_eval {@type_list }
 =begin
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
