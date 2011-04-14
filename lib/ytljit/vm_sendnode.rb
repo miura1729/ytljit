@@ -634,6 +634,7 @@ module YTLJit
               if tt.ruby_type == Range then
                 tt.args = @arguments[3..-1]
                 add_element_node(sig, @arguments[3], [0], context)
+                add_element_node(sig, @arguments[4], [1], context)
 
               elsif tt.ruby_type == Array then
                 if context.options[:compile_array_as_uboxed] and
@@ -949,10 +950,104 @@ module YTLJit
         end
       end
 
+      class SendDivNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :%
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+
+        def compile(context)
+          @type = nil
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
+          if rtype.is_a?(RubyType::DefaultType0) or
+              @class_top.search_method_with_super(@func.name, rrtype)[0] then
+            return super(context)
+          end
+
+          if rrtype == Fixnum then
+            context = gen_arithmetic_operation(context, nil, TMPR2, 
+                                               TMPR) do |context|
+              asm = context.assembler
+              asm.with_retry do
+                if context.ret_reg == TMPR then
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                elsif context.ret_reg.is_a?(OpImmidiateMachineWord) then
+                  asm.mov(TMPR, context.ret_reg)
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
+                else
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.cdq
+                  asm.idiv(context.ret_reg)
+                end
+                asm.mov(DBLLOR, DBLHIR)
+                context.end_using_reg(context.ret_reg)
+              end
+            end
+          else
+            raise "Unkown method #{rtype.ruby_type}##{@func.name}"
+          end
+
+          @body.compile(context)
+        end
+      end
+
       class SendLtLtNode<SendNode
         include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :<<
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
+      class SendGtGtNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :>>
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
+      class SendAndNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :&
 
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
@@ -1099,14 +1194,23 @@ module YTLJit
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(sig, fixtype)
             cidx = @arguments[3].get_constant_value
+            decide_type_once(sig)
 
-            etype = slf.element_type[cidx] || slf.element_type[nil]
-#            p slf.element_type
-#            p sig
-#            p debug_info
-            if etype then
-              add_type(sig, etype[0])
+            @arguments[2].add_element_node_backward([sig, self, cidx, context])
+            @arguments[2].type = nil
+            @arguments[2].decide_type_once(sig)
+            epare = @arguments[2].element_node_list[0]
+            @arguments[2].element_node_list.each do |ele|
+              if ele[2] == cidx and ele[1] != self then
+                epare = ele
+                break
+              end
             end
+            esig = epare[0]
+            enode = epare[1]
+            if enode != self then
+              same_type(self, enode, sig, esig, context)
+            end 
             
           when [Hash]
             cidx = @arguments[3].get_constant_value
@@ -1329,7 +1433,8 @@ module YTLJit
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
           decide_type_once(sig)
-          if rrtype == Range and !rtype.boxed and @is_escape != true then
+          if rrtype == Range and !rtype.boxed and 
+              @arguments[2].is_escape != true then
             context = @arguments[2].compile(context)
             slotoff = OpIndirect.new(TMPR, arg_offset)
             asm = context.assembler
@@ -1403,6 +1508,27 @@ module YTLJit
 
       class SendPNode<SendSameArgTypeNode
         add_special_send_node :p
+      end
+ 
+      class SendSameSelfTypeNode<SendNode
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          same_type(self, @arguments[2], sig, sig, context)
+          context
+        end
+      end
+
+     class SendDupNode<SendSameSelfTypeNode
+        add_special_send_node :dup
+       
+       def compile(context)
+         sig = context.to_signature
+         rtype = @arguments[2].decide_type_once(sig)
+         rrtype = rtype.ruby_type
+         context = @arguments[2].compile(context)
+         context = rtype.gen_copy(context)
+         @body.compile(context)
+       end
       end
 
       class SendMathFuncNode<SendNode
