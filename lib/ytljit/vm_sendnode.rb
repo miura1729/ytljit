@@ -915,19 +915,22 @@ module YTLJit
                 if context.ret_reg == TMPR then
                   asm.push(TMPR)
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
                 elsif context.ret_reg.is_a?(OpImmidiateMachineWord) then
                   asm.mov(TMPR, context.ret_reg)
                   asm.push(TMPR)
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
                 else
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(context.ret_reg)
                 end
                 asm.and(DBLHIR, DBLHIR)
@@ -950,7 +953,7 @@ module YTLJit
         end
       end
 
-      class SendDivNode<SendNode
+      class SendModNode<SendNode
         include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :%
@@ -983,19 +986,22 @@ module YTLJit
                 if context.ret_reg == TMPR then
                   asm.push(TMPR)
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
                 elsif context.ret_reg.is_a?(OpImmidiateMachineWord) then
                   asm.mov(TMPR, context.ret_reg)
                   asm.push(TMPR)
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
                 else
                   asm.mov(DBLLOR, TMPR2)
-                  asm.cdq
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(context.ret_reg)
                 end
                 asm.mov(DBLLOR, DBLHIR)

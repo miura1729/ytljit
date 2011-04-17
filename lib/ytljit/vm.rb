@@ -1102,6 +1102,7 @@ LocalVarNode
 
         def disp_signature
           tcontext = CompileContext.new(self)
+          print "#{debug_info.inspect}\n"
           print "#{@classtop.klass_object}##{@name} "
           @code_spaces.each do |sig, cs|
             print sig, " -> "
@@ -1805,7 +1806,7 @@ LocalVarNode
         def collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @parent, cursig, cursig, context)
-          same_type(@parent, self, cursig, cursig, context)
+          # same_type(@parent, self, cursig, cursig, context)
           context
         end
 
@@ -1860,7 +1861,7 @@ LocalVarNode
           context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
-          same_type(@value_node, self, cursig, cursig, context)
+          # same_type(@value_node, self, cursig, cursig, context)
 
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type

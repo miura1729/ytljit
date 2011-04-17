@@ -332,6 +332,16 @@ module YTLJit
         def have_element?
           true
         end
+
+        def inspect
+          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type} (#{@element_type.inspect})}"
+        end
+
+        def ==(other)
+          self.class == other.class and
+#            @args == other.args and
+            boxed == other.boxed
+        end
       end
 
       module RangeTypeBoxedCodeGen
@@ -399,12 +409,6 @@ module YTLJit
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context
-        end
-        
-        def ==(other)
-          self.class == other.class and
-            @args == other.args and
-            boxed == other.boxed
         end
       end
     end
