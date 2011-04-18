@@ -83,6 +83,7 @@ module YTLJit
             end
             asm.sar(TMPR)
           end
+
           context.set_reg_content(TMPR, vnode)
           context.ret_reg = TMPR
           context

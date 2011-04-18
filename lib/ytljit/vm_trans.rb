@@ -66,6 +66,9 @@ module YTLJit
         if ctn == nil then
           ctn = ClassTopNode.new(@the_top, klass, klass.name)
         end
+        if value.is_a?(Class) then
+          value = ClassClassWrapper.new(value)
+        end
         valnode = LiteralNode.new(ctn, value)
         ctn.get_constant_tab[name] = valnode
       end

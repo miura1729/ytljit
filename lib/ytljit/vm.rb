@@ -1498,6 +1498,12 @@ LocalVarNode
           if @init_node then
             context = @init_node.collect_candidate_type(context, signode, sig)
           end
+
+          # This is for return boxed object to CRuby system
+          if @end_nodes[0] then
+            @end_nodes[0].add_type(sig, RubyType::BaseType.from_object(nil))
+          end
+
           super(context, signode, sig)
         end
 
@@ -1806,7 +1812,7 @@ LocalVarNode
         def collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @parent, cursig, cursig, context)
-          # same_type(@parent, self, cursig, cursig, context)
+          same_type(@parent, self, cursig, cursig, context)
           context
         end
 
@@ -1861,7 +1867,7 @@ LocalVarNode
           context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
           same_type(self, @value_node, cursig, cursig, context)
-          # same_type(@value_node, self, cursig, cursig, context)
+          same_type(@value_node, self, cursig, cursig, context)
 
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
@@ -2698,6 +2704,7 @@ LocalVarNode
                 end
                 begin
                   mth = rklass.instance_method(@name)
+                  @ruby_reciever = rtype.ruby_type_raw
                 rescue NameError
                   p @parent.debug_info
                   p sig
@@ -2712,7 +2719,6 @@ LocalVarNode
 =end
                   raise
                 end
-                @ruby_reciever = rtype.ruby_type_raw
               end
 
               if variable_argument?(mth.parameters) then
@@ -2884,7 +2890,7 @@ LocalVarNode
                 context.code_space.refer_operands.push context.ret_reg 
                 context.ret_node = self
               else
-                raise "Unkown method - #{@name}"
+                raise "Unkown method - #{@ruby_reciever}##{@name}"
                 context.ret_reg = OpImmidiateAddress.new(0)
                 context.ret_node = self
               end
