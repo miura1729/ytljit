@@ -196,9 +196,9 @@ module YTLJit
 
           curnode.body = jmpnode
           jmpnode.body = nllab
-          context.expstack.push nllab.value_node
         end
 
+        context.expstack.push nllab.value_node
         context.current_node = nllab
       end
 
@@ -244,6 +244,7 @@ module YTLJit
           end
         end
 
+        context.not_reached_pos = false
         context.current_node = cnode
       end
 
@@ -843,6 +844,8 @@ module YTLJit
 
         context.top_nodes.last.end_nodes.push nnode
         srnode.body = nnode
+        context.current_node = nnode
+        context.not_reached_pos = true
       end
       
       def visit_throw(code, ins, context)

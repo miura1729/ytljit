@@ -467,6 +467,16 @@ LocalVarNode
               RubyType::DefaultType0.new
             end
 
+          when 3
+            tmptlist = tlist.dup
+            tmptlist.delete_if {|ele| ele.ruby_type == NilClass}
+            if tmptlist.size == 2 and 
+                tmptlist[0].ruby_type == tmptlist[1].ruby_type then
+              tmptlist[0].to_box
+            else
+              RubyType::DefaultType0.new
+            end
+
           else
             RubyType::DefaultType0.new
           end
@@ -2342,12 +2352,13 @@ LocalVarNode
         attr :value
 
         def collect_candidate_type(context)
-          # ??? 
-          if @type == nil then 
+          sig = context.to_signature
+          if @type_list != [[], []] then
+            @type = decide_type_once(sig)
+          elsif @type == nil then 
             @type = RubyType::BaseType.from_object(@value) 
           end
 
-          sig = context.to_signature
           case @value
           when Array
             add_type(sig, @type)
