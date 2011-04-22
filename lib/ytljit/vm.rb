@@ -1763,7 +1763,7 @@ LocalVarNode
             cursig2 = context.to_signature(-2)
             if tobj then
               same_type(self, tobj, cursig, cursig2, context)
-              same_type(tobj, self, cursig2, cursig, context)
+#              same_type(tobj, self, cursig2, cursig, context)
             end
           end
           context

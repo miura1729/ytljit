@@ -167,8 +167,7 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-          @arguments[2].decide_type_once(cursig)
-          slf = @arguments[2].type
+          slf = @arguments[2].decide_type_once(cursig)
           if slf.instance_of?(RubyType::DefaultType0) then
             # Chaos
           end

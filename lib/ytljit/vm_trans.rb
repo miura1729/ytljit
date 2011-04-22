@@ -186,7 +186,9 @@ module YTLJit
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins)
         
-        unless curnode.is_a?(JumpNode)
+        if !(curnode.is_a?(JumpNode) or 
+             curnode.is_a?(MethodEndNode) or
+             curnode.is_a?(ThrowNode)) then
           jmpnode = JumpNode.new(curnode, nllab)
           jmpnode.debug_info = context.debug_info
           nllab.parent = jmpnode
