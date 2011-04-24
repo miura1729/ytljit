@@ -111,7 +111,7 @@ LocalVarNode
               @my_element_node = BaseNode.new(self)
             end
             if @element_node_list == [] then
-              @element_node_list = [[sig, @my_element_node, nil]]
+              @element_node_list = [[sig[2], sig, @my_element_node, nil]]
             end
           end
         end
@@ -140,7 +140,7 @@ LocalVarNode
               @my_element_node = BaseNode.new(self)
             end
             if @element_node_list == [] then
-              @element_node_list = [[sig, @my_element_node, nil]]
+              @element_node_list = [[sig[2], sig, @my_element_node, nil]]
             end
           end
         end
@@ -162,12 +162,12 @@ LocalVarNode
           # iv for structure of VM
           @parent = parent
           @code_space = nil
-          @id = nil
+          @id = [1]
           if @parent then
             @id = @parent.id.dup
             @id[-1] = @id[-1] + 1
           else
-            @id = [0]
+            @id = [1]
           end
 
           # iv for type inference
@@ -369,22 +369,22 @@ LocalVarNode
           end
         end
 
-        def add_element_node(sig, enode, index, context)
+        def add_element_node(curslf, encsig, enode, index, context)
           slfetnode = @element_node_list
-          unless slfetnode.include?([sig, enode, index])
+          unless slfetnode.include?([curslf, encsig, enode, index])
             if @element_node_list == [] then
-              @element_node_list.push [sig, enode, nil]
+              @element_node_list.push [curslf, encsig, enode, nil]
             end
-            newele = [sig, enode, index]
+            newele = [curslf, encsig, enode, index]
             if !@element_node_list.include?(newele)
               @element_node_list.push newele
-              orgsig = @element_node_list[0][0]
-              orgnode = @element_node_list[0][1]
+              orgsig = @element_node_list[0][1]
+              orgnode = @element_node_list[0][2]
               if orgnode != enode then
-                same_type(orgnode, enode, orgsig, sig, context)
+                same_type(orgnode, enode, orgsig, encsig, context)
               end
               if index != nil then
-                @element_node_list.each do |orgsig, orgnode, orgindex|
+                @element_node_list.each do |sig, orgsig, orgnode, orgindex|
                   if orgindex == index and
                       orgnode != enode then
                     # same_type(orgnode, enode, orgsig, sig, context)
@@ -422,14 +422,17 @@ LocalVarNode
           when 1
             local_cache[self] = tlist[0]
             if tlist[0].have_element? then
+              tlist[0] = tlist[0].copy_type
+              local_cache[self] = tlist[0]
+              # TODO setting element tlist.size > 1
               etype = {}
               @element_node_list.each do |ele|
-                sig = ele[0]
+                sig = ele[1]
                 if sig == cursig then
-                  node = ele[1]
+                  node = ele[2]
                   tt = node.decide_type_once(sig, local_cache)
-                  etype[ele[2]] ||= []
-                  curidx = etype[ele[2]]
+                  etype[ele[3]] ||= []
+                  curidx = etype[ele[3]]
                   if !curidx.include?(tt) then
                     curidx.push tt
                   end
@@ -1874,8 +1877,10 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          context = @value_node.collect_candidate_type(context)
           cursig = context.to_signature
+          p "caller" if debug_info[2] == :at
+            p cursig if debug_info[2] == :at
+          context = @value_node.collect_candidate_type(context)
           same_type(self, @value_node, cursig, cursig, context)
           same_type(@value_node, self, cursig, cursig, context)
 
@@ -2364,7 +2369,7 @@ LocalVarNode
             add_type(sig, @type)
             @value.each do |ele|
               etype = RubyType::BaseType.from_object(ele)
-              @element_node_list[0][1].add_type(sig, etype)
+              @element_node_list[0][2].add_type(sig, etype)
             end
 
           when Range
@@ -2384,7 +2389,7 @@ LocalVarNode
               exclnode = LiteralNode.new(self, ele)
               @type.args.push exclnode
               context = exclnode.collect_candidate_type(context)
-              add_element_node(sig, fstnode, [0], context)
+              add_element_node(@type, sig, fstnode, [0], context)
             end
           else
             add_type(sig, @type)

@@ -33,6 +33,11 @@ module YTLJit
         def inspect
           "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type}}"
         end
+
+        def copy_type
+          # Do not copy. It is immutable
+          self
+        end
       end
 
       module FixnumTypeUnboxedCodeGen
@@ -170,11 +175,10 @@ module YTLJit
             oc = other.ruby_type
             sc = self.ruby_type
             sc == oc and
-              (other.element_type == nil or
-               other.element_type == {} or
-               @element_type == nil or
-               @element_type == {} or
-               @element_type == other.element_type) and
+              ((other.element_type == nil and
+               @element_type == nil) or
+               (other.element_type and @element_type and
+                @element_type[nil] == other.element_type[nil])) and
               boxed == other.boxed
           else
             false
@@ -189,7 +193,8 @@ module YTLJit
         end
 
         def inspect
-          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type} (#{@element_type.inspect})}"
+          etype = @element_type.inspect
+          "{ #{boxed ? "BOXED" : "UNBOXED"} #{@ruby_type} (#{etype})}"
         end
       end
 
@@ -225,31 +230,12 @@ module YTLJit
 
           context
         end
-      end
 
-      module StringTypeBoxedCodeGen
-        include AbsArch
-        include CommonCodeGen
-
-        def gen_copy(context)
-          asm = context.assembler
-          val = context.ret_reg
-          vnode = context.ret_node
-          context.start_arg_reg
-          addr = lambda {
-            address_of("rb_str_dup")
-          }
-          rbstrdup = OpVarMemAddress.new(addr)
-          asm.with_retry do
-            asm.mov(FUNC_ARG[0], val)
-          end
-          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_save_thepr(context)
-          context = gen_call(context, rbstrdup, 1, vnode)
-          context.end_arg_reg
-          context.ret_reg = RETR
-          
-          context
+        def copy_type
+          dao = self.class.from_ruby_class(@ruby_type)
+          dao = dao.to_box
+          dao.element_type = @element_type
+          dao
         end
       end
 
@@ -322,6 +308,40 @@ module YTLJit
           context.end_using_reg(TMPR3)
           context
         end
+
+
+        def copy_type
+          dao = self.class.from_ruby_class(@ruby_type)
+          dao = dao.to_unbox
+          dao.element_type = @element_type
+          dao
+        end
+      end
+
+      module StringTypeBoxedCodeGen
+        include AbsArch
+        include CommonCodeGen
+
+        def gen_copy(context)
+          asm = context.assembler
+          val = context.ret_reg
+          vnode = context.ret_node
+          context.start_arg_reg
+          addr = lambda {
+            address_of("rb_str_dup")
+          }
+          rbstrdup = OpVarMemAddress.new(addr)
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], val)
+          end
+          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
+          context = gen_save_thepr(context)
+          context = gen_call(context, rbstrdup, 1, vnode)
+          context.end_arg_reg
+          context.ret_reg = RETR
+          
+          context
+        end
       end
 
       module RangeTypeCommonCodeGen
@@ -357,6 +377,14 @@ module YTLJit
           ni.init
           ni
         end
+
+        def copy_type
+          dro = self.class.from_ruby_class(@ruby_type)
+          dro = dro.to_box
+          dro.element_type = @element_type
+          dro.args = @args
+          dro
+        end
       end
 
       module RangeTypeUnboxedCodeGen
@@ -372,7 +400,7 @@ module YTLJit
         end
 
         def gen_boxing(context)
-          rtype = args[0].decide_type_once(context.to_signature)
+          rtype = @args[0].decide_type_once(context.to_signature)
 
           vnode = context.ret_node
           base = context.ret_reg
@@ -413,6 +441,14 @@ module YTLJit
           context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context
+        end
+
+        def copy_type
+          dro = self.class.from_ruby_class(@ruby_type)
+          dro = dro.to_unbox
+          dro.element_type = @element_type
+          dro.args = @args
+          dro
         end
       end
     end

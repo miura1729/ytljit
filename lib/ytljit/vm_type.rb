@@ -14,7 +14,7 @@ module YTLJit
             return cnode
           end
           
-          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)} and false then
+          if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)} then
             cnode = cnode.same_klass
             if cnode == nil then
               ocnode.same_klass = KlassTreeNode.new(key, value)

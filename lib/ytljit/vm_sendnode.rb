@@ -632,14 +632,14 @@ module YTLJit
               # set element type
               if tt.ruby_type == Range then
                 tt.args = @arguments[3..-1]
-                add_element_node(sig, @arguments[3], [0], context)
-                add_element_node(sig, @arguments[4], [1], context)
+                add_element_node(tt, sig, @arguments[3], [0], context)
+                add_element_node(tt, sig, @arguments[4], [1], context)
 
               elsif tt.ruby_type == Array then
                 if context.options[:compile_array_as_uboxed] and
                     @element_node_list.size > 1 and
                       @element_node_list[1..-1].all? {|e|
-                        e[2]
+                        e[3]
                       } then
                   tt = tt.to_unbox
                 end
@@ -648,10 +648,10 @@ module YTLJit
                   if siz and false then
                     # Here is buggy yet Fix me
                     siz[0].times do |i|
-                      add_element_node(sig, @arguments[4], [i], context)
+                      add_element_node(tt, sig, @arguments[4], [i], context)
                     end
                   else
-                    add_element_node(sig, @arguments[4], nil, context)
+                    add_element_node(tt, sig, @arguments[4], nil, context)
                   end
                 end
               end
@@ -693,7 +693,7 @@ module YTLJit
         end
 
         def compile_array_unboxed(context)
-          siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
+          siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
           context = gen_alloca(context, siz)
           asm = context.assembler
           asm.with_retry do
@@ -1193,33 +1193,37 @@ module YTLJit
         include UnboxedArrayUtil
         add_special_send_node :[]
         def collect_candidate_type_regident(context, slf)
-          sig = context.to_signature
+          cursig = context.to_signature
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
-            @arguments[3].add_type(sig, fixtype)
+            @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
-            decide_type_once(sig)
+            decide_type_once(cursig)
 
-            @arguments[2].add_element_node_backward([sig, self, cidx, context])
-            @arguments[2].type = nil
-            @arguments[2].decide_type_once(sig)
             epare = @arguments[2].element_node_list[0]
+            p slf
+            p @arguments[2].element_node_list.map {|e| e[0]}
             @arguments[2].element_node_list.each do |ele|
-              if ele[2] == cidx and ele[1] != self then
+              if ele[3] == cidx and ele[2] != self then
+#              if ele[2] != self and ele[0] == slf then
                 epare = ele
                 break
               end
             end
-            esig = epare[0]
-            enode = epare[1]
+            esig = epare[1]
+            enode = epare[2]
             if enode != self then
-              same_type(self, enode, sig, esig, context)
-            end 
+              same_type(self, enode, cursig, esig, context)
+            end
+            p @arguments[2].class if debug_info[2] == :at
+            p @arguments[2].instance_eval {@type_list} if debug_info[2] == :at
+            p enode.decide_type_once(esig) if debug_info[2] == :at
             
           when [Hash]
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node(sig, self, cidx, context)
+            rtype = @arguments[2].decide_type_once(sig)
+            @arguments[2].add_element_node(rtype, cursig, self, cidx, context)
           end
 
           context
@@ -1229,6 +1233,7 @@ module YTLJit
           sig = context.to_signature
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
+
           if rrtype == Array and !rtype.boxed and 
               @arguments[2].is_escape != true then
             context = gen_ref_element(context, @arguments[2], @arguments[3])
@@ -1244,31 +1249,32 @@ module YTLJit
         include UnboxedArrayUtil
         add_special_send_node :[]=
         def collect_candidate_type_regident(context, slf)
-          sig = context.to_signature
+          cursig = context.to_signature
           rtype = nil
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             val = @arguments[4]
             val.is_escape = :export_object
-            @arguments[3].add_type(sig, fixtype)
+            @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node_backward([sig, val, cidx, context])
-            decide_type_once(sig)
+            arg = [slf, cursig, val, cidx, context]
+            @arguments[2].add_element_node_backward(arg)
+            decide_type_once(cursig)
             @arguments[2].type = nil
-            rtype = @arguments[2].decide_type_once(sig)
+            rtype = @arguments[2].decide_type_once(cursig)
             epare = @arguments[2].element_node_list[0]
             @arguments[2].element_node_list.each do |ele|
-              if ele[2] == cidx and ele[1] != self then
+              if ele[3] == cidx and ele[2] != self then
                 epare = ele
                 break
               end
             end
-            esig = epare[0]
-            enode = epare[1]
+            esig = epare[1]
+            enode = epare[2]
             if enode != self then
-              same_type(self, enode, sig, esig, context)
-              same_type(enode, self, esig, sig, context)
+              same_type(self, enode, cursig, esig, context)
+#              same_type(enode, self, esig, sig, context)
             end
             if rtype.boxed then
               @arguments[3].set_escape_node_backward(true)
@@ -1276,7 +1282,7 @@ module YTLJit
 
           when [Hash]
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node(sig, self, cidx, context)
+            @arguments[2].add_element_node(slf, sig, self, cidx, context)
             @arguments[3].set_escape_node_backward(true)
           end
 
@@ -1422,8 +1428,8 @@ module YTLJit
           cursig = context.to_signature
           if slf.ruby_type == Range then
             epare = @arguments[2].element_node_list[0]
-            esig = epare[0]
-            enode = epare[1]
+            esig = epare[1]
+            enode = epare[2]
             tt = enode.decide_type_once(esig)
             add_type(cursig, tt)
           else
@@ -1656,7 +1662,7 @@ module YTLJit
           if context.options[:compile_array_as_uboxed] and
               @element_node_list.size > 1 and 
                 @element_node_list[1..-1].all? {|e|
-                  e[2]
+                  e[3]
                 } then
             tt = tt.to_unbox
           end
@@ -1664,7 +1670,7 @@ module YTLJit
           add_type(sig, tt)
 
           @arguments[1..-1].each_with_index do |anode, idx|
-            add_element_node(sig, anode, [idx], context)
+            add_element_node(tt, sig, anode, [idx], context)
           end
 
           context
@@ -1675,7 +1681,7 @@ module YTLJit
           rtype = decide_type_once(sig)
           rrtype = rtype.ruby_type
           if rrtype == Array and !rtype.boxed and @is_escape != true then
-            siz = ((@element_node_list[1..-1].max_by {|a| a[2][0]})[2][0]) + 1
+            siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
             context = gen_alloca(context, siz)
 
             context.start_arg_reg(TMPR2)
