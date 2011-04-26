@@ -1203,8 +1203,8 @@ module YTLJit
 
             epare = @arguments[2].element_node_list[0]
             @arguments[2].element_node_list.each do |ele|
-#              if ele[3] == cidx and ele[2] != self then
-              if ele[2] != self and ele[0] == cursig[2] then
+              if ele[3] == cidx and ele[2] != self then
+#              if ele[2] != self and ele[0] == slf then
                 epare = ele
                 break
               end
@@ -1214,10 +1214,10 @@ module YTLJit
             if enode != self then
               same_type(self, enode, cursig, esig, context)
             end
-            p @arguments[2].class if debug_info[2] == :at
             p slf if debug_info[2] == :at
-            p cursig[2] if debug_info[2] == :at
-            p @arguments[2].instance_eval {@type_list} if debug_info[2] == :at
+            p cursig if debug_info[2] == :at
+            p @type_list if debug_info[2] == :at
+            p decide_type_once(cursig) if debug_info[2] == :at
             p enode.decide_type_once(esig) if debug_info[2] == :at
             
           when [Hash]

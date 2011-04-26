@@ -268,16 +268,22 @@ LocalVarNode
         def merge_type(dst, src)
           res = dst
           src.each do |sele|
-            if !res.include? sele then
-              res.push sele
-=begin
-            elsif sele.have_element? and false then
-              res.each do |dele|
-                if dele == sele and dele.element_type == nil then
-                  dele.element_type = sele.element_type
+            if sele.is_a?(Array) then
+              if !res.include?(sele) then
+                res.push sele
+              end
+            else
+              if res.all? {|e| e.ruby_type != sele.ruby_type or 
+                                 e.boxed != sele.boxed } then
+                res.push sele
+              elsif sele.have_element? and sele.element_type then
+                # Replace type object which have more collect element type
+                res.each_with_index do |rele, i|
+                  if rele == sele and rele.element_type == nil then
+                    res[i] = sele
+                  end
                 end
               end
-=end
             end
           end
 
@@ -420,26 +426,6 @@ LocalVarNode
             RubyType::DefaultType0.new
             
           when 1
-            local_cache[self] = tlist[0]
-            if tlist[0].have_element? then
-              tlist[0] = tlist[0].copy_type
-              local_cache[self] = tlist[0]
-              # TODO setting element tlist.size > 1
-              etype = {}
-              @element_node_list.each do |ele|
-                sig = ele[1]
-                if sig == cursig then
-                  node = ele[2]
-                  tt = node.decide_type_once(sig, local_cache)
-                  etype[ele[3]] ||= []
-                  curidx = etype[ele[3]]
-                  if !curidx.include?(tt) then
-                    curidx.push tt
-                  end
-                end
-              end
-              tlist[0].element_type = etype
-            end
             tlist[0]
 
           when 2
@@ -485,28 +471,49 @@ LocalVarNode
           end
         end
 
-        def decide_type_once(sig, local_cache = {})
+        def decide_type_once(cursig, local_cache = {})
           if local_cache[self] then
             return local_cache[self] 
           end
 
 =begin
           if @decided_signature and @decided_signature != sig then
-            p sig
+            p cursig
             p @decided_signature
             p debug_info
             p self.class
             p caller[0]
-            @decided_signature = sig
+            @decided_signature = cursig
           end
 =end
 
-          if  # @decided_signature != sig or
+          if  # @decided_signature != cursig or
               @type.equal?(nil) or 
               @type.is_a?(RubyType::DefaultType0) then
-            tlist = type_list(sig).flatten.uniq
-            @decided_signature = sig
-            @type = decide_type_core(tlist, sig, local_cache)
+            tlist = type_list(cursig).flatten.uniq
+            @decided_signature = cursig
+            @type = decide_type_core(tlist, cursig, local_cache)
+          end
+
+          if @type.have_element? and 
+              (@type.element_type == nil or
+               @type.element_type == {}) then
+            local_cache[self] = @type
+            etype = {}
+            @element_node_list.each do |ele|
+              sig = ele[1]
+              slf = ele[0]
+              if sig == cursig then
+                node = ele[2]
+                tt = node.decide_type_once(sig, local_cache)
+                etype[ele[3]] ||= []
+                curidx = etype[ele[3]]
+                if !curidx.include?(tt) then
+                  curidx.push tt
+                end
+              end
+            end
+            @type.element_type = etype
           end
 
           @type
@@ -1878,8 +1885,6 @@ LocalVarNode
 
         def collect_candidate_type(context)
           cursig = context.to_signature
-          p "caller" if debug_info[2] == :at
-            p cursig if debug_info[2] == :at
           context = @value_node.collect_candidate_type(context)
           same_type(self, @value_node, cursig, cursig, context)
           same_type(@value_node, self, cursig, cursig, context)

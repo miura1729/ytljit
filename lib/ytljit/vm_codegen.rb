@@ -153,12 +153,14 @@ LO        |                       |   |  |
         end
         
         if rsig = cache[cursignode] then
+          rsig = rsig.map {|e| e.copy_type}
           return rsig
         end
 
         if curmethod.is_a?(Node::ClassTopNode) then
           # Can't pass block when entering a class definition
           rsig = to_signature_aux(cursignode, offset, cache)
+          rsig = rsig.map {|e| e.copy_type}
           cache[cursignode] = rsig
           rsig
 
@@ -166,6 +168,7 @@ LO        |                       |   |  |
           prevsig = to_signature(offset - 1, cache)
           rsig = to_signature_aux2(curmethod, cursignode, 
                                    prevsig, offset, cache)
+          rsig = rsig.map {|e| e.copy_type}
           cache[cursignode] = rsig
           rsig
           

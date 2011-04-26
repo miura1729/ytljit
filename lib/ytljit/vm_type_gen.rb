@@ -185,12 +185,19 @@ module YTLJit
           end
         end
 
+=begin
         def eql?(other)
-          self.class == other.class and
-            other.have_element? and
-            @element_type == other.element_type and
-            boxed == other.boxed
+          if other then
+            oc = other.ruby_type
+            sc = self.ruby_type
+
+            sc == oc and
+              boxed == other.boxed
+          else
+            false
+          end
         end
+=end
 
         def inspect
           etype = @element_type.inspect
