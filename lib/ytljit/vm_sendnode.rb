@@ -1199,26 +1199,35 @@ module YTLJit
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
-            decide_type_once(cursig)
 
-            epare = @arguments[2].element_node_list[0]
+            # decide type again
+            @arguments[2].type = nil
+            slf = @arguments[2].decide_type_once(cursig)
+
+            epare = nil
             @arguments[2].element_node_list.each do |ele|
-              if ele[3] == cidx and ele[2] != self then
-#              if ele[2] != self and ele[0] == slf then
+              if ele[3] == cidx and ele[2] != self and ele[0] == slf then
                 epare = ele
                 break
               end
             end
+            if epare == nil then
+              epare = @arguments[2].element_node_list[0]
+              @arguments[2].element_node_list.each do |ele|
+                if ele[3] == nil and ele[2] != self and ele[0] == slf then
+                  epare = ele
+                  break
+                end
+              end
+            end
+
             esig = epare[1]
             enode = epare[2]
             if enode != self then
               same_type(self, enode, cursig, esig, context)
             end
-            p slf if debug_info[2] == :at
-            p cursig if debug_info[2] == :at
-            p @type_list if debug_info[2] == :at
-            p decide_type_once(cursig) if debug_info[2] == :at
-            p enode.decide_type_once(esig) if debug_info[2] == :at
+
+            @type = nil
             
           when [Hash]
             cidx = @arguments[3].get_constant_value
