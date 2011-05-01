@@ -258,6 +258,7 @@ module YTLJit
         end
 
         def gen_boxing(context)
+#          raise "foo"
           return context
           cursig = context.to_signature
           asm = context.assembler
@@ -265,10 +266,10 @@ module YTLJit
           vnode = context.ret_node
           etypel = []
           vnode.element_node_list[1..-1].each do |a|
-            if a[2] then
-              curidx = a[2][0]
+            if a[3] then
+              curidx = a[3][0]
               if etypel[curidx] == nil then
-                etypel[curidx] = a[1].decide_type_once(cursig)
+                etypel[curidx] = a[2].decide_type_once(a[1])
               end
             end
           end

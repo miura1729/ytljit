@@ -265,7 +265,7 @@ LocalVarNode
           end
         end
 
-        def merge_type(dst, src)
+        def marge_type(dst, src)
           res = dst
           src.each do |sele|
             if sele.is_a?(Array) then
@@ -302,7 +302,7 @@ LocalVarNode
 =end
           orgsize = dtlist.size
 #          pp "#{dst.class} #{src.class} #{dtlist} #{stlist}"
-          newdt = merge_type(dtlistorg[1], stlist)
+          newdt = marge_type(dtlistorg[1], stlist)
           dst.set_type_list(dsig, newdt)
           dtsize = dtlistorg[0].size + newdt.size
 
@@ -315,7 +315,7 @@ LocalVarNode
           dtlist = dst.element_node_list
           stlist = src.element_node_list
           orgsize = dtlist.size
-          dst.element_node_list = merge_type(dtlist, stlist)
+          dst.element_node_list = marge_type(dtlist, stlist)
           if orgsize != dtlist.size then
             dst.ti_changed
             context.convergent = false
@@ -377,30 +377,28 @@ LocalVarNode
 
         def add_element_node(curslf, encsig, enode, index, context)
           slfetnode = @element_node_list
-          unless slfetnode.include?([curslf, encsig, enode, index])
-            if @element_node_list == [] then
-              @element_node_list.push [curslf, encsig, enode, nil]
+          newele = [curslf, encsig, enode, index]
+          if @element_node_list == [] then
+            @element_node_list.push [curslf, encsig, enode, nil]
+          end
+          if !@element_node_list.include?(newele) then
+            @element_node_list.push newele
+            orgsig = @element_node_list[0][1]
+            orgnode = @element_node_list[0][2]
+            if orgnode != enode then
+              same_type(orgnode, enode, orgsig, encsig, context)
             end
-            newele = [curslf, encsig, enode, index]
-            if !@element_node_list.include?(newele)
-              @element_node_list.push newele
-              orgsig = @element_node_list[0][1]
-              orgnode = @element_node_list[0][2]
-              if orgnode != enode then
-                same_type(orgnode, enode, orgsig, encsig, context)
-              end
-              if index != nil then
-                @element_node_list.each do |sig, orgsig, orgnode, orgindex|
-                  if orgindex == index and
-                      orgnode != enode then
-                    # same_type(orgnode, enode, orgsig, sig, context)
-                  end
+            if index != nil then
+              @element_node_list.each do |sig, orgsig, orgnode, orgindex|
+                if orgindex == index and
+                    orgnode != enode then
+                  # same_type(orgnode, enode, orgsig, sig, context)
                 end
               end
             end
-                  
+            
             ti_changed
-#            context.convergent = false
+            #            context.convergent = false
           end
         end
 
@@ -461,7 +459,16 @@ LocalVarNode
             tmptlist.delete_if {|ele| ele.ruby_type == NilClass}
             if tmptlist.size == 2 and 
                 tmptlist[0].ruby_type == tmptlist[1].ruby_type then
-              tmptlist[0].to_box
+              if tmptlist[0].abnormal? then
+                tmptlist[0]
+              else
+                tmptlist[1]
+              end
+
+            elsif tmptlist[0].ruby_type == tmptlist[1].ruby_type and
+                  tmptlist[0].ruby_type == tmptlist[2].ruby_type  then
+              tmptlist[1]
+
             else
               RubyType::DefaultType0.new
             end
@@ -2024,7 +2031,7 @@ LocalVarNode
             @res_area = OpIndirect.new(BPR, offset)
             @body.collect_info(context)
           elsif @modified_local_var_list.size == @come_from.size then
-            context.merge_local_var(@modified_local_var_list)
+            context.marge_local_var(@modified_local_var_list)
             @body.collect_info(context)
           else
             context
@@ -2694,7 +2701,6 @@ LocalVarNode
               end
             end
           else
-#            sig = @parent.signature(context)
             sig = context.to_signature
 =begin
             p @name
@@ -2703,8 +2709,13 @@ LocalVarNode
             p sig
             p @parent.arguments[2].class
 =end
+
+            if @reciever.type_list(sig).flatten.uniq.size != 0 then
+              @reciever.type = nil
+            end
             rtype = @reciever.decide_type_once(sig)
             rklass = rtype.ruby_type_raw
+
             knode = ClassTopNode.get_class_top_node(rklass)
             if knode and knode.search_method_with_super(@name)[0] then
               @calling_convention = :ytl

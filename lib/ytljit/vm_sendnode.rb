@@ -1205,26 +1205,46 @@ module YTLJit
             slf = @arguments[2].decide_type_once(cursig)
 
             epare = nil
+=begin
             @arguments[2].element_node_list.each do |ele|
               if ele[3] == cidx and ele[2] != self and ele[0] == slf then
                 epare = ele
-                break
+                esig = epare[1]
+                enode = epare[2]
+                same_type(self, enode, cursig, esig, context)
+              end
+            end
+=end
+            if epare == nil then
+              @arguments[2].element_node_list.each do |ele|
+                if ele[3] == nil and ele[2] != self and ele[0] == slf then
+                  epare = ele
+                  esig = epare[1]
+                  enode = epare[2]
+                  same_type(self, enode, cursig, esig, context)
+                end
+              end
+            end
+            if epare == nil then
+              @arguments[2].element_node_list.each do |ele|
+                if ele[3] == cidx and ele[2] != self and 
+                    ele[0].ruby_type == slf.ruby_type then
+                  epare = ele
+                  esig = epare[1]
+                  enode = epare[2]
+                  same_type(self, enode, cursig, esig, context)
+                end
               end
             end
             if epare == nil then
               epare = @arguments[2].element_node_list[0]
-              @arguments[2].element_node_list.each do |ele|
-                if ele[3] == nil and ele[2] != self and ele[0] == slf then
-                  epare = ele
-                  break
-                end
+              esig = epare[1]
+              enode = epare[2]
+              if enode.type_list(esig) == [[], []] then
+                epare = nil
+              else
+                same_type(self, enode, cursig, esig, context)
               end
-            end
-
-            esig = epare[1]
-            enode = epare[2]
-            if enode != self then
-              same_type(self, enode, cursig, esig, context)
             end
 
             @type = nil
@@ -1267,25 +1287,36 @@ module YTLJit
             val.is_escape = :export_object
             @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
+            @arguments[2].type = nil
+            slf = @arguments[2].decide_type_once(cursig)
+
             arg = [slf, cursig, val, cidx, context]
             @arguments[2].add_element_node_backward(arg)
-            decide_type_once(cursig)
-            @arguments[2].type = nil
-            rtype = @arguments[2].decide_type_once(cursig)
-            epare = @arguments[2].element_node_list[0]
+
+            epare = nil
             @arguments[2].element_node_list.each do |ele|
               if ele[3] == cidx and ele[2] != self then
                 epare = ele
                 break
               end
             end
+            if epare == nil then
+              epare = @arguments[2].element_node_list[0]
+              @arguments[2].element_node_list.each do |ele|
+                if ele[3] == nil and ele[2] != self and ele[0] == slf then
+                  epare = ele
+                  break
+                end
+              end
+            end
+
             esig = epare[1]
             enode = epare[2]
             if enode != self then
               same_type(self, enode, cursig, esig, context)
 #              same_type(enode, self, esig, sig, context)
             end
-            if rtype.boxed then
+            if slf.boxed then
               @arguments[3].set_escape_node_backward(true)
             end
 
@@ -1677,6 +1708,8 @@ module YTLJit
           end
 
           add_type(sig, tt)
+          @type = nil
+          tt = decide_type_once(sig)
 
           @arguments[1..-1].each_with_index do |anode, idx|
             add_element_node(tt, sig, anode, [idx], context)
