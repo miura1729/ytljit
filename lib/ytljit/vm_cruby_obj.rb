@@ -59,7 +59,9 @@ module YTLJit
           ivarset = OpVarMemAddress.new(addr)
           context = @val.compile(context)
           rtype = @val.decide_type_once(context.to_signature)
-          context = rtype.gen_boxing(context)
+          if @val.is_escape != true then
+            context = rtype.gen_boxing(context)
+          end
 
           context.start_arg_reg
           asm = context.assembler

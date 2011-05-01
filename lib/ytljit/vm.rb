@@ -732,8 +732,11 @@ LocalVarNode
               # other arg.
               context = arg.compile(context)
               context.ret_node.decide_type_once(sig)
-              rtype = context.ret_node.type
-              context = rtype.gen_boxing(context)
+              rnode = context.ret_node
+              rtype = rnode.type
+              if rnode.is_escape != true then
+                context = rtype.gen_boxing(context)
+              end
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
@@ -2811,9 +2814,12 @@ LocalVarNode
             end
           else
             context = @reciever.compile(context)
-            rtype = context.ret_node.decide_type_once(context.to_signature)
+            rnode = context.ret_node
+            rtype = rnode.decide_type_once(context.to_signature)
             if @calling_convention != :ytl then
-              context = rtype.gen_boxing(context)
+              if rnode.is_escape != true then
+                context = rtype.gen_boxing(context)
+              end
               rtype = rtype.to_box
             elsif !rtype.boxed then
               context = rtype.gen_unboxing(context)
@@ -3110,7 +3116,9 @@ LocalVarNode
           decide_type_once(sig)
           rtype = @val.decide_type_once(context.to_signature)
           if @type.boxed then
-            context = rtype.gen_boxing(context)
+            if @val.is_escape != true then
+              context = rtype.gen_boxing(context)
+            end
           else
             context = rtype.gen_unboxing(context)
           end
@@ -3229,7 +3237,9 @@ LocalVarNode
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
-          if cursig[2].boxed then
+          rtype = @val.decide_type_once(cursig)
+          rrtype = rtype.ruby_type
+          if cursig[2].boxed and rrtype != Fixnum and rrtype != Float then
             @val.set_escape_node_backward(true)
           end
           @body.collect_candidate_type(context)
