@@ -1208,20 +1208,26 @@ module YTLJit
 =begin
             @arguments[2].element_node_list.each do |ele|
               if ele[3] == cidx and ele[2] != self and ele[0] == slf then
-                epare = ele
-                esig = epare[1]
-                enode = epare[2]
-                same_type(self, enode, cursig, esig, context)
+                epare2 = ele
+                esig = epare2[1]
+                enode = epare2[2]
+                unless enode.type_list(esig) == [[], []]
+                  epare = epare2
+                  same_type(self, enode, cursig, esig, context)
+                end
               end
             end
 =end
             if epare == nil then
               @arguments[2].element_node_list.each do |ele|
                 if ele[3] == nil and ele[2] != self and ele[0] == slf then
-                  epare = ele
-                  esig = epare[1]
-                  enode = epare[2]
-                  same_type(self, enode, cursig, esig, context)
+                  epare2 = ele
+                  esig = epare2[1]
+                  enode = epare2[2]
+                  unless enode.type_list(esig) == [[], []]
+                    epare = epare2
+                    same_type(self, enode, cursig, esig, context)
+                  end
                 end
               end
             end
@@ -1229,10 +1235,13 @@ module YTLJit
               @arguments[2].element_node_list.each do |ele|
                 if ele[3] == cidx and ele[2] != self and 
                     ele[0].ruby_type == slf.ruby_type then
-                  epare = ele
-                  esig = epare[1]
-                  enode = epare[2]
-                  same_type(self, enode, cursig, esig, context)
+                  epare2 = ele
+                  esig = epare2[1]
+                  enode = epare2[2]
+                  unless enode.type_list(esig) == [[], []]
+                    epare = epare2
+                    same_type(self, enode, cursig, esig, context)
+                  end
                 end
               end
             end
@@ -1240,11 +1249,7 @@ module YTLJit
               epare = @arguments[2].element_node_list[0]
               esig = epare[1]
               enode = epare[2]
-              if enode.type_list(esig) == [[], []] then
-                epare = nil
-              else
-                same_type(self, enode, cursig, esig, context)
-              end
+              same_type(self, enode, cursig, esig, context)
             end
 
             @type = nil

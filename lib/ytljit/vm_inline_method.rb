@@ -105,7 +105,7 @@ module YTLJit
         context.ret_node.type = nil
         rtype = context.ret_node.decide_type_once(context.to_signature)
         context = rtype.gen_unboxing(context)
-          
+
         if block_given? then
           yield(context)
         else
