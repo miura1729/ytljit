@@ -66,10 +66,19 @@ module YTLJit
         if ctn == nil then
           ctn = ClassTopNode.new(@the_top, klass, klass.name)
         end
+
+        valnode = nil
         if value.is_a?(Class) then
-          value = ClassClassWrapper.new(value)
+          valnode = ClassTopNode.get_class_top_node(value)
+          if valnode == nil then
+            valnode = ClassTopNode.new(@the_top, value, value.name)
+            klassclass = valnode.klassclass
+            valnode.type = RubyType::BaseType.from_ruby_class(klassclass)
+          end
+        else
+          valnode = LiteralNode.new(ctn, value)
         end
-        valnode = LiteralNode.new(ctn, value)
+
         ctn.get_constant_tab[name] = valnode
       end
 
@@ -434,7 +443,7 @@ module YTLJit
         when :method
           mtopnode = MethodTopNode.new(curnode, body.header['name'].to_sym)
         when :class
-          mtopnode = ClassTopNode.new(curnode, body.header['name'].to_sym)
+          mtopnode = ClassTopNode.new(curnode, Object, body.header['name'].to_sym)
         when :top
           raise "Maybe bug not appear top block."
         end

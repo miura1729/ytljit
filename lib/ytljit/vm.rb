@@ -1352,7 +1352,7 @@ LocalVarNode
             if val = ctab[name] then
               return [val, clsnode]
             end
-            
+
             return search_constant_with_super(name, klassobj.superclass)
           end
 
@@ -3290,12 +3290,14 @@ LocalVarNode
         attr :value_node
 
         def collect_candidate_type(context)
-          if @value_node.is_a?(ClassTopNode) then
+          if @value_node.is_a?(ClassTopNode) or 
+              @value_node.is_a?(LiteralNode) then
             add_type(context.to_signature, @value_node.type)
           else
             cursig = context.to_signature
             same_type(self, @value_node, cursig, cursig, context)
           end
+
           context
         end
 
