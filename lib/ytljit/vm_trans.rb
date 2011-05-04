@@ -207,9 +207,9 @@ module YTLJit
 
           curnode.body = jmpnode
           jmpnode.body = nllab
+          context.expstack.push nllab.value_node
         end
 
-        context.expstack.push nllab.value_node
         context.current_node = nllab
       end
 
