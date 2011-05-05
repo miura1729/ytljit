@@ -3324,6 +3324,7 @@ LocalVarNode
       class ConstantAssignNode<VariableRefCommonNode
         include NodeUtil
         include HaveChildlenMixin
+        include TypeListWithoutSignature
         
         def initialize(parent, klass, name, value)
           super(parent)
