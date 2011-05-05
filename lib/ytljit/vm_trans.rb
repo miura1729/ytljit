@@ -826,13 +826,16 @@ module YTLJit
           visit_pop(code, ins, context)
           curnode = context.current_node 
           vnode = SelfRefNode.new(curnode)
-          vnode.debug_info = context.debug_info
         else
           curnode = context.current_node 
           vnode = context.expstack.pop
-          vnode.debug_info = context.debug_info
         end
 
+        if vnode then
+          vnode.debug_info = context.debug_info
+        else
+          vnode = LiteralNode.new(curnode, nil)
+        end
         srnode = SetResultNode.new(curnode, vnode)
         srnode.debug_info = context.debug_info
         curnode.body = srnode
