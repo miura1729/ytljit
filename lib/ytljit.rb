@@ -53,3 +53,8 @@ require 'ytljit/arena'
 
 require 'runtime/object.rb'
 require 'runtime/gc.rb'
+
+module YTLJit
+  VERSION = "0.0.7"
+end
+
