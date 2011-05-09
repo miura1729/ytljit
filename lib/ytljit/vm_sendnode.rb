@@ -285,7 +285,6 @@ module YTLJit
           mt, slf = get_send_method_node(cursig)
           if mt then
             same_type(self, mt, cursig, signat, context)
-            same_type(mt, self, signat, cursig, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 

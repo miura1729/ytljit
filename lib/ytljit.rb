@@ -55,6 +55,6 @@ require 'runtime/object.rb'
 require 'runtime/gc.rb'
 
 module YTLJit
-  VERSION = "0.0.7"
+  VERSION = "0.0.8"
 end
 
