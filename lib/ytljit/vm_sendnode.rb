@@ -221,35 +221,27 @@ module YTLJit
         end
 
         def search_signature(cursig)
-          metsigent = nil
           @method_signature.each do |tabent|
             if cursig == tabent[0] then
-              metsigent = tabent
+              return tabent
             end
           end
-          metsigent
+          nil
         end
 
         def check_signature_changed(context, signat, metsigent, cursig)
           if metsigent then
             if metsigent[1][1] != signat[1] then
-              if metsigent[1][1].ruby_type < signat[1].ruby_type then
-                signat[1] = metsigent[1][1]
-                false
-              else
-                type_list(cursig)[1] = []
-                ti_reset
-                ti_del_link
-                context.convergent = false
-                metsigent[1] = signat
-                true
-              end
+              # Why not push, because it excepted type inference about
+              # this signature after. So reduce search loop.
+              @method_signature.unshift [cursig, signat]
+              context.convergent = false
+              signat[1].ruby_type < metsigent[1][1].ruby_type
             else
               false
             end
+
           else
-            # Why not push, because it excepted type inference about
-            # this signature after. So reduce search loop.
             @method_signature.unshift [cursig, signat]
             false
           end
@@ -280,10 +272,15 @@ module YTLJit
           context = @func.collect_candidate_type(context)
 
           signat = signature(context)
-          check_signature_changed(context, signat, metsigent, cursig)
+          changed = check_signature_changed(context, signat, metsigent, cursig)
 
           mt, slf = get_send_method_node(cursig)
           if mt then
+            if changed then
+              mt.type_list(metsigent[1])[1] = []
+              mt.ti_reset
+            end
+
             same_type(self, mt, cursig, signat, context)
 
             context = mt.collect_candidate_type(context, @arguments, signat)
@@ -1255,7 +1252,7 @@ module YTLJit
             
           when [Hash]
             cidx = @arguments[3].get_constant_value
-            rtype = @arguments[2].decide_type_once(sig)
+            rtype = @arguments[2].decide_type_once(cursig)
             @arguments[2].add_element_node(rtype, cursig, self, cidx, context)
           end
 
@@ -1326,7 +1323,7 @@ module YTLJit
 
           when [Hash]
             cidx = @arguments[3].get_constant_value
-            @arguments[2].add_element_node(slf, sig, self, cidx, context)
+            @arguments[2].add_element_node(slf, cursig, self, cidx, context)
             @arguments[3].set_escape_node_backward(true)
           end
 
