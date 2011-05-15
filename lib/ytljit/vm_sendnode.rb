@@ -1318,13 +1318,14 @@ module YTLJit
 #              same_type(enode, self, esig, sig, context)
             end
             if slf.boxed then
-              @arguments[3].set_escape_node_backward(true)
+              @arguments[4].set_escape_node_backward(true)
             end
 
           when [Hash]
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node(slf, cursig, self, cidx, context)
             @arguments[3].set_escape_node_backward(true)
+            @arguments[4].set_escape_node_backward(true)
           end
 
           context

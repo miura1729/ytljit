@@ -538,7 +538,29 @@ module YTLJit
       # concatarray
       # splatarray
       # checkincludearray
-      # newhash
+
+      def visit_newhash(code, ins, context)
+        curnode= context.current_node
+        argnum = ins[1]
+        args = []
+        while argnum > 0
+          argnum = argnum - 2
+          args.push context.expstack.pop
+          args.push context.expstack.pop
+        end
+        topnode = ClassTopNode.get_class_top_node(Object)
+        hcnode = ConstantRefNode.new(curnode, topnode, :Hash)
+        context.expstack.push hcnode
+        visit_send(code, [:send, :new, 0, nil, 0, nil], context)
+
+        args.each_slice(2) do |value, key|
+          visit_dup(code, [:dup] , context)
+          context.expstack.push key
+          context.expstack.push value
+          visit_send(code, [:send, :[]=, 2, nil, 0, nil], context)
+          visit_pop(code, [:pop] , context)
+        end
+      end
 
       def visit_newrange(code, ins, context)
         exclflag = LiteralNode.new(nil, ins[1] != 0)

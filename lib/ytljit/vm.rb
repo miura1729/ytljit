@@ -2388,6 +2388,13 @@ LocalVarNode
               @element_node_list[0][2].add_type(sig, etype)
             end
 
+          when Hash
+            add_type(sig, @type)
+            @value.each do |key, value|
+              vtype = RubyType::BaseType.from_object(value)
+              @element_node_list[0][2].add_type(sig, vtype)
+            end
+
           when Range
             @type = @type.to_box
             add_type(sig, @type)
