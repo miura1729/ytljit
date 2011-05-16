@@ -1253,6 +1253,9 @@ module YTLJit
           when [Hash]
             cidx = @arguments[3].get_constant_value
             rtype = @arguments[2].decide_type_once(cursig)
+            niltype = RubyType::BaseType.from_ruby_class(NilClass)
+            @arguments[3].type = nil
+            @arguments[3].add_type(cursig, niltype)
             @arguments[2].add_element_node(rtype, cursig, self, cidx, context)
           end
 
@@ -1324,6 +1327,11 @@ module YTLJit
           when [Hash]
             cidx = @arguments[3].get_constant_value
             @arguments[2].add_element_node(slf, cursig, self, cidx, context)
+            niltype = RubyType::BaseType.from_ruby_class(NilClass)
+            @arguments[3].type = nil
+            @arguments[3].add_type(cursig, niltype)
+            @arguments[4].type = nil
+            @arguments[4].add_type(cursig, niltype)
             @arguments[3].set_escape_node_backward(true)
             @arguments[4].set_escape_node_backward(true)
           end

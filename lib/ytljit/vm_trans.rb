@@ -553,7 +553,7 @@ module YTLJit
         context.expstack.push hcnode
         visit_send(code, [:send, :new, 0, nil, 0, nil], context)
 
-        args.each_slice(2) do |value, key|
+        args.reverse.each_slice(2) do |key, value|
           visit_dup(code, [:dup] , context)
           context.expstack.push key
           context.expstack.push value
