@@ -999,6 +999,11 @@ module YTLJit
                   asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(context.ret_reg)
                 end
+                asm.and(DBLLOR, DBLLOR)
+                asm.setl(DBLLOR)
+                asm.neg(DBLLOR)
+                asm.xor(DBLHIR, DBLLOR)
+                asm.sub(DBLHIR, DBLLOR)
                 asm.mov(DBLLOR, DBLHIR)
                 context.end_using_reg(context.ret_reg)
               end
