@@ -281,18 +281,33 @@ module YTLJit
               mt.ti_reset
             end
 
-            same_type(self, mt, cursig, signat, context)
-
             context = mt.collect_candidate_type(context, @arguments, signat)
+
+            same_type(self, mt, cursig, signat, context)
 
             context.push_signature(@arguments, mt)
             if blknode.is_a?(TopNode) then
               # Have block
               mt.yield_node.map do |ynode|
-                yargs = ynode.arguments
+                yargs = ynode.arguments.dup
                 ysignat = ynode.signature(context)
 
                 same_type(ynode, blknode, signat, ysignat, context)
+
+                # inherit self from caller node
+                yargs[2] = context.current_method_signature_node[-2][2]
+                ysignat[2] = cursig[2]
+                if yargs[2].decide_type_once(cursig).ruby_type == Object then
+                  context.current_method_signature_node.reverse.each {|e0| 
+                    if e0[2].class == SendNewArenaNode then
+                      if yargs[2].type then
+                        yargs[2] = e0[2]
+                        ysignat[2] = yargs[2].type
+                      end
+                      break
+                    end
+                  }
+                end
                 context = blknode.collect_candidate_type(context, 
                                                          yargs, ysignat)
 
@@ -503,23 +518,22 @@ module YTLJit
       end
 
       class SendAllocateNode<SendNode
+        include UnboxedObjectUtil
+
         add_special_send_node :allocate
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
           if slf.ruby_type.is_a?(Class) then
+            tt = nil
             case slfnode
             when ConstantRefNode
               clstop = slfnode.value_node
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                tt = tt.to_box
-                add_type(context.to_signature, tt)
               when LiteralNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.value)
-                tt = tt.to_box
-                add_type(context.to_signature, tt)
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
               end
@@ -527,8 +541,28 @@ module YTLJit
             else
               raise "Unkonwn node type #{@arguments[2].class} "
             end
+
+            clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
+            if context.options[:compile_array_as_uboxed] and
+                @is_escape != true and
+                (clt and  !clt.body.is_a?(DummyNode)) then
+              tt = tt.to_unbox
+            end
+            add_type(context.to_signature, tt)
           end
           context
+        end
+
+        def compile(context)
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
+          if !rtype.boxed then
+            clt =  ClassTopNode.get_class_top_node(rrtype)
+            mivl = clt.end_nodes[0].modified_instance_var.keys
+            compile_object_unboxed(context, mivl.size * 8)
+          else
+            super
+          end
         end
       end
 
@@ -570,6 +604,8 @@ module YTLJit
       end
 
       class SendNewNode<SendNode
+        include UnboxedArrayUtil
+
         add_special_send_node :new
 
         def initialize(parent, func, arguments, op_flag, seqno)
@@ -623,6 +659,13 @@ module YTLJit
 
               else
                 raise "Unkown node type in constant #{slfnode.value_node.class}"
+              end
+
+              clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
+              if context.options[:compile_array_as_uboxed] and
+                  @is_escape != true and
+                  (clt and  !clt.body.is_a?(DummyNode)) then
+                tt = tt.to_unbox
               end
 
               # set element type
@@ -688,24 +731,8 @@ module YTLJit
           context
         end
 
-        def compile_array_unboxed(context)
-          siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
-          context = gen_alloca(context, siz)
-          asm = context.assembler
-          asm.with_retry do
-            (siz - 1).times do |i|
-              off = OpIndirect.new(THEPR, i * 8)
-              asm.mov(TMPR, OpImmidiateMachineWord.new(4))
-              asm.mov(off, TMPR)
-            end
-          end
-          context.ret_node = self
-          context
-        end
-
         def compile(context)
-          @arguments[2].decide_type_once(context.to_signature)
-          rtype = @arguments[2].type
+          rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
@@ -1269,12 +1296,25 @@ module YTLJit
 
         def compile(context)
           sig = context.to_signature
+          asm = context.assembler
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
 
           if rrtype == Array and !rtype.boxed and 
               @arguments[2].is_escape != true then
             context = gen_ref_element(context, @arguments[2], @arguments[3])
+            rtype = decide_type_once(sig)
+            if rtype.ruby_type == Float and !rtype.boxed then
+              asm.with_retry do
+                asm.mov(XMM0, context.ret_reg)
+              end
+              context.ret_reg = XMM0
+            else
+              asm.with_retry do
+                asm.mov(RETR, context.ret_reg)
+              end
+              context.ret_reg = RETR
+            end
             @body.compile(context)
           else
             super
@@ -1748,7 +1788,9 @@ module YTLJit
             end
 
             @arguments[1..-1].each_with_index do |anode, idx|
+              context.start_using_reg(TMPR2)
               context = gen_set_element(context, nil, idx, anode)
+              context.end_using_reg(TMPR2)
             end
 
             asm.with_retry do

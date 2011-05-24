@@ -174,15 +174,42 @@ module YTLJit
       end
     end
 
-    module UnboxedArrayUtil
+    module UnboxedObjectUtil
       include AbsArch
-      def gen_ref_element(context, slf, idx)
-        context.start_using_reg(TMPR2)
-        context = slf.compile(context)
+      def compile_object_unboxed(context, siz)
+        context = gen_alloca(context, siz)
         asm = context.assembler
         asm.with_retry do
-          asm.mov(TMPR2, context.ret_reg)
+          (siz - 1).times do |i|
+            off = OpIndirect.new(THEPR, i * 8)
+            asm.mov(TMPR, OpImmidiateMachineWord.new(4))
+            asm.mov(off, TMPR)
+          end
         end
+        context.ret_node = self
+        context
+      end
+    end
+
+    module UnboxedArrayUtil
+      include AbsArch
+      include UnboxedObjectUtil
+
+      def compile_array_unboxed(context)
+        siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
+        compile_object_unboxed(context, siz)
+      end
+
+      def gen_ref_element(context, slf, idx)
+        asm = context.assembler
+        if slf then
+          context.start_using_reg(TMPR2)
+          context = slf.compile(context)
+          asm.with_retry do
+            asm.mov(TMPR2, context.ret_reg)
+          end
+        end
+
         if idx.is_a?(Fixnum) then
           idxval = idx
         else
@@ -202,22 +229,22 @@ module YTLJit
             asm.add(TMPR, TMPR) # * 4
             asm.add(TMPR, TMPR) # * 8
           end
-          asm.add(TMPR2, TMPR)
-          asm.mov(RETR, INDIRECT_TMPR2)
+          asm.add(TMPR, TMPR2)
         end
-        
-        context.end_using_reg(TMPR2)
-        context.ret_reg = RETR
+
+        if slf then
+          context.end_using_reg(TMPR2)
+        end
+        context.ret_reg = INDIRECT_TMPR
         context.ret_node = self
 
         context
       end
-        
-      def gen_set_element(context, slf, idx, val)
-        context.start_using_reg(TMPR2)
 
+      def gen_set_element(context, slf, idx, val)
         asm = context.assembler
         if slf then
+          context.start_using_reg(TMPR2)
           context = slf.compile(context)
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
@@ -245,15 +272,20 @@ module YTLJit
         end
         context = val.compile(context)
 
+        valreg = context.ret_reg
         asm.with_retry do
-          if context.ret_reg != RETR then
-            asm.mov(RETR, context.ret_reg)
+          if !valreg.is_a?(OpRegistor) then
+            asm.mov(RETR, valreg)
+            valreg = RETR
           end
-          asm.mov(INDIRECT_TMPR2, RETR)
+
+          asm.mov(INDIRECT_TMPR2, valreg)
         end
-        
-        context.end_using_reg(TMPR2)
-        context.ret_reg = RETR
+
+        if slf then
+          context.end_using_reg(TMPR2)
+        end
+        context.ret_reg = valreg
         context.ret_node = self
         context
       end

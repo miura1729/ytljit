@@ -4,6 +4,7 @@ module YTLJit
       class CRubyInstanceVarRefNode<InstanceVarRefNode
         include TypeListWithoutSignature
         include CommonCodeGen
+        include UnboxedArrayUtil
 
         def initialize(parent, name, mnode)
           super
@@ -11,15 +12,39 @@ module YTLJit
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          cursig = context.to_signature
+          asm = context.assembler
           mivl = @class_top.end_nodes[0].modified_instance_var.keys
           off = mivl.index(@name)
+          slfoff = @current_frame_info.offset_arg(2, BPR)
+
+          if !cursig[2].boxed then
+            context.start_using_reg(TMPR2)
+            asm.with_retry do
+              asm.mov(TMPR2, slfoff)
+            end
+            context = gen_ref_element(context, nil, off)
+            context.end_using_reg(TMPR2)
+            rtype = decide_type_once(cursig)
+            if rtype.ruby_type == Float and !rtype.boxed then
+              asm.with_retry do
+                asm.mov(XMM0, context.ret_reg)
+              end
+              context.ret_reg = XMM0
+            else
+              asm.with_retry do
+                asm.mov(RETR, context.ret_reg)
+              end
+              context.ret_reg = RETR
+            end
+            return context
+          end
+
           addr = lambda {
             address_of("ytl_ivar_get_boxing")
           }
           ivarget = OpVarMemAddress.new(addr)
           context.start_arg_reg
-          asm = context.assembler
           asm.with_retry do
             asm.mov(FUNC_ARG[0], slfoff)
             asm.mov(FUNC_ARG[1], off)
@@ -32,7 +57,7 @@ module YTLJit
           context.end_arg_reg
           context.ret_reg = RETR
           context.ret_node = self
-          decide_type_once(context.to_signature)
+          decide_type_once(cursig)
           if !@type.boxed then 
             context = @type.to_box.gen_unboxing(context)
           end
@@ -43,6 +68,7 @@ module YTLJit
       class CRubyInstanceVarAssignNode<InstanceVarAssignNode
         include TypeListWithoutSignature
         include CommonCodeGen
+        include UnboxedArrayUtil
 
         def initialize(parent, name, mnode, val)
           super
@@ -50,15 +76,27 @@ module YTLJit
         end
 
         def compile_main(context)
+          cursig = context.to_signature
           slfoff = @current_frame_info.offset_arg(2, BPR)
           mivl = @class_top.end_nodes[0].modified_instance_var.keys
           off = mivl.index(@name)
+          rtype = @val.decide_type_once(cursig)
+
+          if !cursig[2].boxed then
+            asm = context.assembler
+            asm.with_retry do
+              asm.mov(TMPR2, slfoff)
+            end
+            context = gen_set_element(context, nil, off, @val)
+            return @body.compile(context)
+          end
+
           addr = lambda {
             address_of("ytl_ivar_set_boxing")
           }
           ivarset = OpVarMemAddress.new(addr)
+
           context = @val.compile(context)
-          rtype = @val.decide_type_once(context.to_signature)
           if @val.is_escape != true then
             context = rtype.gen_boxing(context)
           end
