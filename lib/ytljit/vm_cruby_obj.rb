@@ -97,7 +97,7 @@ module YTLJit
           ivarset = OpVarMemAddress.new(addr)
 
           context = @val.compile(context)
-          if @val.is_escape != true then
+          if @val.is_escape != :global_export then
             context = rtype.gen_boxing(context)
           end
 

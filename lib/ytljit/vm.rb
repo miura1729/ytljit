@@ -177,7 +177,7 @@ LocalVarNode
           @my_element_node = nil
           @type_inference_proc = cs
           @decided_signature = nil
-          @is_escape = false
+          @is_escape = nil
 
           @ti_observer = {}
           @ti_observee = []
@@ -322,7 +322,7 @@ LocalVarNode
           end
 
           if src.is_escape then
-            if dst.is_escape != true then
+            if dst.is_escape != :global_export then
               dst.is_escape = src.is_escape
             end
           end
@@ -361,14 +361,26 @@ LocalVarNode
           end
         end
 
-        def set_escape_node_backward(value = true, visitnode = {})
+        ESCAPE_LEVEL = {
+          nil => -1, 
+          :not_export => 5, 
+          :local_export => 6,
+          :global_export => 10
+        }
+          
+        def set_escape_node(value)
+          if ESCAPE_LEVEL[@is_escape] < ESCAPE_LEVEL[value] then
+            @is_escape = value
+          end
+        end
+
+        def set_escape_node_backward(value, visitnode = {})
           if visitnode[self] then
             return
           end
 
-          if @is_escape != true then
-            @is_escape = value
-          end
+          set_escape_node(value)
+
           visitnode[self] = true
           @ti_observee.each do |rec|
             rec.set_escape_node_backward(value, visitnode)
@@ -735,7 +747,7 @@ LocalVarNode
               context.ret_node.decide_type_once(sig)
               rnode = context.ret_node
               rtype = rnode.type
-              if rnode.is_escape != true then
+              if rnode.is_escape != :global_export then
                 context = rtype.gen_boxing(context)
               end
               casm = context.assembler
@@ -1880,11 +1892,13 @@ LocalVarNode
 
       # Set result of method/block
       class SetResultNode<BaseNode
+        include NodeUtil
         include HaveChildlenMixin
 
         def initialize(parent, valnode)
           super(parent)
           @value_node = valnode
+          @class_top_node = search_class_top
         end
 
         attr :value_node
@@ -1903,7 +1917,7 @@ LocalVarNode
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if !rtype.boxed and rrtype != Fixnum and rrtype != Float then
-            set_escape_node_backward(:export_object)
+            set_escape_node_backward(:local_export)
           else
             set_escape_node_backward(:not_export)
           end
@@ -2825,7 +2839,7 @@ LocalVarNode
             rnode = context.ret_node
             rtype = rnode.decide_type_once(context.to_signature)
             if @calling_convention != :ytl then
-              if rnode.is_escape != true then
+              if rnode.is_escape != :global_export then
                 context = rtype.gen_boxing(context)
               end
               rtype = rtype.to_box
@@ -3124,7 +3138,7 @@ LocalVarNode
           decide_type_once(sig)
           rtype = @val.decide_type_once(context.to_signature)
           if @type.boxed then
-            if @val.is_escape != true then
+            if @val.is_escape != :global_export then
               context = rtype.gen_boxing(context)
             end
           else
@@ -3247,8 +3261,13 @@ LocalVarNode
 #          same_type(@val, self, cursig, cursig, context)
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
-          if cursig[2].boxed and rrtype != Fixnum and rrtype != Float then
-            @val.set_escape_node_backward(true)
+          if rrtype != Fixnum and rrtype != Float then
+            if cursig[2].boxed then
+              @val.set_escape_node_backward(:global_export)
+              @class_top.set_escape_node(:global_export)
+            else
+              @val.set_escape_node_backward(:local_export)
+            end
           end
           @body.collect_candidate_type(context)
         end

@@ -524,6 +524,7 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
+          cursig = context.to_signature
           if slf.ruby_type.is_a?(Class) then
             tt = nil
             case slfnode
@@ -543,12 +544,17 @@ module YTLJit
             end
 
             clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
+            @is_escape = search_class_top.is_escape
+
             if context.options[:compile_array_as_uboxed] and
-                @is_escape != true and
+                @is_escape and @is_escape != :global_export and
                 (clt and  !clt.body.is_a?(DummyNode)) then
               tt = tt.to_unbox
+            elsif type_list(cursig)[0].include?(tt.to_unbox) then
+              type_list(cursig)[0] = []
             end
-            add_type(context.to_signature, tt)
+
+            add_type(cursig, tt)
           end
           context
         end
@@ -559,7 +565,7 @@ module YTLJit
           if !rtype.boxed then
             clt =  ClassTopNode.get_class_top_node(rrtype)
             mivl = clt.end_nodes[0].modified_instance_var.keys
-            compile_object_unboxed(context, mivl.size * 8)
+            compile_object_unboxed(context, mivl.size)
           else
             super
           end
@@ -642,6 +648,7 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
+          cursig = context.to_signature
 
           if slf.ruby_type.is_a?(Class) then
             case slfnode
@@ -649,7 +656,6 @@ module YTLJit
               context = @initmethod.collect_candidate_type(context)
               clstop = slfnode.value_node
               tt = nil
-              sig = context.to_signature
               case clstop
               when ClassTopNode
                 tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
@@ -662,17 +668,20 @@ module YTLJit
               end
 
               clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
+              @is_escape = search_class_top.is_escape
               if context.options[:compile_array_as_uboxed] and
-                  @is_escape != true and
+                  @is_escape and @is_escape != :global_export and
                   (clt and  !clt.body.is_a?(DummyNode)) then
                 tt = tt.to_unbox
+              elsif type_list(cursig)[0].include?(tt.to_unbox) then
+                type_list(cursig)[0] = []
               end
 
               # set element type
               if tt.ruby_type == Range then
                 tt.args = @arguments[3..-1]
-                add_element_node(tt, sig, @arguments[3], [0], context)
-                add_element_node(tt, sig, @arguments[4], [1], context)
+                add_element_node(tt, cursig, @arguments[3], [0], context)
+                add_element_node(tt, cursig, @arguments[4], [1], context)
 
               elsif tt.ruby_type == Array then
                 if context.options[:compile_array_as_uboxed] and
@@ -687,15 +696,15 @@ module YTLJit
                   if siz and false then
                     # Here is buggy yet Fix me
                     siz[0].times do |i|
-                      add_element_node(tt, sig, @arguments[4], [i], context)
+                      add_element_node(tt, cursig, @arguments[4], [i], context)
                     end
                   else
-                    add_element_node(tt, sig, @arguments[4], nil, context)
+                    add_element_node(tt, cursig, @arguments[4], nil, context)
                   end
                 end
               end
 
-              add_type(sig, tt)
+              add_type(cursig, tt)
             else
               raise "Unkonwn node type #{@arguments[2].class} "
             end
@@ -737,11 +746,13 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
-            if @is_escape != true and crtype == Range then
+            if @is_escape and @is_escape != :global_export and 
+                crtype == Range then
               return compile_range(context)
               
             elsif crtype == Array and
-                !ctype.boxed and @is_escape != true then
+                !ctype.boxed and 
+                @is_escape and @is_escape != :global_export then
               return compile_array_unboxed(context)
 
             elsif @initmethod.func.calling_convention(context) then
@@ -1301,7 +1312,7 @@ module YTLJit
           rrtype = rtype.ruby_type
 
           if rrtype == Array and !rtype.boxed and 
-              @arguments[2].is_escape != true then
+              @arguments[2].is_escape != :global_export then
             context = gen_ref_element(context, @arguments[2], @arguments[3])
             rtype = decide_type_once(sig)
             if rtype.ruby_type == Float and !rtype.boxed then
@@ -1333,7 +1344,7 @@ module YTLJit
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             val = @arguments[4]
-            val.is_escape = :export_object
+            val.is_escape = :local_export
             @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
             @arguments[2].type = nil
@@ -1366,7 +1377,10 @@ module YTLJit
 #              same_type(enode, self, esig, sig, context)
             end
             if slf.boxed then
-              @arguments[4].set_escape_node_backward(true)
+              @arguments[4].set_escape_node_backward(:global_export)
+              @arguments[4].search_class_top.set_escape_node(:global_export)
+            else
+              @arguments[4].set_escape_node_backward(:local_export)
             end
 
           when [Hash]
@@ -1377,8 +1391,10 @@ module YTLJit
             @arguments[3].add_type(cursig, niltype)
             @arguments[4].type = nil
             @arguments[4].add_type(cursig, niltype)
-            @arguments[3].set_escape_node_backward(true)
-            @arguments[4].set_escape_node_backward(true)
+            @arguments[3].set_escape_node_backward(:global_export)
+            @arguments[3].search_class_top.set_escape_node(:global_export)
+            @arguments[4].set_escape_node_backward(:global_export)
+            @arguments[4].search_class_top.set_escape_node(:global_export)
           end
 
           context
@@ -1389,7 +1405,7 @@ module YTLJit
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
           if rrtype == Array and !rtype.boxed and 
-              @arguments[2].is_escape != true then
+              @arguments[2].is_escape != :global_export then
             context = gen_set_element(context, 
                                       @arguments[2], 
                                       @arguments[3], 
@@ -1540,7 +1556,7 @@ module YTLJit
           rrtype = rtype.ruby_type
           decide_type_once(sig)
           if rrtype == Range and !rtype.boxed and 
-              @arguments[2].is_escape != true then
+              @arguments[2].is_escape != :global_export then
             context = @arguments[2].compile(context)
             slotoff = OpIndirect.new(TMPR, arg_offset)
             asm = context.assembler
@@ -1667,7 +1683,7 @@ module YTLJit
           context
         end
 
-        def compile2(context)
+        def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
@@ -1777,7 +1793,9 @@ module YTLJit
           sig = context.to_signature
           rtype = decide_type_once(sig)
           rrtype = rtype.ruby_type
-          if rrtype == Array and !rtype.boxed and @is_escape != true then
+          if rrtype == Array and 
+              !rtype.boxed and 
+              @is_escape and @is_escape != :global_export then
             siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
             context = gen_alloca(context, siz)
 

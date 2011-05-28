@@ -537,7 +537,10 @@ LO        |                       |   |  |
           asm.with_retry do
             asm.mov(SPR, BPR)
             asm.pop(BPR)
-            asm.pop(THEPR) if @is_escape != :export_object
+            if @is_escape != :local_export and 
+                @is_escape != :global_export then
+              asm.pop(THEPR) 
+            end
             asm.mov(SPR, BPR)
             asm.pop(BPR)
           end
