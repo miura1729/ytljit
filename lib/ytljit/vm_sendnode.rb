@@ -746,7 +746,7 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
-            if @is_escape and @is_escape != :global_export and 
+            if @is_escape != :global_export and 
                 crtype == Range then
               return compile_range(context)
               
