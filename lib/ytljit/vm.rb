@@ -320,12 +320,8 @@ LocalVarNode
             dst.ti_changed
             context.convergent = false
           end
-
-          if src.is_escape then
-            if dst.is_escape != :global_export then
-              dst.is_escape = src.is_escape
-            end
-          end
+          
+          dst.set_escape_node(src.is_escape)
         end
 
         def same_type(dst, src, dsig, ssig, context)
@@ -1397,10 +1393,13 @@ LocalVarNode
           context.pop_signature
 
           if @klassclass_node then
-            @klassclass_node.collect_candidate_type(context, signode, sig)
-          else
-            context
+            context = @klassclass_node.collect_candidate_type(context, 
+                                                              signode, sig)
           end
+
+          set_escape_node(:not_export)
+
+          context
         end
 
         def compile(context)
@@ -3264,7 +3263,7 @@ LocalVarNode
           if rrtype != Fixnum and rrtype != Float then
             if cursig[2].boxed then
               @val.set_escape_node_backward(:global_export)
-              @class_top.set_escape_node(:global_export)
+#              @class_top.set_escape_node(:global_export)
             else
               @val.set_escape_node_backward(:local_export)
             end

@@ -167,6 +167,7 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
+          @arguments[2].type = nil
           slf = @arguments[2].decide_type_once(cursig)
           if slf.instance_of?(RubyType::DefaultType0) then
             # Chaos
@@ -544,8 +545,6 @@ module YTLJit
             end
 
             clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
-            @is_escape = search_class_top.is_escape
-
             if context.options[:compile_array_as_uboxed] and
                 @is_escape and @is_escape != :global_export and
                 (clt and  !clt.body.is_a?(DummyNode)) then
@@ -651,6 +650,8 @@ module YTLJit
           cursig = context.to_signature
 
           if slf.ruby_type.is_a?(Class) then
+            @is_escape = search_class_top.is_escape
+            @allocmethod.is_escape = @is_escape
             case slfnode
             when ConstantRefNode
               context = @initmethod.collect_candidate_type(context)
@@ -668,7 +669,6 @@ module YTLJit
               end
 
               clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
-              @is_escape = search_class_top.is_escape
               if context.options[:compile_array_as_uboxed] and
                   @is_escape and @is_escape != :global_export and
                   (clt and  !clt.body.is_a?(DummyNode)) then
@@ -688,7 +688,8 @@ module YTLJit
                     @element_node_list.size > 1 and
                       @element_node_list[1..-1].all? {|e|
                         e[3]
-                      } then
+                      } and 
+                    @is_escape and @is_escape != :global_export then
                   tt = tt.to_unbox
                 end
                 if @arguments[4] then
@@ -752,7 +753,7 @@ module YTLJit
               
             elsif crtype == Array and
                 !ctype.boxed and 
-                @is_escape and @is_escape != :global_export then
+                @is_escape != :global_export then
               return compile_array_unboxed(context)
 
             elsif @initmethod.func.calling_convention(context) then
@@ -1795,7 +1796,7 @@ module YTLJit
           rrtype = rtype.ruby_type
           if rrtype == Array and 
               !rtype.boxed and 
-              @is_escape and @is_escape != :global_export then
+              @is_escape != :global_export then
             siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
             context = gen_alloca(context, siz)
 
