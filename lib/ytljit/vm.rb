@@ -1444,6 +1444,7 @@ LocalVarNode
         include MethodTopCodeGen
         @@frame_struct_tab = {}
         @@local_object_area = Runtime::Arena.new
+        @@global_object_area = Runtime::Arena.new
         @@unwind_proc = CodeSpace.new
         @@nothing_proc = CodeSpace.new
 
@@ -1549,20 +1550,24 @@ LocalVarNode
           super(context, signode, sig)
         end
 
-        def get_arena_address
-          ar = @@local_object_area
-          # 2 means used and size
+        def get_global_arena_address
+          ar = @@global_object_area
           ar.raw_address
         end
 
-        def get_arena_end_address
+        def get_local_arena_address
+          ar = @@local_object_area
+          ar.raw_address
+        end
+
+        def get_local_arena_end_address
           ar = @@local_object_area
           (ar.body_address + ar.size) & (~0xf)
         end
 
         def compile_init(context)
           addr = lambda {
-            get_arena_end_address
+            get_local_arena_end_address
           }
           aa = OpVarImmidiateAddress.new(addr) 
           asm = context.assembler
@@ -2375,6 +2380,7 @@ LocalVarNode
 
       # Literal
       class LiteralNode<BaseNode
+        include NodeUtil
         include TypeListWithoutSignature
 
         def initialize(parent, val)
@@ -3281,6 +3287,106 @@ LocalVarNode
         end
       end
 
+      # Global Variable
+      class GlobalVarRefNode<VariableRefCommonNode
+        include NodeUtil
+        include TypeListWithoutSignature
+        include UnboxedArrayUtil
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @assign_nodes = nil
+          @offset = nil
+        end
+
+        def collect_info(context)
+          @assign_nodes = context.modified_global_var[@name]
+          context
+        end
+
+        def collect_candidate_type(context)
+          @offset = @assign_nodes[0].offset
+          sig = context.to_signature
+          same_type(self, @assign_nodes[0], sig, sig, context)
+          context
+        end
+
+        def compile(context)
+          sig = context.to_signature
+          asm = context.assembler
+          context.start_using_reg(TMPR2)
+          asm.with_retry do
+            asm.mov(TMPR2, context.top_node.get_global_arena_address)
+          end
+          context = gen_ref_element(context, nil, @offset)
+          context.end_using_reg(TMPR2)
+          rtype = decide_type_once(sig)
+          if rtype.ruby_type == Float and !rtype.boxed then
+            asm.with_retry do
+              asm.mov(XMM0, context.ret_reg)
+            end
+            context.ret_reg = XMM0
+          else
+            asm.with_retry do
+              asm.mov(RETR, context.ret_reg)
+            end
+            context.ret_reg = RETR
+          end
+          context
+        end
+      end
+
+      class GlobalVarAssignNode<VariableRefCommonNode
+        include NodeUtil
+        include HaveChildlenMixin
+        include TypeListWithoutSignature
+        include UnboxedArrayUtil
+        def initialize(parent, name, value)
+          super(parent)
+          @name = name
+          @value = value
+          @assign_nodes = nil
+          @offset = nil
+        end
+
+        attr :offset
+
+        def collect_info(context)
+          context = @value.collect_info(context)
+          if context.modified_global_var[@name] == nil then
+            context.modified_global_var[@name] = []
+            @offset = context.modified_global_var.keys.size
+          end
+          @assign_nodes = context.modified_global_var[@name]
+          @assign_nodes.push self
+          @body.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          sig = context.to_signature
+          context = @value.collect_candidate_type(context)
+          same_type(@assign_nodes[0], @value, sig, sig, context)
+          same_type(self, @assign_nodes[0], sig, sig, context)
+          if @offset == nil then
+            @offset = @assign_nodes[0].offset
+          end
+          @body.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          sig = context.to_signature
+          asm = context.assembler
+          context.start_using_reg(TMPR2)
+          asm.with_retry do
+            asm.mov(TMPR2, context.top_node.get_global_arena_address)
+          end
+          contet = gen_set_element(context, nil, @offset, @value)
+          context.end_using_reg(TMPR2)
+          @body.compile(context)
+        end
+      end
+      
+      # Constant
       class ConstantRefNode<VariableRefCommonNode
         include NodeUtil
         include TypeListWithoutSignature

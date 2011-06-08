@@ -78,6 +78,7 @@ LO        |                       |   |  |
         @top_node = tnode
         @modified_local_var = []
         @modified_instance_var = Hash.new
+        @modified_global_var = Hash.new
         @yield_node = []
 
         # Options from user
@@ -87,6 +88,7 @@ LO        |                       |   |  |
       attr          :top_node
       attr_accessor :modified_local_var
       attr_accessor :modified_instance_var
+      attr_accessor :modified_global_var
       attr_accessor :yield_node
       attr_accessor :options
 
@@ -608,7 +610,7 @@ LO        |                       |   |  |
 
       def gen_save_thepr(context)
         casm = context.assembler
-        arenaaddr = context.top_node.get_arena_address
+        arenaaddr = context.top_node.get_local_arena_address
         casm.with_retry do
           casm.mov(TMPR, arenaaddr)
           casm.mov(INDIRECT_TMPR, THEPR)

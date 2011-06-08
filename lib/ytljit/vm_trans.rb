@@ -406,8 +406,23 @@ module YTLJit
         context.current_node = node
       end
 
-      # getglobal
-      # setglobal
+      def visit_getglobal(code, ins, context)
+        name = ins[1]
+        curnode = context.current_node
+        node = GlobalVarRefNode.new(curnode, name)
+        curnode.body = node
+        context.expstack.push node
+      end
+
+      def visit_setglobal(code, ins, context)
+        value = context.expstack.pop
+        name = ins[1]
+        curnode = context.current_node
+        node = GlobalVarAssignNode.new(curnode, name, value)
+        node.debug_info = context.debug_info
+        curnode.body = node
+        context.current_node = node
+      end
       
       def visit_putnil(code, ins, context)
         nnode = LiteralNode.new(nil, nil)
