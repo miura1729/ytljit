@@ -1061,11 +1061,17 @@ module YTLJit
         add_special_send_node :<<
 
         def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
           case [slf.ruby_type]
           when [Fixnum]
-            cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
+
+          when [Array]
+            val = @arguments[3]
+            arg = [slf, cursig, val, nil, context]
+            @arguments[2].add_element_node_backward(arg)
+            same_type(self, val, cursig, cursig, context)
           end
 
           context
@@ -1237,6 +1243,11 @@ module YTLJit
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
+            idxtype = @arguments[3].decide_type_once(cursig)
+            if idxtype.ruby_type == Range then
+              same_type(self, @arguments[2], cursig, cursig, context)
+              return context
+            end
             @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
 
@@ -1632,11 +1643,14 @@ module YTLJit
       class SendPNode<SendSameArgTypeNode
         add_special_send_node :p
       end
- 
+
       class SendSameSelfTypeNode<SendNode
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           same_type(self, @arguments[2], sig, sig, context)
+#          p debug_info
+#          p @func.name
+#          p @arguments[2].decide_type_once(sig)
           context
         end
       end
@@ -1654,6 +1668,10 @@ module YTLJit
        end
       end
 
+      class SendSortNode<SendSameSelfTypeNode
+        add_special_send_node :sort
+      end
+ 
       class SendMathFuncNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
