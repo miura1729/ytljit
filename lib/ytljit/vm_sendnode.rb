@@ -747,6 +747,7 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
+            p @is_escape
             if @is_escape != :global_export and 
                 crtype == Range then
               return compile_range(context)
@@ -1386,11 +1387,9 @@ module YTLJit
             enode = epare[2]
             if enode != self then
               same_type(self, enode, cursig, esig, context)
-#              same_type(enode, self, esig, sig, context)
             end
             if slf.boxed then
               @arguments[4].set_escape_node_backward(:global_export)
-              @arguments[4].search_class_top.set_escape_node(:global_export)
             else
               @arguments[4].set_escape_node_backward(:local_export)
             end
@@ -1404,9 +1403,7 @@ module YTLJit
             @arguments[4].type = nil
             @arguments[4].add_type(cursig, niltype)
             @arguments[3].set_escape_node_backward(:global_export)
-            @arguments[3].search_class_top.set_escape_node(:global_export)
             @arguments[4].set_escape_node_backward(:global_export)
-            @arguments[4].search_class_top.set_escape_node(:global_export)
           end
 
           context
