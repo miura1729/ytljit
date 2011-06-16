@@ -167,7 +167,7 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-          @arguments[2].type = nil
+#          @arguments[2].type = nil
           slf = @arguments[2].decide_type_once(cursig)
           if slf.instance_of?(RubyType::DefaultType0) then
             # Chaos
@@ -747,7 +747,6 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
-            p @is_escape
             if @is_escape != :global_export and 
                 crtype == Range then
               return compile_range(context)
@@ -794,7 +793,8 @@ module YTLJit
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
-             @class_top.search_method_with_super(@func.name, rrtype)[0] then
+              rrtype == Array or
+              @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
 
@@ -832,6 +832,7 @@ module YTLJit
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
+              rrtype == Array or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -840,6 +841,7 @@ module YTLJit
             context = gen_arithmetic_operation(context, :sub, TMPR2, TMPR)
           elsif rrtype == Float then
             context = gen_arithmetic_operation(context, :subsd, XMM4, XMM0)
+
           else
             p debug_info
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
@@ -1257,7 +1259,7 @@ module YTLJit
             slf = @arguments[2].decide_type_once(cursig)
 
             epare = nil
-=begin
+
             @arguments[2].element_node_list.each do |ele|
               if ele[3] == cidx and ele[2] != self and ele[0] == slf then
                 epare2 = ele
@@ -1269,7 +1271,7 @@ module YTLJit
                 end
               end
             end
-=end
+
             if epare == nil then
               @arguments[2].element_node_list.each do |ele|
                 if ele[3] == nil and ele[2] != self and ele[0] == slf then
@@ -1283,7 +1285,8 @@ module YTLJit
                 end
               end
             end
-            if epare == nil then
+#=begin
+            if epare == nil and false then
               @arguments[2].element_node_list.each do |ele|
                 if ele[3] == cidx and ele[2] != self and 
                     ele[0].ruby_type == slf.ruby_type then
@@ -1293,15 +1296,20 @@ module YTLJit
                   unless enode.type_list(esig) == [[], []]
                     epare = epare2
                     same_type(self, enode, cursig, esig, context)
+#                    break
                   end
                 end
               end
             end
+#=end
             if epare == nil then
-              epare = @arguments[2].element_node_list[0]
-              esig = epare[1]
-              enode = epare[2]
-              same_type(self, enode, cursig, esig, context)
+              nele = @arguments[2].element_node_list.select {|e| e[3] == nil}
+              if nele.size == 1 then
+                epare = @arguments[2].element_node_list[0]
+                esig = epare[1]
+                enode = epare[2]
+                same_type(self, enode, cursig, esig, context)
+              end
             end
 
             @type = nil
@@ -1645,9 +1653,12 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           same_type(self, @arguments[2], sig, sig, context)
-#          p debug_info
-#          p @func.name
-#          p @arguments[2].decide_type_once(sig)
+=begin
+          p debug_info
+          p @func.name
+          p @arguments[2].type_list(sig)
+          p @arguments[2].class
+=end
           context
         end
       end

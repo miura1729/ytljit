@@ -514,17 +514,20 @@ LocalVarNode
               (@type.element_type == nil or
                @type.element_type == {}) then
             local_cache[self] = @type
-            etype = {}
+            etype2 = {}
+            etype = nil
             @element_node_list.each do |ele|
               sig = ele[1]
               slf = ele[0]
               if sig == cursig then
                 node = ele[2]
+                node.type = nil
                 tt = node.decide_type_once(sig, local_cache)
-                etype[ele[3]] ||= []
-                curidx = etype[ele[3]]
-                if !curidx.include?(tt) then
+                etype2[ele[3]] ||= []
+                curidx = etype2[ele[3]]
+                if tt.ruby_type != Object and !curidx.include?(tt) then
                   curidx.push tt
+                  etype = etype2
                 end
               end
             end
@@ -2390,7 +2393,7 @@ LocalVarNode
         end
         
         attr :value
-
+        
         def collect_candidate_type(context)
           sig = context.to_signature
           if @type_list != [[], []] then
@@ -2779,6 +2782,7 @@ LocalVarNode
                   p iv.instance_eval {@name}
                   p iv.instance_eval {@type_list}
 =end
+                  return :c_fixarg
                   raise
                 end
               end
@@ -2946,8 +2950,10 @@ LocalVarNode
                 if rrec.class == Module then
                   name = @name
                   rrec.send(:method_address_of, name)
-                else
+                elsif rrec then
                   rrec.method_address_of(@name)
+                else
+                  4
                 end
               }
               if addr.call then
