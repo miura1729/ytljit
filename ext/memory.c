@@ -158,7 +158,7 @@ ytl_arena_ref(VALUE self, VALUE offset)
   int raw_offset;
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
-  raw_offset = FIX2INT(offset);
+  raw_offset = (arenah->body->size / sizeof(VALUE)) - FIX2INT(offset);
 
   return ULONG2NUM(arenah->body->body[raw_offset]);
 }
@@ -169,11 +169,17 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
   struct ArenaHeader *arenah;
 
   int raw_offset;
+  int newsize;
+  VALUE *newlastptr;
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
-  raw_offset = NUM2ULONG(offset);
+  raw_offset = (arenah->body->size / sizeof(VALUE)) - NUM2ULONG(offset);
 
   arenah->body->body[raw_offset] = FIX2INT(src);
+  newlastptr = arenah->body->body + raw_offset;
+  if (newlastptr < arenah->lastptr) {
+    arenah->lastptr = newlastptr;
+  }
 
   return src;
 }

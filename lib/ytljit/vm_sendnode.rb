@@ -167,7 +167,7 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-#          @arguments[2].type = nil
+          # @arguments[2].type = nil
           slf = @arguments[2].decide_type_once(cursig)
           if slf.instance_of?(RubyType::DefaultType0) then
             # Chaos
@@ -274,6 +274,14 @@ module YTLJit
 
           signat = signature(context)
           changed = check_signature_changed(context, signat, metsigent, cursig)
+=begin
+          if changed then
+            @arguments.each do |arg|
+              arg.type = nil
+            end
+            signat = signature(context)
+          end
+=end
 
           mt, slf = get_send_method_node(cursig)
           if mt then
@@ -1649,16 +1657,27 @@ module YTLJit
         add_special_send_node :p
       end
 
+     class SendDispTypeNode<SendNode
+        add_special_send_node :disp_type
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          p debug_info
+          p sig
+          p @arguments[2].type_list(sig)
+#          p @arguments[2].instance_eval {@type_list}
+          p @arguments[2].class
+          context
+        end
+
+       def compile(context)
+         @body.compile(context)
+       end
+     end
+
       class SendSameSelfTypeNode<SendNode
         def collect_candidate_type_regident(context, slf)
           sig = context.to_signature
           same_type(self, @arguments[2], sig, sig, context)
-=begin
-          p debug_info
-          p @func.name
-          p @arguments[2].type_list(sig)
-          p @arguments[2].class
-=end
           context
         end
       end
@@ -1826,7 +1845,7 @@ module YTLJit
             siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
             context = gen_alloca(context, siz)
 
-            context.start_arg_reg(TMPR2)
+            context.start_using_reg(TMPR2)
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, THEPR)
@@ -1841,7 +1860,7 @@ module YTLJit
             asm.with_retry do
               asm.mov(RETR, TMPR2)
             end
-            context.end_arg_reg(TMPR2)
+            context.end_using_reg(TMPR2)
 
             context.ret_reg = RETR
             context.ret_node = self

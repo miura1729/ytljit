@@ -429,7 +429,7 @@ LocalVarNode
 
           case tlist.size
           when 0
-            RubyType::DefaultType0.new
+            RubyType::DefaultType0.new # .to_unbox
             
           when 1
             tlist[0]
@@ -631,9 +631,10 @@ LocalVarNode
           # eval 1st arg(self)
           slfnode = @arguments[2]
           context = slfnode.compile(context)
-          
-          context.ret_node.decide_type_once(context.to_signature)
-          rtype = context.ret_node.type
+
+          rnode = context.ret_node
+#          rnode.type = nil
+          rtype = rnode.decide_type_once(context.to_signature)
           if !rtype.boxed then
             context = rtype.gen_unboxing(context)
           end
@@ -653,12 +654,12 @@ LocalVarNode
             context.pop_signature
           else
             res.push args[1].decide_type_once(cursig)
+#            args[2].type = nil
             slf = args[2].decide_type_once(cursig)
           end
           res.push slf
 
           args[3..-1].each do |ele|
-#            ele.type = nil
             res.push ele.decide_type_once(cursig)
           end
 
@@ -743,12 +744,11 @@ LocalVarNode
             else
               # other arg.
               context = arg.compile(context)
-              context.ret_node.decide_type_once(sig)
               rnode = context.ret_node
-              rtype = rnode.type
-              if rnode.is_escape != :global_export then
+              rtype = rnode.decide_type_once(sig)
+#              if rnode.is_escape != :global_export then
                 context = rtype.gen_boxing(context)
-              end
+#              end
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
@@ -1476,6 +1476,8 @@ LocalVarNode
 
           # Dummy for marshal
           @op_var_value_instaces = nil
+
+          @modified_global_var = nil
         end
 
         attr_accessor :init_node
@@ -1535,7 +1537,9 @@ LocalVarNode
             init_unwind_proc
             add_code_space(nil, @@unwind_proc)
           end
-          super(context)
+          context = super(context)
+          @modified_global_var = context.modified_global_var
+          context
         end
 
         def collect_candidate_type(context, signode, sig)
@@ -1556,6 +1560,11 @@ LocalVarNode
         def get_global_arena_address
           ar = @@global_object_area
           ar.raw_address
+        end
+
+        def get_global_arena_end_address
+          ar = @@global_object_area
+          (ar.body_address + ar.size) & (~0xf)
         end
 
         def get_local_arena_address
@@ -1583,6 +1592,10 @@ LocalVarNode
         def compile(context)
           if @init_node then
             context = @init_node.compile(context)
+          end
+          @modified_global_var.each_with_index do |dmy, i|
+            @@global_object_area[i] = 4
+            p @@global_object_area
           end
           super(context)
         end
@@ -1921,6 +1934,7 @@ LocalVarNode
           same_type(self, @value_node, cursig, cursig, context)
           same_type(@value_node, self, cursig, cursig, context)
 
+#          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if !rtype.boxed and rrtype != Fixnum and rrtype != Float then
@@ -2393,13 +2407,15 @@ LocalVarNode
         end
         
         attr :value
-        
+
         def collect_candidate_type(context)
           sig = context.to_signature
-          if @type_list != [[], []] then
-            @type = decide_type_once(sig)
-          elsif @type == nil then 
-            @type = RubyType::BaseType.from_object(@value) 
+          if @type == nil then
+            if @type_list != [[], []] then
+              @type = decide_type_once(sig)
+            else
+              @type = RubyType::BaseType.from_object(@value) 
+            end
           end
 
           case @value
@@ -2848,9 +2864,9 @@ LocalVarNode
             rnode = context.ret_node
             rtype = rnode.decide_type_once(context.to_signature)
             if @calling_convention != :ytl then
-              if rnode.is_escape != :global_export then
+#              if rnode.is_escape != :global_export then
                 context = rtype.gen_boxing(context)
-              end
+#              end
               rtype = rtype.to_box
             elsif !rtype.boxed then
               context = rtype.gen_unboxing(context)
@@ -3149,9 +3165,9 @@ LocalVarNode
           decide_type_once(sig)
           rtype = @val.decide_type_once(context.to_signature)
           if @type.boxed then
-            if @val.is_escape != :global_export then
+#            if @val.is_escape != :global_export then
               context = rtype.gen_boxing(context)
-            end
+#            end
           else
             context = rtype.gen_unboxing(context)
           end
@@ -3270,6 +3286,7 @@ LocalVarNode
           cursig = context.to_signature
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
+          @val.type = nil
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype != Fixnum and rrtype != Float then
@@ -3322,9 +3339,9 @@ LocalVarNode
           asm = context.assembler
           context.start_using_reg(TMPR2)
           asm.with_retry do
-            asm.mov(TMPR2, context.top_node.get_global_arena_address)
+            asm.mov(TMPR2, context.top_node.get_global_arena_end_address)
           end
-          context = gen_ref_element(context, nil, @offset)
+          context = gen_ref_element(context, nil, -@offset)
           context.end_using_reg(TMPR2)
           rtype = decide_type_once(sig)
           if rtype.ruby_type == Float and !rtype.boxed then
@@ -3384,9 +3401,9 @@ LocalVarNode
           asm = context.assembler
           context.start_using_reg(TMPR2)
           asm.with_retry do
-            asm.mov(TMPR2, context.top_node.get_global_arena_address)
+            asm.mov(TMPR2, context.top_node.get_global_arena_end_address)
           end
-          contet = gen_set_element(context, nil, @offset, @value)
+          contet = gen_set_element(context, nil, -@offset, @value)
           context.end_using_reg(TMPR2)
           @body.compile(context)
         end
