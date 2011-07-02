@@ -258,8 +258,9 @@ module YTLJit
         end
 
         def gen_boxing(context)
-#          raise "foo"
-#          return context
+          p debug_info
+          raise "foo"
+          return context
           cursig = context.to_signature
           asm = context.assembler
           val = context.ret_reg

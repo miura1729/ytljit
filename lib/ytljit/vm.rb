@@ -1564,7 +1564,7 @@ LocalVarNode
 
         def get_global_arena_end_address
           ar = @@global_object_area
-          (ar.body_address + ar.size) & (~0xf)
+          ar.body_address + ar.size
         end
 
         def get_local_arena_address
@@ -1594,8 +1594,11 @@ LocalVarNode
             context = @init_node.compile(context)
           end
           @modified_global_var.each_with_index do |dmy, i|
-            @@global_object_area[i] = 4
+            @@global_object_area[i + 1] = 4
+=begin
             p @@global_object_area
+            p dmy[0]
+=end
           end
           super(context)
         end
@@ -2787,12 +2790,12 @@ LocalVarNode
                   mth = rklass.instance_method(@name)
                   @ruby_reciever = rtype.ruby_type_raw
                 rescue NameError
+=begin
                   p @parent.debug_info
                   p sig
                   p @name
                   p @reciever.class
                   p @reciever.instance_eval {@type_list }
-=begin
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
                   p iv.instance_eval {@name}
@@ -3378,7 +3381,7 @@ LocalVarNode
           context = @value.collect_info(context)
           if context.modified_global_var[@name] == nil then
             context.modified_global_var[@name] = []
-            @offset = context.modified_global_var.keys.size
+            @offset = context.modified_global_var.keys.size - 1
           end
           @assign_nodes = context.modified_global_var[@name]
           @assign_nodes.push self

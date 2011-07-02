@@ -1337,6 +1337,7 @@ module YTLJit
         def compile(context)
           sig = context.to_signature
           asm = context.assembler
+          @arguments[2].type = nil
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
 
@@ -1357,6 +1358,13 @@ module YTLJit
             end
             @body.compile(context)
           else
+=begin
+            p @arguments[2].type
+            p @arguments[2].instance_eval {@type_list}
+              p sig
+            p @arguments[2].is_escape
+            p debug_info
+=end
             super
           end
         end
@@ -1709,7 +1717,8 @@ module YTLJit
         end
 
         def compile_call_func(context, fname)
-          fadd = OpMemAddress.new(address_of(fname))
+          addr = lambda { address_of(fname) }
+          fadd = OpVarMemAddress.new(addr)
           context.start_arg_reg(FUNC_FLOAT_ARG)
           context.start_arg_reg
           asm = context.assembler
@@ -1729,7 +1738,7 @@ module YTLJit
           context
         end
 
-        def compile(context)
+        def compile2(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
