@@ -169,15 +169,15 @@ module YTLJit
           mt = nil
           # @arguments[2].type = nil
           slf = @arguments[2].decide_type_once(cursig)
-          if slf.instance_of?(RubyType::DefaultType0) then
-            # Chaos
-          end
-
           if is_fcall or is_vcall then
             mt = @func.method_top_node(@class_top, nil)
-
+            
           else
-
+            if slf.instance_of?(RubyType::DefaultType0) then
+              # Chaos
+              #            raise "chaos"
+            end
+            
             mt = @func.method_top_node(@class_top, slf)
           end
 
@@ -731,6 +731,8 @@ module YTLJit
           [3, 4, 5].each do |no|
             context = @arguments[no].compile(context)
             rtype = @arguments[no].decide_type_once(sig)
+            p debug_info if rtype.ruby_type == Object
+            p @arguments[no].class if rtype.ruby_type == Object
             context = rtype.gen_unboxing(context)
             dst = OpIndirect.new(breg, off)
             asm.with_retry do
@@ -1123,6 +1125,57 @@ module YTLJit
         end
       end
 
+      class SendOrNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :|
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
+      class SendXorNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :^
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+            same_type(self, @arguments[3], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
+      class SendLengthNode<SendNode
+        include ArithmeticOperationUtil
+        include SendUtil
+        add_special_send_node :length
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          case [slf.ruby_type]
+          when [Array]
+            tt = RubyType::BaseType.from_ruby_class(Fixnum)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
+      end
+
       class SendCompareNode<SendNode
         include SendUtil
         include CompareOperationUtil
@@ -1293,9 +1346,10 @@ module YTLJit
                 end
               end
             end
-#=begin
-            if epare == nil and false then
-              @arguments[2].element_node_list.each do |ele|
+
+=begin
+            if epare == nil then
+              @arguments[2].element_node_list.reverse.each do |ele|
                 if ele[3] == cidx and ele[2] != self and 
                     ele[0].ruby_type == slf.ruby_type then
                   epare2 = ele
@@ -1304,12 +1358,12 @@ module YTLJit
                   unless enode.type_list(esig) == [[], []]
                     epare = epare2
                     same_type(self, enode, cursig, esig, context)
-#                    break
+                    break
                   end
                 end
               end
             end
-#=end
+
             if epare == nil then
               nele = @arguments[2].element_node_list.select {|e| e[3] == nil}
               if nele.size == 1 then
@@ -1317,6 +1371,13 @@ module YTLJit
                 esig = epare[1]
                 enode = epare[2]
                 same_type(self, enode, cursig, esig, context)
+              end
+            end
+=end
+
+            if epare == nil then
+              if slf.have_element? and slf.element_type then
+                add_type(cursig, slf.element_type[nil][0])
               end
             end
 

@@ -653,6 +653,7 @@ LocalVarNode
             res.push args[1].decide_type_once(ynode.signature(context))
             context.pop_signature
           else
+#            args[1].type = nil
             res.push args[1].decide_type_once(cursig)
 #            args[2].type = nil
             slf = args[2].decide_type_once(cursig)
@@ -660,6 +661,7 @@ LocalVarNode
           res.push slf
 
           args[3..-1].each do |ele|
+#            ele.type = nil
             res.push ele.decide_type_once(cursig)
           end
 
@@ -2514,6 +2516,10 @@ LocalVarNode
         def get_constant_value
           [@value]
         end
+
+#        def type=(val)
+#          val
+#        end
       end
 
       class ClassValueNode<BaseNode
@@ -2790,12 +2796,14 @@ LocalVarNode
                   mth = rklass.instance_method(@name)
                   @ruby_reciever = rtype.ruby_type_raw
                 rescue NameError
-=begin
+#=begin
                   p @parent.debug_info
                   p sig
                   p @name
                   p @reciever.class
-                  p @reciever.instance_eval {@type_list }
+#                  p @reciever.instance_eval {@type_list }
+                  p type_list(sig)
+=begin
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
                   p iv.instance_eval {@name}
