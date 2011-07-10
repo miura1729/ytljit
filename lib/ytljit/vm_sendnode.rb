@@ -1767,6 +1767,10 @@ module YTLJit
       class SendSortNode<SendSameSelfTypeNode
         add_special_send_node :sort
       end
+
+      class SendSortNode<SendSameSelfTypeNode
+        add_special_send_node :uniq!
+      end
  
       class SendMathFuncNode<SendNode
         include SendUtil
