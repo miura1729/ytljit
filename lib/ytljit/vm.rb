@@ -265,28 +265,34 @@ LocalVarNode
           end
         end
 
+        def marge_element_node(dst, src)
+          res = dst
+          regnode = dst[0]
+          src.each do |sele|
+            if !res.include?(sele) then
+              res.push sele
+            end
+          end
+
+          res
+        end
+
         def marge_type(dst, src)
           res = dst
           src.each do |sele|
-            if sele.is_a?(Array) then
-              if !res.include?(sele) then
-                res.push sele
-              end
-            else
-              if res.all? {|e| e.ruby_type != sele.ruby_type or 
-                                 e.boxed != sele.boxed } then
-                res.push sele
-              elsif sele.have_element? and sele.element_type then
-                # Replace type object which have more collect element type
-                res.each_with_index do |rele, i|
-                  if rele == sele and rele.element_type == nil then
-                    res[i] = sele
-                  end
+            if res.all? {|e| e.ruby_type != sele.ruby_type or 
+                e.boxed != sele.boxed } then
+              res.push sele
+            elsif sele.have_element? and sele.element_type then
+              # Replace type object which have more collect element type
+              res.each_with_index do |rele, i|
+                if rele == sele and rele.element_type == nil then
+                  res[i] = sele
                 end
               end
             end
           end
-
+          
           res
         end
 
@@ -314,8 +320,9 @@ LocalVarNode
 
           dtlist = dst.element_node_list
           stlist = src.element_node_list
+
           orgsize = dtlist.size
-          dst.element_node_list = marge_type(dtlist, stlist)
+          dst.element_node_list = marge_element_node(dtlist, stlist)
           if orgsize != dtlist.size then
             dst.ti_changed
             context.convergent = false
@@ -397,10 +404,11 @@ LocalVarNode
               same_type(orgnode, enode, orgsig, encsig, context)
             end
             if index != nil then
-              @element_node_list.each do |sig, orgsig, orgnode, orgindex|
-                if orgindex == index and
+              @element_node_list.each do |orgslf, orgsig, orgnode, orgindex|
+                if orgslf == curslf and
+                    orgindex == index and
                     orgnode != enode then
-                  # same_type(orgnode, enode, orgsig, sig, context)
+                  same_type(orgnode, enode, orgsig, encsig, context)
                 end
               end
             end
@@ -1992,9 +2000,9 @@ LocalVarNode
         end
         
         def collect_candidate_type(context)
+          cursig = context.to_signature
           @local_label.come_from.values.each do |vnode|
             if vnode then
-              cursig = context.to_signature
               same_type(self, vnode, cursig, cursig, context)
             end
           end

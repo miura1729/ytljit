@@ -731,8 +731,6 @@ module YTLJit
           [3, 4, 5].each do |no|
             context = @arguments[no].compile(context)
             rtype = @arguments[no].decide_type_once(sig)
-            p debug_info if rtype.ruby_type == Object
-            p @arguments[no].class if rtype.ruby_type == Object
             context = rtype.gen_unboxing(context)
             dst = OpIndirect.new(breg, off)
             asm.with_retry do
@@ -854,6 +852,7 @@ module YTLJit
 
           else
             p debug_info
+            p rtype
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
@@ -1322,11 +1321,12 @@ module YTLJit
             epare = nil
 
             @arguments[2].element_node_list.each do |ele|
-              if ele[3] == cidx and ele[2] != self and ele[0] == slf then
+              if ele[3] == cidx and ele[2] != self and 
+                  ele[0] == slf then
                 epare2 = ele
                 esig = epare2[1]
                 enode = epare2[2]
-                unless enode.type_list(esig) == [[], []]
+                if enode.type_list(esig) != [[], []] then
                   epare = epare2
                   same_type(self, enode, cursig, esig, context)
                 end
@@ -1335,11 +1335,12 @@ module YTLJit
 
             if epare == nil then
               @arguments[2].element_node_list.each do |ele|
-                if ele[3] == nil and ele[2] != self and ele[0] == slf then
+                if ele[3] == nil and ele[2] != self and 
+                    ele[0] == slf then
                   epare2 = ele
                   esig = epare2[1]
                   enode = epare2[2]
-                  unless enode.type_list(esig) == [[], []]
+                  if enode.type_list(esig) != [[], []] then
                     epare = epare2
                     same_type(self, enode, cursig, esig, context)
                   end
@@ -1803,7 +1804,7 @@ module YTLJit
           context
         end
 
-        def compile2(context)
+        def compile(context)
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
@@ -1812,12 +1813,13 @@ module YTLJit
             return super(context)
           end
 
+          context = @arguments[2].compile(context)
           @arguments[3].decide_type_once(context.to_signature)
           rtype = @arguments[3].type
-          rrtype = rtype.ruby_type
           context = @arguments[3].compile(context)
           context = rtype.gen_unboxing(context)
-          compile_main(context)
+          context = compile_main(context)
+          @body.compile(context)
         end
       end
       

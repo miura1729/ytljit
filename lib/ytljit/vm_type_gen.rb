@@ -258,7 +258,6 @@ module YTLJit
         end
 
         def gen_boxing(context)
-          p debug_info
           raise "foo"
           return context
           cursig = context.to_signature
