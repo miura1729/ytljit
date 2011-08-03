@@ -307,6 +307,34 @@ class InstructionTests < Test::Unit::TestCase
       @cs.reset
       @asout = ""
     end
+
+    [:cvtsd2si, :cvtss2si, :cvttsd2si, :cvttss2si].each do |mnm|
+
+      # Pattern reg, xmmrmm
+      @regs.each do |reg|
+        @xmmregs.each do |src|
+          asm_ytljit(mnm, reg, src)
+          asm_gas(mnm, reg, src)
+        end
+      end
+
+      # Pattern reg, xmmrmm
+      @regs.each do |dst|
+        @indirects.each do |src|
+          asm_ytljit(mnm, dst, src)
+          asm_gas(mnm, dst, src)
+        end
+      end
+      
+      ytlres = disasm_ytljit(@cs)
+      gasres = disasm_gas(@cs)
+#      print @asout
+      ytlres.each_with_index do |lin, i|
+        assert_equal(gasres[i], lin)
+      end
+      @cs.reset
+      @asout = ""
+    end
   end
 
   def test_xmm_arith

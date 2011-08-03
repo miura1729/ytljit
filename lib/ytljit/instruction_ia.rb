@@ -797,6 +797,23 @@ module YTLJit
         return nosupported_addressing_mode(inst, dst, src)
       end
     end
+
+    def common_cvt2(dst, src, op0, op1, inst)
+      if (src.is_a?(OpRegXMM) or 
+          src.is_a?(OpIndirect)) and
+          (dst.is_a?(OpReg32) or
+           dst.is_a?(OpReg64)) then
+        rexseq, rexfmt = rex(dst, src)
+        modseq, modfmt = modrm(inst, dst, src, dst, src)
+        if op0 then
+          ([op0] + rexseq + [0x0F, op1] + modseq).pack("C#{rexfmt}C2#{modfmt}")
+        else
+          (rexseq + [0x0F, op1] + modseq).pack("#{rexfmt}C2#{modfmt}")
+        end
+      else
+        return nosupported_addressing_mode(inst, dst, src)
+      end
+    end
   end
   
   class GeneratorIABinary<Generator
@@ -1390,6 +1407,22 @@ module YTLJit
 
     def cvtsi2ss(dst, src)
       common_cvt(dst, src, 0xf3, 0x2a, :cvtsi2ss)
+    end
+
+    def cvtsd2si(dst, src)
+      common_cvt2(dst, src, 0xf2, 0x2d, :cvtsd2si)
+    end
+
+    def cvttsd2si(dst, src)
+      common_cvt2(dst, src, 0xf2, 0x2c, :cvttsd2si)
+    end
+
+    def cvtss2si(dst, src)
+      common_cvt2(dst, src, 0xf3, 0x2d, :cvtss2si)
+    end
+
+    def cvttss2si(dst, src)
+      common_cvt2(dst, src, 0xf3, 0x2c, :cvttss2si)
     end
 
     def int3

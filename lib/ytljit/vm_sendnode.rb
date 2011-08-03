@@ -1560,6 +1560,33 @@ module YTLJit
           add_type(sig, fixnumtype)
           context
         end
+
+        def compile(context)
+          @arguments[2].decide_type_once(context.to_signature)
+          rtype = @arguments[2].type
+          rrtype = rtype.ruby_type
+          if rrtype == Float then
+            context = gen_eval_self(context)
+            context = rtype.gen_unboxing(context)
+            asm = context.assembler
+            if context.ret_reg.is_a?(OpRegistor) or
+                 context.ret_reg.is_a?(OpIndirect) then
+              asm.with_retry do
+                asm.cvttsd2si(RETR, context.ret_reg)
+              end
+            else
+              asm.with_retry do
+                asm.mov(XMM0, context.ret_reg)
+                asm.cvttsd2si(RETR, XMM0)
+              end
+            end
+            context.ret_node = self
+            context.ret_reg = RETR
+            context
+          else
+            super(context)
+          end
+        end
       end
 
       class SendChrNode<SendNode
