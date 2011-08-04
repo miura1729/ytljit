@@ -271,7 +271,8 @@ LO        |                       |   |  |
 #        @depth_reg = {}
         @depth_reg = Hash.new(0)
         @stack_content = []
-        @reg_content = {}
+        @reg_content = Hash.new(true)
+        @reg_history = Hash.new {|hash, key| hash[key] = []}
 
         # Use only type inference compile mode
         @slf = nil
@@ -388,17 +389,22 @@ LO        |                       |   |  |
 
       def reset_using_reg
         @depth_reg = Hash.new(0)
+#        @depth_reg = {}
       end
 
       def start_using_reg_aux(reg)
         if @depth_reg[reg] then
-          assembler.with_retry do
-            assembler.push(reg)
-            cpustack_push(reg)
+          if @reg_content[reg] then
+            assembler.with_retry do
+              assembler.push(reg)
+              cpustack_push(reg)
+            end
           end
         else
           @depth_reg[reg] = 0
         end
+        @reg_history[reg].push @reg_content[reg]
+        @reg_content[reg] = nil
         @depth_reg[reg] += 1
       end
 
@@ -428,13 +434,16 @@ LO        |                       |   |  |
       def end_using_reg_aux(reg)
         if @depth_reg[reg] then
           @depth_reg[reg] -= 1
+          @reg_content[reg] = @reg_history[reg].pop
         else
           raise "Not saved reg #{reg}"
         end
         if @depth_reg[reg] != -1 then
-          assembler.with_retry do
-            assembler.pop(reg)
-            cpustack_pop(reg)
+          if @reg_content[reg] then
+            assembler.with_retry do
+              assembler.pop(reg)
+              cpustack_pop(reg)
+            end
           end
         else
           @depth_reg[reg] = nil

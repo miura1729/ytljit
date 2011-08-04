@@ -607,6 +607,7 @@ module YTLJit
           end
 
           context.ret_reg = RETR
+          context.set_reg_content(RETR, self)
           context.ret_node = self
           context.end_using_reg(PTMPR)
           context.end_using_reg(TMPR2)
@@ -1412,11 +1413,13 @@ module YTLJit
                 asm.mov(XMM0, context.ret_reg)
               end
               context.ret_reg = XMM0
+              context.set_reg_content(XMM0, self)
             else
               asm.with_retry do
                 asm.mov(RETR, context.ret_reg)
               end
               context.ret_reg = RETR
+              context.set_reg_content(RETR, self)
             end
             @body.compile(context)
           else
@@ -1580,6 +1583,7 @@ module YTLJit
                 asm.cvttsd2si(RETR, XMM0)
               end
             end
+            context.set_reg_content(RETR, self)
             context.ret_node = self
             context.ret_reg = RETR
             context
@@ -1624,6 +1628,7 @@ module YTLJit
               asm.mov(RETR, context.ret_reg)
               asm.neg(RETR)
             end
+            context.set_reg_content(RETR, self)
             context.ret_reg = RETR
           elsif rrtype == Float then
             context.start_using_reg(XMM4)
@@ -1633,6 +1638,7 @@ module YTLJit
               asm.subsd(XMM0, XMM4)
             end
             context.ret_reg = XMM0
+            context.set_reg_content(XMM0, self)
             context.end_using_reg(XMM4)
           end
           context.ret_node = self
@@ -1688,6 +1694,7 @@ module YTLJit
             end
 
             context.ret_reg = RETR
+            context.set_reg_content(RETR, self)
             context.ret_node = self
 
             context
@@ -1966,6 +1973,7 @@ module YTLJit
             context.end_using_reg(TMPR2)
 
             context.ret_reg = RETR
+            context.set_reg_content(RETR, self)
             context.ret_node = self
             @body.compile(context)
           else

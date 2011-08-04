@@ -689,7 +689,7 @@ LocalVarNode
               casm.mov(FUNC_ARG[0], rarg.size) # argc
               casm.mov(FUNC_ARG[1], TMPR2)     # argv
             end
-            context.set_reg_content(FUNC_ARG[0].dst_opecode, nil)
+            context.set_reg_content(FUNC_ARG[0].dst_opecode, true)
             context.set_reg_content(FUNC_ARG[1].dst_opecode, TMPR2)
 
             # Method Select
@@ -818,7 +818,7 @@ LocalVarNode
               casm.mov(TMPR, fstentry)
               casm.mov(handoff, TMPR)
             end
-            context.set_reg_content(handoff, nil)
+            context.set_reg_content(handoff, true)
           end
 
           # push prev env
@@ -862,7 +862,7 @@ LocalVarNode
             entry = @arguments[1].code_space.var_base_immidiate_address
             casm.mov(FUNC_ARG_YTL[1], entry)
           end
-          context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, nil)
+          context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, true)
 
           # self
           # Method Select
@@ -1438,7 +1438,7 @@ LocalVarNode
               asm.mov(FUNC_ARG_YTL[2], var_klassclass)
             end
             context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, BPR)
-            context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, nil)
+            context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, true)
             context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, self)
             add = cs.var_base_address
             context = gen_call(context, add, 3)
@@ -2634,7 +2634,7 @@ LocalVarNode
             asm.mov(PTMPR, prevenv)
             asm.mov(PTMPR, slfarg)
           end
-          context.set_reg_content(PTMPR, nil)
+          context.set_reg_content(PTMPR, true)
           context.ret_reg2 = PTMPR
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
@@ -2841,6 +2841,7 @@ LocalVarNode
             asm.with_retry do
               asm.mov(PTMPR, slfop)
             end
+            context.set_reg_content(PTMPR, true)
             context.ret_reg2 = PTMPR
             mtop = @reciever.search_method_with_super(@name)[0]
             if mtop then
@@ -2918,23 +2919,24 @@ LocalVarNode
                 asm.mov(FUNC_ARG[0], RETR)
                 asm.mov(FUNC_ARG[1], mnval)
               end
-              context.set_reg_content(FUNC_ARG[0], nil)
-              context.set_reg_content(FUNC_ARG[1], nil)
+              context.set_reg_content(FUNC_ARG[0], true)
+              context.set_reg_content(FUNC_ARG[1], true)
               context = gen_save_thepr(context)
               asm.with_retry do
                 asm.call_with_arg(addrof, 2)
                 asm.mov(TMPR2, RETR)
                 asm.pop(PTMPR)
               end
-              context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, nil)
+              context.set_reg_content(PTMPR, true)
+              context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, true)
               context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, self)
               context.ret_reg2 = PTMPR
               
               context.end_arg_reg
               
               context.ret_node = self
-              context.set_reg_content(RETR, nil)
-              context.set_reg_content(TMPR2, nil)
+              context.set_reg_content(RETR, true)
+              context.set_reg_content(TMPR2, true)
               context.set_reg_content(PTMPR, @reciever)
               context.ret_reg = TMPR2
 
@@ -2947,11 +2949,13 @@ LocalVarNode
                     asm.mov(XMM0, recval)
                   end
                 end
+                context.set_reg_content(XMM0, true)
                 context.ret_reg2 = XMM0
               else
                 asm.with_retry do
                   asm.mov(PTMPR, recval)
                 end
+                context.set_reg_content(PTMPR, @reciever)
                 context.ret_reg2 = PTMPR
               end
 
@@ -2974,6 +2978,7 @@ LocalVarNode
                 asm.with_retry do
                   asm.mov(PTMPR, recval)
                 end
+                context.set_reg_content(TMPR2, @reciever)
                 context.ret_reg2 = PTMPR
               end
 
@@ -3360,6 +3365,7 @@ LocalVarNode
           asm.with_retry do
             asm.mov(TMPR2, context.top_node.get_global_arena_end_address)
           end
+          context.set_reg_content(TMPR2, true)
           context = gen_ref_element(context, nil, -@offset)
           context.end_using_reg(TMPR2)
           rtype = decide_type_once(sig)
@@ -3422,6 +3428,7 @@ LocalVarNode
           asm.with_retry do
             asm.mov(TMPR2, context.top_node.get_global_arena_end_address)
           end
+          context.set_reg_content(TMPR2, :foo)
           contet = gen_set_element(context, nil, -@offset, @value)
           context.end_using_reg(TMPR2)
           @body.compile(context)
