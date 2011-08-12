@@ -76,7 +76,12 @@ module YTLJit
       File.popen(objdump_cmd, "r") {|fp|
         fp.readlines.each do |lin|
           if /([0-9a-f]*):(\t[0-9a-f ]+? *\t.*)/ =~ lin then
-            @@disasm_cache[$1] = $2
+            src = $2
+            addr = $1
+            $symbol_table.each do |val, sym|
+              src.gsub!(val.to_s(16), "#{sym} (#{val})")
+            end
+            @@disasm_cache[addr] = src
           end
         end
       }

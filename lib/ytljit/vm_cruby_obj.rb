@@ -41,7 +41,9 @@ module YTLJit
           end
 
           addr = lambda {
-            address_of("ytl_ivar_get_boxing")
+            a = address_of("ytl_ivar_get_boxing")
+            $symbol_table[a] = "ytl_ivar_get_boxing"
+            a
           }
           ivarget = OpVarMemAddress.new(addr)
           context.start_arg_reg
@@ -92,7 +94,9 @@ module YTLJit
           end
 
           addr = lambda {
-            address_of("ytl_ivar_set_boxing")
+            a = address_of("ytl_ivar_set_boxing")
+            $symbol_table[a] = "ytl_ivar_set_boxing"
+            a
           }
           ivarset = OpVarMemAddress.new(addr)
 

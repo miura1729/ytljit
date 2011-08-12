@@ -127,4 +127,5 @@ class Float
   end
 end
 
+$symbol_table = {}
 

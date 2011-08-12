@@ -424,6 +424,43 @@ body(uintptr_t *regbuf)
   rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, NUMREGS + 1, argv);
 }
 
+void
+ytl_backtrace(VALUE rip, 
+	      VALUE rax, VALUE rcx, VALUE rdx, VALUE rbx, 
+	      VALUE rbp, VALUE rsp, VALUE rdi, VALUE rsi, 
+	      VALUE r8, VALUE r9, VALUE r10, VALUE r11, 
+	      VALUE r12, VALUE r13, VALUE r14, VALUE r15) 
+{
+  VALUE *argv;
+  uintptr_t sp;
+  int i;
+
+  argv = ALLOCA_N(VALUE, NUMREGS + 1);
+
+  argv[0] = ULONG2NUM(rax);
+  argv[1] = ULONG2NUM(rip);
+  argv[2] = ULONG2NUM(rcx);
+  argv[3] = ULONG2NUM(rdx);
+  argv[4] = ULONG2NUM(rbx);
+  argv[5] = ULONG2NUM(rbp);
+  argv[6] = ULONG2NUM(rdi);
+  argv[7] = ULONG2NUM(rsi);
+  argv[8] = ULONG2NUM(r8); 
+  argv[9] = ULONG2NUM(r9); 
+  argv[10] = ULONG2NUM(r10); 
+  argv[11] = ULONG2NUM(r11); 
+  argv[12] = ULONG2NUM(r12); 
+  argv[13] = ULONG2NUM(r13); 
+  argv[14] = ULONG2NUM(r14); 
+  argv[15] = ULONG2NUM(r15); 
+  sp = (uintptr_t)rsp;
+  sp += NUMREGS * sizeof(uintptr_t); /* reg save area */
+  sp += sizeof(uintptr_t); 	/* stored pc by call instruction */
+  argv[NUMREGS] = ULONG2NUM(sp);
+
+  rb_funcall2(ytl_eStepHandler, ytl_v_step_handler_id, NUMREGS + 1, argv);
+}
+
 static uintptr_t * __attribute__ ((noinline, optimize("omit-frame-pointer")))
 pushall(void)
 {

@@ -2672,7 +2672,9 @@ LocalVarNode
         def compile(context)
           context = super(context)
           addr = lambda { 
-            address_of(@name) 
+            a = address_of(@name) 
+            $symbol_table[a] = @name
+            a
           }
           context.ret_reg = OpVarMemAddress.new(addr)
           context.ret_node = self
@@ -2752,6 +2754,7 @@ LocalVarNode
               end
               if recobj then
                 addr = recobj.method_address_of(@name)
+                $symbol_table[addr] = @name
                 if addr then
                   if variable_argument?(recobj.method(@name).parameters) then
                     @calling_convention = :c_vararg
@@ -2864,7 +2867,9 @@ LocalVarNode
               end
               if recobj then
                 addr = lambda {
-                  recobj.method_address_of(@name)
+                  a = recobj.method_address_of(@name)
+                  $symbol_table[a] = @name
+                  a
                 }
                 if addr.call then
                   context.ret_reg = OpVarMemAddress.new(addr)
@@ -2900,11 +2905,15 @@ LocalVarNode
               # Can't type inference. Dynamic method search
               mnval = @name.address
               addr = lambda {
-                address_of("rb_obj_class")
+                a = address_of("rb_obj_class")
+                $symbol_table[a] = "rb_obj_class"
+                a
               }
               objclass = OpVarMemAddress.new(addr)
               addr = lambda {
-                address_of("ytl_method_address_of_raw")
+                a = address_of("ytl_method_address_of_raw")
+                $symbol_table[a] = "ytl_method_address_of_raw"
+                a
               }
               addrof = OpVarMemAddress.new(addr)
 
@@ -2988,10 +2997,13 @@ LocalVarNode
                   rrec = rrec.value
                 end
                 if rrec.class == Module then
-                  name = @name
-                  rrec.send(:method_address_of, name)
+                  a = rrec.send(:method_address_of, @name)
+                  $symbol_table[a] = @name
+                  a
                 elsif rrec then
-                  rrec.method_address_of(@name)
+                  a = rrec.method_address_of(@name)
+                  $symbol_table[a] = @name
+                  a
                 else
                   4
                 end

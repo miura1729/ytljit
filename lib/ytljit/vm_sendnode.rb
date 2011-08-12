@@ -1817,7 +1817,11 @@ module YTLJit
         end
 
         def compile_call_func(context, fname)
-          addr = lambda { address_of(fname) }
+          addr = lambda { 
+            a = address_of(fname)
+            $symbol_table[a] = fname
+            a
+          }
           fadd = OpVarMemAddress.new(addr)
           context.start_arg_reg(FUNC_FLOAT_ARG)
           context.start_arg_reg

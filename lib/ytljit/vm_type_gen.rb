@@ -127,7 +127,9 @@ module YTLJit
           context.start_arg_reg(FUNC_FLOAT_ARG)
           context.start_arg_reg
           addr = lambda {
-            address_of("rb_float_new")
+            a = address_of("rb_float_new")
+            $symbol_table[a] = "rb_float_new"
+            a
           }
           rbfloatnew = OpVarMemAddress.new(addr)
 =begin
@@ -223,7 +225,9 @@ module YTLJit
           vnode = context.ret_node
           context.start_arg_reg
           addr = lambda {
-            address_of("rb_ary_dup")
+            a = address_of("rb_ary_dup")
+            $symbol_table[a] = "rb_ary_dup"
+            a
           }
           rbarydup = OpVarMemAddress.new(addr)
           asm.with_retry do
@@ -258,7 +262,7 @@ module YTLJit
         end
 
         def gen_boxing(context)
-          raise "foo"
+#          raise "foo"
           return context
           cursig = context.to_signature
           asm = context.assembler
@@ -295,7 +299,9 @@ module YTLJit
             context.cpustack_pushn(2 * AsmType::MACHINE_WORD.size)
 
             addr = lambda {
-              address_of("rb_ary_new4")
+              a = address_of("rb_ary_new4")
+              $symbol_table[a] = "rb_ary_new4"
+              a
             }
             rbarynew = OpVarMemAddress.new(addr)
             asm.with_retry do
@@ -336,7 +342,9 @@ module YTLJit
           vnode = context.ret_node
           context.start_arg_reg
           addr = lambda {
-            address_of("rb_str_dup")
+            a = address_of("rb_str_dup")
+            $symbol_table[a] = "rb_str_dup"
+            a
           }
           rbstrdup = OpVarMemAddress.new(addr)
           asm.with_retry do
@@ -413,7 +421,9 @@ module YTLJit
           vnode = context.ret_node
           base = context.ret_reg
           addr = lambda {
-            address_of("rb_range_new")
+            a = address_of("rb_range_new")
+            $symbol_table[a] = "rb_range_new"
+            a
           }
           rbrangenew = OpVarMemAddress.new(addr)
           begoff = OpIndirect.new(TMPR2, 0)

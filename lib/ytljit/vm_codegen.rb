@@ -598,7 +598,9 @@ LO        |                       |   |  |
         case siz
         when Integer
           add = lambda { 
-            address_of("ytl_arena_alloca")
+            a = address_of("ytl_arena_alloca")
+            $symbol_table[a] = "ytl_arena_alloca"
+            a
           }
           alloca = OpVarMemAddress.new(add)
           asm.with_retry do

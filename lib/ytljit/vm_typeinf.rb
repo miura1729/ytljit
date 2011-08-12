@@ -27,7 +27,11 @@ module YTLJit
 
         def compile_main(context)
           slf = context.slf
-          ivval = lambda { slf.instance_var_address_of(@name) }
+          ivval = lambda { 
+            a = slf.instance_var_address_of(@name) 
+            $symbol_table[a] = @name
+            a
+          }
           ivadd = OpVarImmidiateAddress.new(ivval)
           asm = context.assembler
           asm.with_retry do
@@ -49,7 +53,11 @@ module YTLJit
           context = @val.compile(context)
           valr = context.ret_reg
           slf = context.slf
-          ivval = lambda { slf.instance_var_address_of(@name) }
+          ivval = lambda { 
+            a = slf.instance_var_address_of(@name) 
+            $symbol_table[a] = @name
+            a
+          }
           ivadd = OpVarImmdiateAddress.new(ivval)
           asm = context.assembler
           asm.with_retry do
