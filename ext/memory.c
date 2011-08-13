@@ -10,8 +10,8 @@ VALUE ytl_cArena;
 void
 ytl_arena_mark(struct ArenaHeader *arenah)
 {
-  VALUE *base;
   VALUE *start;
+  VALUE *end;
   struct ArenaBody *bodyptr;
   struct ArenaBody *next_bodyptr;
   struct ArenaBody *lastbodyptr;
@@ -36,8 +36,8 @@ ytl_arena_mark(struct ArenaHeader *arenah)
       continue;
     }
 
-    base = bodyptr->body + (bodyptr->size / sizeof(VALUE));
-    for (bodyeleptr = start; bodyeleptr < base; bodyeleptr++) {
+    end = bodyptr->body + (bodyptr->size / sizeof(VALUE));
+    for (bodyeleptr = start; bodyeleptr <= end; bodyeleptr++) {
       rb_gc_mark_maybe(*bodyeleptr);
     }
     next_bodyptr = bodyptr->next;
