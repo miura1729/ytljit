@@ -1831,11 +1831,19 @@ module YTLJit
           end
           context.set_reg_content(FUNC_FLOAT_ARG[0].dst_opecode, 
                                   context.ret_node)
-          asm.with_retry do
-            asm.call_with_arg(fadd, 1)
-            asm.sub(SPR, 8)
-            asm.fstpl(INDIRECT_SPR)
-            asm.pop(XMM0)
+          case $ruby_platform
+          when /x86_64/
+            asm.with_retry do
+              asm.call_with_arg(fadd, 1)
+            end
+
+          when /i.86/
+            asm.with_retry do
+              asm.call_with_arg(fadd, 1)
+              asm.sub(SPR, 8)
+              asm.fstpl(INDIRECT_SPR)
+              asm.pop(XMM0)
+            end
           end
           context.end_arg_reg
           context.end_arg_reg(FUNC_FLOAT_ARG)
