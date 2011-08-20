@@ -177,16 +177,21 @@ module YTLJit
       @retry_mode = org_retry_mode
     end
 
+    def get_value_table_entity
+      @@value_table_entity
+    end
+
     def add_value_entry(val)
       off= nil
       unless off = @@value_table_cache[val] then
         off = @@value_table_entity.current_pos
         @@value_table_entity.emit([val.value].pack("Q"))
         stfunc = lambda {
-          oldpos = @@value_table_entity.current_pos
-          @@value_table_entity.current_pos = off
-          @@value_table_entity.emit([val.value].pack("Q"))
-          @@value_table_entity.current_pos = oldpos
+          value_table_entity = get_value_table_entity
+          oldpos = value_table_entity.current_pos
+          value_table_entity.current_pos = off
+          value_table_entity.emit([val.value].pack("Q"))
+          value_table_entity.current_pos = oldpos
         }
         val.add_refer(stfunc)
         @@value_table_cache[val] = off

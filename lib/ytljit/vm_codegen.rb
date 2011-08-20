@@ -272,7 +272,7 @@ LO        |                       |   |  |
         @depth_reg = Hash.new(0)
         @stack_content = []
         @reg_content = Hash.new(true)
-        @reg_history = Hash.new {|hash, key| hash[key] = []}
+        @reg_history = Hash.new
 
         # Use only type inference compile mode
         @slf = nil
@@ -403,6 +403,7 @@ LO        |                       |   |  |
         else
           @depth_reg[reg] = 0
         end
+        @reg_history[reg] ||= []
         @reg_history[reg].push @reg_content[reg]
         @reg_content[reg] = nil
         @depth_reg[reg] += 1
