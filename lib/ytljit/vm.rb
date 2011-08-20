@@ -756,9 +756,7 @@ LocalVarNode
               context = arg.compile(context)
               rnode = context.ret_node
               rtype = rnode.decide_type_once(sig)
-#              if rnode.is_escape != :global_export then
-                context = rtype.gen_boxing(context)
-#              end
+              context = rtype.gen_boxing(context)
               casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
@@ -2699,6 +2697,8 @@ LocalVarNode
 
       # Method name
       class MethodSelectNode<BaseNode
+        include SendNodeCodeGen
+
         def initialize(parent, val)
           super(parent)
           @name = val
@@ -2812,7 +2812,7 @@ LocalVarNode
                   p sig
                   p @name
                   p @reciever.class
-#                  p @reciever.instance_eval {@type_list }
+                  p @reciever.instance_eval {@type_list }
                   p type_list(sig)
 =begin
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
@@ -2820,7 +2820,7 @@ LocalVarNode
                   p iv.instance_eval {@name}
                   p iv.instance_eval {@type_list}
 =end
-                  return :c_fixarg
+                  return :ytl
                   raise
                 end
               end
@@ -2888,10 +2888,9 @@ LocalVarNode
             context = @reciever.compile(context)
             rnode = context.ret_node
             rtype = rnode.decide_type_once(context.to_signature)
+            do_dyna = rtype.is_a?(RubyType::DefaultType0)
             if @calling_convention != :ytl then
-#              if rnode.is_escape != :global_export then
-                context = rtype.gen_boxing(context)
-#              end
+              context = rtype.gen_boxing(context)
               rtype = rtype.to_box
             elsif !rtype.boxed then
               context = rtype.gen_unboxing(context)
@@ -2901,7 +2900,7 @@ LocalVarNode
             knode = ClassTopNode.get_class_top_node(rrtype)
             mtop = nil
 
-            if rtype.is_a?(RubyType::DefaultType0) then
+            if do_dyna then
               # Can't type inference. Dynamic method search
               mnval = @name.address
               addr = lambda {
@@ -3201,9 +3200,7 @@ LocalVarNode
           decide_type_once(sig)
           rtype = @val.decide_type_once(context.to_signature)
           if @type.boxed then
-#            if @val.is_escape != :global_export then
-              context = rtype.gen_boxing(context)
-#            end
+            context = rtype.gen_boxing(context)
           else
             context = rtype.gen_unboxing(context)
           end

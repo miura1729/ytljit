@@ -427,9 +427,12 @@ body(uintptr_t *regbuf)
 void
 ytl_backtrace(VALUE rip, 
 	      VALUE rax, VALUE rcx, VALUE rdx, VALUE rbx, 
-	      VALUE rbp, VALUE rsp, VALUE rdi, VALUE rsi, 
-	      VALUE r8, VALUE r9, VALUE r10, VALUE r11, 
-	      VALUE r12, VALUE r13, VALUE r14, VALUE r15) 
+	      VALUE rbp, VALUE rsp, VALUE rdi, VALUE rsi
+#ifdef __x86_64__
+	      , VALUE r8, VALUE r9, VALUE r10, VALUE r11, 
+	      VALUE r12, VALUE r13, VALUE r14, VALUE r15
+#endif
+	      ) 
 {
   VALUE *argv;
   uintptr_t sp;
@@ -445,6 +448,7 @@ ytl_backtrace(VALUE rip,
   argv[5] = ULONG2NUM(rbp);
   argv[6] = ULONG2NUM(rdi);
   argv[7] = ULONG2NUM(rsi);
+#ifdef __x86_64__
   argv[8] = ULONG2NUM(r8); 
   argv[9] = ULONG2NUM(r9); 
   argv[10] = ULONG2NUM(r10); 
@@ -453,6 +457,7 @@ ytl_backtrace(VALUE rip,
   argv[13] = ULONG2NUM(r13); 
   argv[14] = ULONG2NUM(r14); 
   argv[15] = ULONG2NUM(r15); 
+#endif
   sp = (uintptr_t)rsp;
   sp += NUMREGS * sizeof(uintptr_t); /* reg save area */
   sp += sizeof(uintptr_t); 	/* stored pc by call instruction */
