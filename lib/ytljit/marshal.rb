@@ -130,4 +130,15 @@ module YTLJit
       @refer_operands = obj.pop
     end
   end
+
+  module Runtime
+    class Arena
+      def _dump_data
+        []
+      end
+      
+      def _load_data(obj)
+      end
+    end
+  end
 end

@@ -1567,32 +1567,40 @@ LocalVarNode
 
         def get_global_arena_address
           ar = @@global_object_area
-          ar.raw_address
+          addr = lambda {
+            ar.raw_address
+          }
+          OpVarImmidiateAddress.new(addr)           
         end
 
         def get_global_arena_end_address
           ar = @@global_object_area
-          ar.body_address + ar.size
+          addr = lamnda {
+            ar.body_address + ar.size
+          }
+          OpVarImmidiateAddress.new(addr)           
         end
 
         def get_local_arena_address
           ar = @@local_object_area
-          ar.raw_address
+          addr = lambda {
+            ar.raw_address
+          }
+          OpVarImmidiateAddress.new(addr)           
         end
 
         def get_local_arena_end_address
           ar = @@local_object_area
-          (ar.body_address + ar.size) & (~0xf)
+          addr = lambda {
+            (ar.body_address + ar.size) & (~0xf)
+          }
+          OpVarImmidiateAddress.new(addr)           
         end
 
         def compile_init(context)
-          addr = lambda {
-            get_local_arena_end_address
-          }
-          aa = OpVarImmidiateAddress.new(addr) 
           asm = context.assembler
           asm.with_retry do
-            asm.mov(THEPR, aa)
+            asm.mov(THEPR, get_local_arena_end_address)
           end
           context
         end
