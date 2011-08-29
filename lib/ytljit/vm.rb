@@ -2349,13 +2349,42 @@ LocalVarNode
         include HaveChildlenMixin
       end
 
+      # Holder of MultiplexNode
+      class MultiplexHolderNode<BaseNode
+        include HaveChildlenMixin
+
+        def initialize(parent, node)
+          super(parent)
+          @mult = node
+        end
+
+        def traverse_childlen
+          yield @mult
+        end
+
+        def collect_info(context)
+          context = @mult.collect_info(context)
+          @body.collect_info(context)
+        end
+
+        def collect_candidate_type(context)
+          context = @mult.collect_candidate_type(context)
+          @body.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          context = @mult.compile(context)
+          @body.compile(context)
+        end
+      end
+
       # Multiplexer of node (Using YARV stack operation)
       class MultiplexNode<BaseNode
         include HaveChildlenMixin
         include NodeUtil
 
-        def initialize(node)
-          super(node.parent)
+        def initialize(parent, node)
+          super(parent)
           @node = node
           @compiled_by_signature = []
           @res_area = nil
@@ -2398,8 +2427,6 @@ LocalVarNode
             end
             context.set_reg_content(@res_area, self)
             @compiled_by_signature.push sig
-
-            context
           else
             asm = context.assembler
             asm.with_retry do
@@ -2408,9 +2435,9 @@ LocalVarNode
             context.set_reg_content(RETR, self)
             context.ret_reg = RETR
             context.ret_node = self
-
-            context
           end
+
+          context
         end
       end
 
@@ -2815,21 +2842,53 @@ LocalVarNode
                   mth = rklass.instance_method(@name)
                   @ruby_reciever = rtype.ruby_type_raw
                 rescue NameError
-#=begin
+=begin
                   p @parent.debug_info
                   p sig
                   p @name
                   p @reciever.class
                   p @reciever.instance_eval {@type_list }
-                  p type_list(sig)
-=begin
+                  p @reciever.type_list(sig)
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
                   p iv.instance_eval {@name}
                   p iv.instance_eval {@type_list}
 =end
-                  return :ytl
-                  raise
+                  tlist = @reciever.type_list(sig).flatten
+                  if tlist.all? {|e| 
+                      eklass = e.ruby_type_raw
+                      knode = ClassTopNode.get_class_top_node(eklass)
+                      knode and  knode.search_method_with_super(@name)[0]
+                    } then
+                    @calling_convention = :ytl
+
+                  elsif tlist.all? {|e|
+                      begin
+                        mth = rklass.instance_method(@name)
+                        variable_argument?(mth.parameters)
+                      rescue NameError
+                        false
+                      end
+                    } then
+                    @calling_convention = :c_vararg
+                  
+                  elsif tlist.all? {|e|
+                      begin
+                        mth = rklass.instance_method(@name)
+                        !variable_argument?(mth.parameters)
+                      rescue NameError
+                        false
+                      end
+                    } then
+                    @calling_convention = :c_fixarg
+                    
+                  else
+                    @calling_convention = :mixed
+                  end
+                        
+                
+                  p @calling_convention
+                  return @calling_convention
                 end
               end
 
@@ -3051,7 +3110,9 @@ LocalVarNode
           end
           @current_frame_info = tnode
         end
-
+        
+        attr :offset
+        attr :depth
         attr :frame_info
         attr :current_frame_info
       end

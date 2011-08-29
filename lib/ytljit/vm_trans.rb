@@ -338,10 +338,34 @@ module YTLJit
         val = context.expstack.pop
         curnode = context.current_node
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
+
+        prev_var = nil
+        context.expstack.each_with_index do |ele, i|
+          if ele.is_a?(LocalVarRefNode) and 
+              ele.offset == offset and ele.depth == dep then
+            prev_var ||= MultiplexNode.new(curnode, ele)
+            context.expstack[i] = prev_var
+          elsif ele.is_a?(SendNode) then
+            ele.traverse_node do |arg, args, j|
+              if arg.is_a?(LocalVarRefNode) and 
+                  arg.offset == offset and arg.depth == dep then
+                prev_var ||= MultiplexNode.new(ele, arg)
+                args[j] = prev_var
+              end
+            end
+          end
+        end
+
+        if prev_var then
+          mnode = MultiplexHolderNode.new(curnode, prev_var)
+          curnode.body = mnode
+          curnode = mnode
+        end
+
         node = LocalAssignNode.new(curnode, offset, dep, val)
         node.debug_info = context.debug_info
         if context.expstack[-1] == val then
-          varref = LocalVarRefNode.new(context.current_node, offset, dep)
+          varref = LocalVarRefNode.new(node, offset, dep)
           varref.debug_info = context.debug_info
           context.expstack[-1] = varref
         end
@@ -602,7 +626,7 @@ module YTLJit
 
       def visit_dup(code, ins, context)
         orgnode = context.expstack.pop
-        nnode = MultiplexNode.new(orgnode)
+        nnode = MultiplexNode.new(orgnode.parent, orgnode)
         context.expstack.push nnode
         context.expstack.push nnode
       end
@@ -612,7 +636,7 @@ module YTLJit
         n = ins[1]
         n.times do
           orgnode = context.expstack.pop
-          nnode = MultiplexNode.new(orgnode)
+          nnode = MultiplexNode.new(orgnode.parent, orgnode)
           res.push nnode
         end
         res = res.reverse
@@ -642,7 +666,7 @@ module YTLJit
       def visit_setn(code, ins, context)
         n = ins[1] + 1
         orgnode = context.expstack.last
-        nnode = MultiplexNode.new(orgnode)
+        nnode = MultiplexNode.new(orgnode.parent, orgnode)
         context.expstack[-n] = nnode
         context.expstack[-1] = nnode
       end

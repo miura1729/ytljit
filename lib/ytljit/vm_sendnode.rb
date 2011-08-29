@@ -157,6 +157,16 @@ module YTLJit
 
         attr_accessor :current_exception_table
 
+        def traverse_node(&blk)
+          @arguments.each_with_index do |arg, i|
+            if arg.is_a?(SendNode) then
+              arg.traverse_node(&blk)
+            else
+              yield(arg, @arguments, i)
+            end
+          end
+        end
+
         def traverse_childlen
           @arguments.each do |arg|
             yield arg
