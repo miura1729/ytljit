@@ -223,8 +223,8 @@ module YTLJit
             end
           end
 
-          @modified_local_var    = context.modified_local_var.last.dup
-          @modified_instance_var = context.modified_instance_var.dup
+          @modified_local_var    = context.modified_local_var.last
+          @modified_instance_var = context.modified_instance_var
 
           context = fill_result_cache(context)
 
@@ -1813,7 +1813,7 @@ module YTLJit
         add_special_send_node :sort
       end
 
-      class SendSortNode<SendSameSelfTypeNode
+      class SendUniqExNode<SendSameSelfTypeNode
         add_special_send_node :uniq!
       end
  

@@ -26,7 +26,7 @@ ytl_arena_mark(struct ArenaHeader *arenah)
       start = arenah->lastptr;
       appear = 1;
     } 
-    else if (appear)  {
+    else if (appear) {
       start = bodyptr->body;
     }
     else {

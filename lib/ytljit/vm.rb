@@ -1575,7 +1575,7 @@ LocalVarNode
 
         def get_global_arena_end_address
           ar = @@global_object_area
-          addr = lamnda {
+          addr = lambda {
             ar.body_address + ar.size
           }
           OpVarImmidiateAddress.new(addr)           
