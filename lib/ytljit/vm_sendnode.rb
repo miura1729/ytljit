@@ -185,6 +185,9 @@ module YTLJit
           else
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
+#              p debug_info
+#              p cursig
+#              p @arguments[2].instance_eval { @type_list }
               #            raise "chaos"
             end
             
@@ -1328,6 +1331,8 @@ module YTLJit
             # decide type again
             @arguments[2].type = nil
             slf = @arguments[2].decide_type_once(cursig)
+#            p debug_info
+#            p @arguments[2].type_list(cursig)
 
             epare = nil
 
@@ -1388,8 +1393,13 @@ module YTLJit
 =end
 
             if epare == nil then
-              if slf.have_element? and slf.element_type then
+              if slf.have_element? and 
+                  slf.element_type and 
+                  slf.element_type[nil] and 
+                  slf.element_type[nil][0] then
                 add_type(cursig, slf.element_type[nil][0])
+              else
+                p "foo"
               end
             end
 

@@ -223,7 +223,8 @@ LocalVarNode
         end
 
         def ti_changed
-          @ti_observer.each do |rec, lst|
+          @ti_observer.keys.each do |rec|
+            lst = @ti_observer[rec]
             lst.each do |dsig, ssig, prc|
               prc.call
             end
@@ -265,15 +266,35 @@ LocalVarNode
           end
         end
 
-        def marge_element_node(dst, src)
+        def marge_element_node(dst, src, context)
           res = dst
           regnode = dst[0]
           src.each do |sele|
-            if !res.include?(sele) then
+            exist_same_type = false
+#=begin
+            res.each do |rele|
+              if rele[0].ruby_type == sele[0].ruby_type and
+                  rele[0].boxed == sele[0].boxed and
+                  rele[3] == sele[3] and
+                  rele[1] == sele[1] and
+                  rele[2] != sele[2] then
+                # Add entry for old element type version of self
+                rtype = rele[2].decide_type_once(rele[1])
+                if rtype == nil or rtype.ruby_type == NilClass then
+                  nele = [rele[0], sele[1], sele[2], sele[3]]
+                  if !res.include?(nele) then
+                    res.push nele
+                  end
+                end
+              end
+            end
+#=end
+            
+            if !exist_same_type and !res.include?(sele) then
               res.push sele
             end
           end
-
+          
           res
         end
 
@@ -322,7 +343,7 @@ LocalVarNode
           stlist = src.element_node_list
 
           orgsize = dtlist.size
-          dst.element_node_list = marge_element_node(dtlist, stlist)
+          dst.element_node_list = marge_element_node(dtlist, stlist, context)
           if orgsize != dtlist.size then
             dst.ti_changed
             context.convergent = false
@@ -2886,7 +2907,6 @@ LocalVarNode
                     @calling_convention = :mixed
                   end
                         
-                
                   p @calling_convention
                   return @calling_convention
                 end

@@ -270,6 +270,7 @@ module YTLJit
           end
           asm.add(TMPR2, TMPR)
         end
+        context.set_reg_content(TMPR2, true)
         context = val.compile(context)
 
         valreg = context.ret_reg
