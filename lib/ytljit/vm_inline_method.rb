@@ -214,6 +214,8 @@ module YTLJit
           idxval = idx
         else
           context = idx.compile(context)
+          itype = idx.decide_type_once(context)
+          context = itype.gen_unboxing(context)
           idxval = context.ret_reg
         end
         asm.with_retry do
@@ -250,10 +252,13 @@ module YTLJit
             asm.mov(TMPR2, context.ret_reg)
           end
         end
+        idxval = nil
         if idx.is_a?(Fixnum) then
           idxval = idx
         else
           context = idx.compile(context)
+          itype = idx.decide_type_once(context)
+          context = itype.gen_unboxing(context)
           idxval = context.ret_reg
         end
 
@@ -263,7 +268,9 @@ module YTLJit
           elsif idxval.is_a?(OpImmidiate)
             asm.mov(TMPR, idxval.value * 8)
           else
-            asm.mov(TMPR, idxval)
+            if idxval != TMPR then
+              asm.mov(TMPR, idxval)
+            end
             asm.add(TMPR, TMPR) # * 2
             asm.add(TMPR, TMPR) # * 4
             asm.add(TMPR, TMPR) # * 8

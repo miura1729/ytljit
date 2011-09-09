@@ -414,13 +414,30 @@ LocalVarNode
         def add_element_node(curslf, encsig, enode, index, context)
           slfetnode = @element_node_list
           newele = [curslf, encsig, enode, index]
+          # entry nil index to empty table
           if @element_node_list == [] then
             @element_node_list.push [curslf, encsig, enode, nil]
           end
+
+          # search entry whose index( [3]) is nil
+          nlentry = nil
+          @element_node_list.each do |e| 
+            if e[0].boxed == curslf.boxed and e[3] == nil then
+              nlentry = e
+              break
+            end
+          end
+
+          # entry nil index of new self to non-empty table 
+          if nlentry == nil then
+            nlentry = [curslf, encsig, enode, nil]
+            @element_node_list.push nlentry
+          end
+
           if !@element_node_list.include?(newele) then
             @element_node_list.push newele
-            orgsig = @element_node_list[0][1]
-            orgnode = @element_node_list[0][2]
+            orgsig = nlentry[1]
+            orgnode = nlentry[2]
             if orgnode != enode then
               same_type(orgnode, enode, orgsig, encsig, context)
             end
@@ -548,7 +565,11 @@ LocalVarNode
             @element_node_list.each do |ele|
               sig = ele[1]
               slf = ele[0]
-              if sig == cursig then
+
+              if sig == cursig  and 
+                  ((@type.ruby_type == slf.ruby_type or
+                    slf.ruby_type == NilClass) and
+                   @type.boxed == slf.boxed) then
                 node = ele[2]
                 node.type = nil
                 tt = node.decide_type_once(sig, local_cache)
@@ -895,6 +916,7 @@ LocalVarNode
           end
           context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, @arguments[2])
 
+          context = gen_save_thepr(context)
           context = gen_call(context, fnc, numarg)
           
           context.cpustack_popn(numarg * 8)
@@ -1460,6 +1482,7 @@ LocalVarNode
             context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, true)
             context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, self)
             add = cs.var_base_address
+            context = gen_save_thepr(context)
             context = gen_call(context, add, 3)
             context.end_arg_reg
           end

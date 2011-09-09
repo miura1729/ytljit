@@ -185,9 +185,9 @@ module YTLJit
           else
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
-#              p debug_info
-#              p cursig
-#              p @arguments[2].instance_eval { @type_list }
+              #p debug_info
+              #p cursig
+              #p @arguments[2].instance_eval { @type_list }
               #            raise "chaos"
             end
             
@@ -570,6 +570,7 @@ module YTLJit
                 @is_escape and @is_escape != :global_export and
                 (clt and  !clt.body.is_a?(DummyNode)) then
               tt = tt.to_unbox
+              @type = nil
             elsif type_list(cursig)[0].include?(tt.to_unbox) then
               type_list(cursig)[0] = []
             end
@@ -695,8 +696,10 @@ module YTLJit
                   @is_escape and @is_escape != :global_export and
                   (clt and  !clt.body.is_a?(DummyNode)) then
                 tt = tt.to_unbox
+                @type = nil
               elsif type_list(cursig)[0].include?(tt.to_unbox) then
                 type_list(cursig)[0] = []
+                @type = nil
               end
 
               # set element type
@@ -757,7 +760,7 @@ module YTLJit
             end
             off = off + AsmType::MACHINE_WORD.size
           end
-          
+
           context.ret_reg = breg
           context.ret_node = self
           context
@@ -1984,7 +1987,8 @@ module YTLJit
           if rrtype == Array and 
               !rtype.boxed and 
               @is_escape != :global_export then
-            siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
+            sizent = @element_node_list[1..-1].max_by {|a| a[3] ? a[3][0] : -1}
+            siz = sizent[3][0] + 1
             context = gen_alloca(context, siz)
 
             context.start_using_reg(TMPR2)

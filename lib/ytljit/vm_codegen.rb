@@ -609,6 +609,7 @@ LO        |                       |   |  |
             asm.mov(TMPR, siz)
             asm.mov(FUNC_ARG[1], TMPR)
           end
+          context = gen_save_thepr(context)
           context = gen_call(context, alloca, 2)
           asm.with_retry do
             asm.mov(THEPR, RETR)
