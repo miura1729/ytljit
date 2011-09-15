@@ -12,11 +12,15 @@ module YTLJit
         end
 
         def compile_main(context)
-          cursig = context.to_signature
-          asm = context.assembler
+          slfoff = @current_frame_info.offset_arg(2, BPR)
+          compile_main_aux(context, slfoff)
+        end
+
+        def compile_main_aux(context, slfoff)
           mivl = @class_top.end_nodes[0].modified_instance_var.keys
           off = mivl.index(@name)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          cursig = context.to_signature
+          asm = context.assembler
 
           if !cursig[2].boxed then
             context.start_using_reg(TMPR2)

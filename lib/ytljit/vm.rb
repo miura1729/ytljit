@@ -883,6 +883,7 @@ LocalVarNode
           # compile block with other code space and context
           tcontext = context.dup
           tcontext.prev_context = context
+          tcontext.stack_content = []
           @arguments[1].compile(tcontext)
           
           casm = context.assembler
@@ -898,11 +899,11 @@ LocalVarNode
                                     context.ret_node)
           end
           
+          entry = @arguments[1].code_space.var_base_immidiate_address
           casm.with_retry do 
-            entry = @arguments[1].code_space.var_base_immidiate_address
             casm.mov(FUNC_ARG_YTL[1], entry)
           end
-          context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, true)
+          context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, entry)
 
           # self
           # Method Select
@@ -954,7 +955,7 @@ LocalVarNode
             casm.with_retry do 
               casm.mov(FUNC_ARG[argpos], context.ret_reg)
             end
-            context.set_reg_content(FUNC_ARG[argpos].dst_opecode, 
+            context.set_reg_content(FUNC_ARG[argpos].dst_opecodep, 
                                     context.ret_node)
           end
           
@@ -1074,7 +1075,8 @@ LocalVarNode
 
         def construct_frame_info(locals, argnum, args)
           finfo = LocalFrameInfoNode.new(self)
-          finfo.system_num = 5         # BP ON Stack, HP, ET, BP, RET
+          # 5means BP on Stack, HP, Exception Tag, BP and SP
+          finfo.system_num = 5
 
           argc = args
           opt_label = []
@@ -1093,7 +1095,6 @@ LocalVarNode
             simple = args[6]
           end
           
-          # 5means BP, HP, Exception Tag, BP and SP
           lsize = locals.size + finfo.system_num
           
           # construct frame
@@ -1899,6 +1900,7 @@ LocalVarNode
         end
 
         attr :offset
+        attr :name
 
         def collect_candidate_type(context)
           context
@@ -3339,7 +3341,7 @@ LocalVarNode
 
           tmpctx = context
           @depth.times { tmpctx = tmpctx.prev_context}
-          tmpctx.set_reg_content(offarg, valn)
+          tmpctx.set_reg_content(offarg, @val)
 
           context.ret_reg = nil
           if base == TMPR2 then

@@ -131,7 +131,7 @@ LO        |                       |   |  |
           if @current_method[i] == offset then
             offset = i
           else
-            # This is legal this TopNode has only one signature 
+            # This is legal if this TopNode has only one signature 
             sigc = offset.signature_cache
             if sigc.size == 1 then
               return sigc[0]
@@ -313,13 +313,14 @@ LO        |                       |   |  |
           wsiz = AsmType::MACHINE_WORD.size
           if dst.reg == SPR then
             if val.is_a?(OpRegistor) and @reg_content[val] then
-              cpustack_setn(dst.disp.value / wsiz, @reg_content[val])
+              cpustack_setn(-dst.disp.value / wsiz - 1, @reg_content[val])
             else
-              cpustack_setn(dst.disp.value / wsiz, val)
+              cpustack_setn(-dst.disp.value / wsiz - 1, val)
             end
-          end
-          if dst.reg == BPR then
+          elsif dst.reg == BPR then
             if val.is_a?(OpRegistor) and @reg_content[val] then
+              # 3 means difference of SP(constructed frame) and BP
+              # ref. gen_method_prologue
               cpustack_setn(-dst.disp.value / wsiz + 3, @reg_content[val])
             else
               cpustack_setn(-dst.disp.value / wsiz + 3, val)
@@ -336,7 +337,8 @@ LO        |                       |   |  |
 
       def cpustack_push(reg)
         if @reg_content[reg] then
-          @stack_content.push @reg_content[reg]
+#          @stack_content.push @reg_content[reg]
+          @stack_content.push reg
         else
           @stack_content.push reg
         end
@@ -346,6 +348,8 @@ LO        |                       |   |  |
         cont = @stack_content.pop
         if !cont.is_a?(OpRegistor) then
           @reg_content[reg] = cont
+        else
+          @reg_content[reg] = @reg_content[cont]
         end
       end
 
@@ -663,16 +667,24 @@ LO        |                       |   |  |
         end
 
         print "---- Stack map ----\n"
+#=begin
+        if @frame_info then
+          start = @frame_info.argument_num + 1
+          ll = @frame_info.frame_layout.reverse[start..-1]
+          ll.each_with_index do |vinf, i|
+            ro = @frame_info.real_offset(i)
+            print "    #{vinf.name}:#{vinf.size}\n"
 =begin
-        @frame_info.frame_layout.each_with_index do |vinf, i|
-          ro = @frame_info.real_offset(i)
-          if mlv = @modified_local_var.last[0][ro] then
-            print "    #{mlv.class} \n"
-          else
-            print "    #{vinf.class} \n"
+               if mlv = @modified_local_var.last[0][ro] then
+                 print "    #{mlv.class} \n"
+               else
+                 print "    #{vinf.class} \n"
+               end
+=end
           end
         end
-=end
+#=end
+        p "---"
         context.stack_content.each do |value|
           print "    #{value.class} \n"
         end
