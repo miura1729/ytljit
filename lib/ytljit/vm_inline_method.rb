@@ -201,9 +201,9 @@ module YTLJit
       end
 
       def gen_ref_element(context, slf, idx)
+        context.start_using_reg(TMPR2)
         asm = context.assembler
         if slf then
-          context.start_using_reg(TMPR2)
           context = slf.compile(context)
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
@@ -234,9 +234,7 @@ module YTLJit
           asm.add(TMPR, TMPR2)
         end
 
-        if slf then
-          context.end_using_reg(TMPR2)
-        end
+        context.end_using_reg(TMPR2)
         context.ret_reg = INDIRECT_TMPR
         context.ret_node = self
 
@@ -244,9 +242,9 @@ module YTLJit
       end
 
       def gen_set_element(context, slf, idx, val)
+        context.start_using_reg(TMPR2)
         asm = context.assembler
         if slf then
-          context.start_using_reg(TMPR2)
           context = slf.compile(context)
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
@@ -290,9 +288,7 @@ module YTLJit
           asm.mov(INDIRECT_TMPR2, valreg)
         end
 
-        if slf then
-          context.end_using_reg(TMPR2)
-        end
+        context.end_using_reg(TMPR2)
         context.ret_reg = valreg
         context.ret_node = self
         context

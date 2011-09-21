@@ -412,12 +412,7 @@ LocalVarNode
         end
 
         def add_element_node(curslf, encsig, enode, index, context)
-          slfetnode = @element_node_list
           newele = [curslf, encsig, enode, index]
-          # entry nil index to empty table
-          if @element_node_list == [] then
-            @element_node_list.push [curslf, encsig, enode, nil]
-          end
 
           # search entry whose index( [3]) is nil
           nlentry = nil
@@ -430,27 +425,28 @@ LocalVarNode
 
           # entry nil index of new self to non-empty table 
           if nlentry == nil then
-            nlentry = [curslf, encsig, enode, nil]
+            nlnode = BaseNode.new(nil)
+            nlentry = [curslf, encsig, nlnode, nil]
             @element_node_list.push nlentry
           end
 
           if !@element_node_list.include?(newele) then
             @element_node_list.push newele
-            orgsig = nlentry[1]
-            orgnode = nlentry[2]
-            if orgnode != enode then
-              same_type(orgnode, enode, orgsig, encsig, context)
+            nelesig = nlentry[1]
+            nelenode = nlentry[2]
+            if nelenode != enode then
+              same_type(nelenode, enode, nelesig, encsig, context)
             end
             if index != nil then
-              @element_node_list.each do |orgslf, orgsig, orgnode, orgindex|
-                if orgslf == curslf and
-                    orgindex == index and
-                    orgnode != enode then
-                  same_type(orgnode, enode, orgsig, encsig, context)
+              @element_node_list.each do |tmpslf, tmpsig, tmpnode, tmpindex|
+                if tmpslf == curslf and
+                    tmpindex == index and
+                    tmpnode != enode then
+                  same_type(tmpnode, enode, tmpsig, encsig, context)
                 end
               end
             end
-            
+
             ti_changed
             #            context.convergent = false
           end

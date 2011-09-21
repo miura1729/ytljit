@@ -1346,6 +1346,8 @@ module YTLJit
                 esig = epare2[1]
                 enode = epare2[2]
                 if enode.type_list(esig) != [[], []] then
+#                  p enode.decide_type_once(cursig)
+#                  p ele[3]
                   epare = epare2
                   same_type(self, enode, cursig, esig, context)
                 end
@@ -1996,11 +1998,10 @@ module YTLJit
             asm.with_retry do
               asm.mov(TMPR2, THEPR)
             end
+            context.set_reg_content(TMPR2, THEPR)
 
             @arguments[1..-1].each_with_index do |anode, idx|
-              context.start_using_reg(TMPR2)
               context = gen_set_element(context, nil, idx, anode)
-              context.end_using_reg(TMPR2)
             end
 
             asm.with_retry do
