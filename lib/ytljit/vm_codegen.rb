@@ -337,8 +337,7 @@ LO        |                       |   |  |
 
       def cpustack_push(reg)
         if @reg_content[reg] then
-#          @stack_content.push @reg_content[reg]
-          @stack_content.push reg
+          @stack_content.push @reg_content[reg]
         else
           @stack_content.push reg
         end
@@ -534,10 +533,14 @@ LO        |                       |   |  |
             asm.push(BPR)
             asm.mov(BPR, SPR)
           end
+          context.set_reg_content(BPR, :old_ptr)
           context.cpustack_push(BPR)
+          context.set_reg_content(TMPR, :num_of_args)
           context.cpustack_push(TMPR)
+          context.set_reg_content(THEPR, :local_heap)
           context.cpustack_push(THEPR)
-          context.cpustack_push(SPR)
+          context.set_reg_content(BPR, :frame_ptr)
+          context.cpustack_push(BPR)
             
           context
         end
@@ -686,7 +689,11 @@ LO        |                       |   |  |
 #=end
         p "---"
         context.stack_content.each do |value|
-          print "    #{value.class} \n"
+          if value.is_a?(Symbol) then
+            print "    #{value} \n"
+          else
+            print "    #{value.class} \n"
+          end
         end
       end
     end
