@@ -3385,9 +3385,11 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @var_type_info.each do |src|
-            cursig = context.to_signature
-            same_type(self, src, cursig, cursig, context)
+          cursig = context.to_signature
+          @var_type_info.each do |node, sigs|
+            sigs.each do |sig|
+              same_type(self, node, cursig, sig, context)
+            end
           end
           
           context
@@ -3409,6 +3411,7 @@ LocalVarNode
           super(parent, name, mnode)
           val.parent = self
           @val = val
+          @curpare = [self, []]
         end
 
         def traverse_childlen
@@ -3421,13 +3424,16 @@ LocalVarNode
           if context.modified_instance_var[@name] == nil then
             context.modified_instance_var[@name] = []
           end
-          context.modified_instance_var[@name].push self
+          context.modified_instance_var[@name].push @curpare
           @body.collect_info(context)
         end
 
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
+          if !@curpare[1].include? cursig then
+              @curpare[1].push cursig
+          end
           same_type(self, @val, cursig, cursig, context)
 #          same_type(@val, self, cursig, cursig, context)
           @val.type = nil

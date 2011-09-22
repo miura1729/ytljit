@@ -196,7 +196,8 @@ module YTLJit
       include UnboxedObjectUtil
 
       def compile_array_unboxed(context)
-        siz = ((@element_node_list[1..-1].max_by {|a| a[3][0]})[3][0]) + 1
+        sizent = @element_node_list[1..-1].max_by {|a| a[3] ? a[3][0] : -1}
+        siz = sizent[3][0] + 1
         compile_object_unboxed(context, siz)
       end
 
@@ -215,7 +216,9 @@ module YTLJit
         else
           context = idx.compile(context)
           itype = idx.decide_type_once(context)
-          context = itype.gen_unboxing(context)
+          if itype.boxed then
+            context = itype.gen_unboxing(context)
+          end
           idxval = context.ret_reg
         end
         asm.with_retry do
@@ -256,7 +259,9 @@ module YTLJit
         else
           context = idx.compile(context)
           itype = idx.decide_type_once(context)
-          context = itype.gen_unboxing(context)
+          if itype.boxed then
+            context = itype.gen_unboxing(context)
+          end
           idxval = context.ret_reg
         end
 
