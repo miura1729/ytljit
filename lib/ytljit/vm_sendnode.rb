@@ -1765,12 +1765,33 @@ module YTLJit
       end
 
       class SendSizeNode<SendNode
+        include SendUtil
+        include UnboxedArrayUtil
         add_special_send_node :size
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
           tt = RubyType::BaseType.from_ruby_class(Fixnum)
           add_type(cursig, tt)
           context
+        end
+
+        def compile(context)
+          sig = context.to_signature
+          asm = context.assembler
+          rtype = @arguments[2].decide_type_once(sig)
+          rrtype = rtype.ruby_type
+          if rrtype == Array and !rtype.boxed and 
+              @arguments[2].is_escape != :global_export then
+            context = gen_ref_element(context, @arguments[2], -1)
+            asm.with_retry do
+              asm.mov(RETR, context.ret_reg)
+            end
+            context.ret_reg = RETR
+            context.set_reg_content(RETR, self)
+            @body.compile(context)
+          else
+            super
+          end
         end
       end
 
@@ -1997,6 +2018,8 @@ module YTLJit
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, THEPR)
+              asm.mov(INDIRECT_TMPR2, siz)
+              asm.add(TMPR2, 8)
             end
             context.set_reg_content(TMPR2, THEPR)
 

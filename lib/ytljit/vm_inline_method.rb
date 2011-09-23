@@ -210,6 +210,7 @@ module YTLJit
             asm.mov(TMPR2, context.ret_reg)
           end
         end
+        context.set_reg_content(TMPR2, context.ret_node)
 
         if idx.is_a?(Fixnum) then
           idxval = idx
