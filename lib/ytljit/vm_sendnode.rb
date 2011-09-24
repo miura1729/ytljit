@@ -364,7 +364,7 @@ module YTLJit
           when :c_fixarg_raw
             context = compile_c_fixarg_raw(context)
 
-          when :ytl, :setter
+          when :ytl
             context = compile_ytl(context)
 
           when :getter
@@ -372,6 +372,14 @@ module YTLJit
             context = @arguments[2].compile(context)
             rectype = @arguments[2].decide_type_once(cursig)
             context = inode.compile_main_aux(context, context.ret_reg, rectype)
+
+
+          when :setter
+            inode = @func.inline_node
+            context = @arguments[2].compile(context)
+            rectype = @arguments[2].decide_type_once(cursig)
+            context = inode.compile_main_aux(context, context.ret_reg, rectype, 
+                                             @arguments[3], nil)
 
           when nil
 

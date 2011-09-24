@@ -83,19 +83,28 @@ module YTLJit
         end
 
         def compile_main(context)
-          cursig = context.to_signature
           slfoff = @current_frame_info.offset_arg(2, BPR)
+          cursig = context.to_signature
+          compile_main_aux(context, slfoff, cursig[2], @val, @body)
+        end
+
+        def compile_main_aux(context, slfcont, slftype, val, body)
+          cursig = context.to_signature
           mivl = @class_top.end_nodes[0].modified_instance_var.keys
           off = mivl.index(@name)
-          rtype = @val.decide_type_once(cursig)
+          rtype = val.decide_type_once(cursig)
 
-          if !cursig[2].boxed then
+          if !slftype.boxed then
             asm = context.assembler
             asm.with_retry do
-              asm.mov(TMPR2, slfoff)
+              asm.mov(TMPR2, slfcont)
             end
-            context = gen_set_element(context, nil, off, @val)
-            return @body.compile(context)
+            context = gen_set_element(context, nil, off, val)
+            if body then
+              return body.compile(context)
+            else
+              return context
+            end
           end
 
           addr = lambda {
@@ -105,8 +114,8 @@ module YTLJit
           }
           ivarset = OpVarMemAddress.new(addr)
 
-          context = @val.compile(context)
-          if @val.is_escape != :global_export then
+          context = val.compile(context)
+          if val.is_escape != :global_export then
             context = rtype.gen_boxing(context)
           end
 
@@ -115,7 +124,7 @@ module YTLJit
           asm.with_retry do
             asm.push(TMPR2)
             asm.mov(TMPR2, context.ret_reg)
-            asm.mov(FUNC_ARG[0], slfoff)
+            asm.mov(FUNC_ARG[0], slfcont)
             asm.mov(FUNC_ARG[1], off)
             asm.mov(FUNC_ARG[2], TMPR2)
           end
@@ -128,7 +137,11 @@ module YTLJit
           
           context.ret_reg = RETR
           context.ret_node = self
-          @body.compile(context)
+          if body then
+            body.compile(context)
+          else
+            context
+          end
         end
       end
     end
