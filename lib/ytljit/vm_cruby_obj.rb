@@ -13,19 +13,20 @@ module YTLJit
 
         def compile_main(context)
           slfoff = @current_frame_info.offset_arg(2, BPR)
-          compile_main_aux(context, slfoff)
+          cursig = context.to_signature
+          compile_main_aux(context, slfoff, cursig[2])
         end
 
-        def compile_main_aux(context, slfoff)
+        def compile_main_aux(context, slfcont, slftype)
           mivl = @class_top.end_nodes[0].modified_instance_var.keys
           off = mivl.index(@name)
           cursig = context.to_signature
           asm = context.assembler
 
-          if !cursig[2].boxed then
+          if !slftype.boxed then
             context.start_using_reg(TMPR2)
             asm.with_retry do
-              asm.mov(TMPR2, slfoff)
+              asm.mov(TMPR2, slfcont)
             end
             context = gen_ref_element(context, nil, off)
             context.end_using_reg(TMPR2)
@@ -52,7 +53,7 @@ module YTLJit
           ivarget = OpVarMemAddress.new(addr)
           context.start_arg_reg
           asm.with_retry do
-            asm.mov(FUNC_ARG[0], slfoff)
+            asm.mov(FUNC_ARG[0], slfcont)
             asm.mov(FUNC_ARG[1], off)
           end
           context = gen_save_thepr(context)

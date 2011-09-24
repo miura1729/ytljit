@@ -349,6 +349,7 @@ module YTLJit
         def compile(context)
           context = super(context)
 
+          cursig = context.to_signature
           context.start_using_reg(TMPR2)
           context.start_using_reg(PTMPR)
           callconv = @func.calling_convention(context)
@@ -363,8 +364,14 @@ module YTLJit
           when :c_fixarg_raw
             context = compile_c_fixarg_raw(context)
 
-          when :ytl
+          when :ytl, :setter
             context = compile_ytl(context)
+
+          when :getter
+            inode = @func.inline_node
+            context = @arguments[2].compile(context)
+            rectype = @arguments[2].decide_type_once(cursig)
+            context = inode.compile_main_aux(context, context.ret_reg, rectype)
 
           when nil
 
@@ -372,7 +379,7 @@ module YTLJit
             raise "Unsupported calling conversion #{callconv}"
           end
           
-          decide_type_once(context.to_signature)
+          decide_type_once(cursig)
           if @type.is_a?(RubyType::RubyTypeUnboxed) and 
               @type.ruby_type == Float then
             context.ret_reg = XMM0

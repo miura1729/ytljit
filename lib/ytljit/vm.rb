@@ -2783,6 +2783,7 @@ LocalVarNode
           @reciever = nil
           @send_node = nil
           @ruby_reciever = nil
+          @inline_node = nil
         end
 
         def set_reciever(sendnode)
@@ -2801,6 +2802,7 @@ LocalVarNode
         attr :name
         attr :calling_convention
         attr_accessor :reciever
+        attr :inline_node
 
         def collect_candidate_type(context)
           context
@@ -2863,8 +2865,26 @@ LocalVarNode
             rklass = rtype.ruby_type_raw
 
             knode = ClassTopNode.get_class_top_node(rklass)
-            if knode and knode.search_method_with_super(@name)[0] then
+            if knode and 
+                (mtop = knode.search_method_with_super(@name)[0]) then
               @calling_convention = :ytl
+
+              # Check getter/setter
+              body = mtop.body.body
+              if body.is_a?(SetResultNode) then
+                if body.value_node.is_a?(CRubyInstanceVarRefNode) and
+                    body.body.is_a?(MethodEndNode) then
+                  @calling_convention = :getter
+                  @inline_node = body.value_node
+                end
+              else
+                if body.is_a?(CRubyInstanceVarAssignNode) and
+                    body.body.is_a?(SetResultNode) and
+                    body.body.body.is_a?(MethodEndNode) then
+                  @calling_convention = :setter
+                  @inline_node = body
+                end
+              end
               @ruby_reciever = rklass
             else
               slfval = @reciever.get_constant_value
