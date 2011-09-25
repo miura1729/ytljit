@@ -618,6 +618,8 @@ ytl_ivar_set_boxing(VALUE slf, int off, VALUE val)
     }
   }
   ROBJECT_IVPTR(slf)[off] = val;
+
+  return val;
 }
 
 void 

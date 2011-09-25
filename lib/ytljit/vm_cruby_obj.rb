@@ -114,26 +114,29 @@ module YTLJit
           }
           ivarset = OpVarMemAddress.new(addr)
 
+          context.start_using_reg(TMPR2)
+          context.start_arg_reg
+          asm = context.assembler
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], slfcont)
+          end
+
           context = val.compile(context)
           if val.is_escape != :global_export then
             context = rtype.gen_boxing(context)
           end
 
-          context.start_arg_reg
-          asm = context.assembler
           asm.with_retry do
-            asm.push(TMPR2)
             asm.mov(TMPR2, context.ret_reg)
-            asm.mov(FUNC_ARG[0], slfcont)
             asm.mov(FUNC_ARG[1], off)
             asm.mov(FUNC_ARG[2], TMPR2)
           end
           context = gen_save_thepr(context)
           asm.with_retry do
             asm.call_with_arg(ivarset, 3)
-            asm.pop(TMPR2)
           end
           context.end_arg_reg
+          context.end_using_reg(TMPR2)
           
           context.ret_reg = RETR
           context.ret_node = self
