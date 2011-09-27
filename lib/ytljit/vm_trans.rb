@@ -884,8 +884,11 @@ module YTLJit
 
         if context.top_nodes.last.name == :initialize then
           # This is necessary. So it decides type of new method
-          visit_pop(code, ins, context)
+          vnode = context.expstack.pop
           curnode = context.current_node 
+          nnode = SetResultNode.new(curnode, vnode)
+          curnode.body = nnode
+          curnode =nnode
           vnode = SelfRefNode.new(curnode)
         else
           curnode = context.current_node 

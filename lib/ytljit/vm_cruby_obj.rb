@@ -168,10 +168,6 @@ module YTLJit
         mnode = context.current_method_node
         node = CRubyInstanceVarAssignNode.new(curnode, ins[1], mnode, val)
         node.debug_info = context.debug_info
-        if context.expstack[-1] == val then
-          ivr = CRubyInstanceVarRefNode.new(curnode, ins[1], mnode)
-          context.expstack[-1] = ivr
-        end
         curnode.body = node
         context.current_node = node
       end
