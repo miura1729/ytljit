@@ -3603,13 +3603,23 @@ LocalVarNode
           end
 
           @class_top = klass # .search_class_top
+          @rklass = rklass
           @value_node = nil
+          set_value_node
+        end
+
+        def set_value_node
+          klass = @class_top
+          rklass = @rklass
           clsnode = nil
           if klass then
             @value_node, clsnode = klass.search_constant_with_super(@name)
           end
           if clsnode == nil and rklass then
-            @value_node = LiteralNode.new(self, rklass.const_get(@name))
+            begin
+              @value_node = LiteralNode.new(self, rklass.const_get(@name))
+            rescue
+            end
           end
         end
 
@@ -3625,6 +3635,13 @@ LocalVarNode
           end
 
           context
+        end
+
+        def collect_info(context)
+          if @value_node == nil then
+            set_value_node
+          end
+          super
         end
 
         def compile(context)
@@ -3674,6 +3691,7 @@ LocalVarNode
         end
 
         def traverse_childlen
+          yield @value
           yield @body
         end
 

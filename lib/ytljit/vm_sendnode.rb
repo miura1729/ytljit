@@ -918,6 +918,7 @@ module YTLJit
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
+              rrtype == String or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
