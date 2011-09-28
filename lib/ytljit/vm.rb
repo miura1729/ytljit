@@ -2879,6 +2879,7 @@ LocalVarNode
                 end
               else
                 if body.is_a?(CRubyInstanceVarAssignNode) and
+                    body.val.is_a?(MultiplexNode) and
                     body.body.is_a?(SetResultNode) and
                     body.body.body.is_a?(MethodEndNode) then
                   @calling_convention = :setter
@@ -3433,6 +3434,8 @@ LocalVarNode
           @val = val
           @curpare = [self, []]
         end
+
+        attr :val
 
         def traverse_childlen
           yield @val
