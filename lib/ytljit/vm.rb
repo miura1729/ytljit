@@ -500,6 +500,14 @@ LocalVarNode
                 tlist[1].ruby_type == Float then
               tlist[1]
 
+            elsif tlist[0].ruby_type == TrueClass and
+                tlist[1].ruby_type == FalseClass then
+              tlist[0]
+
+            elsif tlist[0].ruby_type == FalseClass and
+                tlist[1].ruby_type == TrueClass then
+              tlist[1]
+
             else 
               RubyType::DefaultType0.new
             end
