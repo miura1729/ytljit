@@ -1017,6 +1017,21 @@ LocalVarNode
         end
       end
 
+      class TypedDummyNode<BaseNode
+        include TypeListWithoutSignature
+        @@node_table = {}
+
+        def self.instance(cursig, type)
+          ins = @@node_table[type]
+          if ins == nil then
+            ins = @@node_table[type] = TypedDummyNode.new(nil)
+            ins.add_type(cursig, type)
+          end
+
+          ins
+        end
+      end
+
       # The top of top node
       class TopNode<BaseNode
         include HaveChildlenMixin
@@ -2949,6 +2964,7 @@ LocalVarNode
                     @calling_convention = :mixed
                   end
                         
+                  p @parent.debug_info
                   p @calling_convention
                   return @calling_convention
                 end

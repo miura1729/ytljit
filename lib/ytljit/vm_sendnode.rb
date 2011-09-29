@@ -524,6 +524,46 @@ module YTLJit
         add_special_send_node :eval
       end
 
+      class SendEvalNode<SendNode
+        add_special_send_node :unpack
+
+        def collect_candidate_type_regident(context, slf)
+          if slf.ruby_type == String
+            cursig = context.to_signature
+            arytype = RubyType::BaseType.from_ruby_class(Array)
+            add_type(cursig, arytype)
+
+            fmt = @arguments[3].get_constant_value
+            if fmt.is_a?(Array) and fmt[0].is_a?(String) then
+              fmt = fmt[0]
+            else
+              fmt = nil
+            end
+            fmt.each_char do |ch|
+              type = nil
+              case ch
+              when 'c', 'C', 's', 'S', 'i', 'I', 'l', 'L', 'n', 'N', 'v', 'V'
+                type = RubyType::BaseType.from_ruby_class(Fixnum)
+
+              when 'a', 'A', 'Z', 'b', 'B', 'h', 'H', 'm', 'M', 'u', 'U', 'w'
+                type = RubyType::BaseType.from_ruby_class(String)
+                
+              when 'f', 'd', 'e', 'E', 'g', 'G'
+                type = RubyType::BaseType.from_ruby_class(Float)
+
+              end
+
+              if type then
+                tnode = TypedDummyNode.instance(cursig, type)
+                add_element_node(arytype, cursig, tnode, nil, context)
+              end
+            end
+          end
+
+          context
+        end
+      end
+
       class SendIncludeCommonNode<SendNode
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
@@ -1340,7 +1380,8 @@ module YTLJit
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             idxtype = @arguments[3].decide_type_once(cursig)
-            if idxtype.ruby_type == Range then
+            if idxtype.ruby_type == Range or 
+                @arguments[4] then
               same_type(self, @arguments[2], cursig, cursig, context)
               return context
             end
