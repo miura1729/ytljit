@@ -1902,12 +1902,24 @@ module YTLJit
        end
       end
 
+      class SendCloneNode<SendDupNode
+        add_special_send_node :clone
+      end
+
       class SendSortNode<SendSameSelfTypeNode
         add_special_send_node :sort
       end
 
       class SendUniqExNode<SendSameSelfTypeNode
         add_special_send_node :uniq!
+      end
+
+      class SendSliceExNode<SendSameSelfTypeNode
+        add_special_send_node :slice!
+      end
+
+      class SendReverseNode<SendSameSelfTypeNode
+        add_special_send_node :reverse
       end
  
       class SendMathFuncNode<SendNode
