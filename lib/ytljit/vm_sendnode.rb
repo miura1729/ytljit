@@ -596,6 +596,7 @@ module YTLJit
 
       class SendAllocateNode<SendNode
         include UnboxedObjectUtil
+        include SendSingletonClassUtil
 
         add_special_send_node :allocate
 
@@ -603,23 +604,7 @@ module YTLJit
           slfnode = @arguments[2]
           cursig = context.to_signature
           if slf.ruby_type.is_a?(Class) then
-            tt = nil
-            case slfnode
-            when ConstantRefNode
-              clstop = slfnode.value_node
-              case clstop
-              when ClassTopNode
-                tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-              when LiteralNode
-                tt = RubyType::BaseType.from_ruby_class(clstop.value)
-              else
-                raise "Unkown node type in constant #{slfnode.value_node.class}"
-              end
-
-            else
-              raise "Unkonwn node type #{@arguments[2].class} "
-            end
-
+            tt = get_singleton_class_object(@arguments[2])
             clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
             if context.options[:compile_array_as_uboxed] and
                 @is_escape and @is_escape != :global_export and
@@ -874,6 +859,7 @@ module YTLJit
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == Array or
+              rrtype == String or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -1141,7 +1127,6 @@ module YTLJit
       end
 
       class SendLtLtNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :<<
 
@@ -1157,6 +1142,10 @@ module YTLJit
             arg = [slf, cursig, val, nil, context]
             @arguments[2].add_element_node_backward(arg)
             same_type(self, val, cursig, cursig, context)
+
+          when [String]
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
           end
 
           context
@@ -1164,7 +1153,6 @@ module YTLJit
       end
 
       class SendGtGtNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :>>
 
@@ -1181,7 +1169,6 @@ module YTLJit
       end
 
       class SendAndNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :&
 
@@ -1198,7 +1185,6 @@ module YTLJit
       end
 
       class SendOrNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :|
 
@@ -1215,7 +1201,6 @@ module YTLJit
       end
 
       class SendXorNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :^
 
@@ -1232,20 +1217,113 @@ module YTLJit
       end
 
       class SendLengthNode<SendNode
-        include ArithmeticOperationUtil
         include SendUtil
         add_special_send_node :length
 
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
           case [slf.ruby_type]
-          when [Array]
+          when [Array], [String]
             tt = RubyType::BaseType.from_ruby_class(Fixnum)
             add_type(cursig, tt)
           end
 
           context
         end
+      end
+
+      class SendCountNode<SendNode
+        include SendUtil
+        add_special_send_node :count
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          case [slf.ruby_type]
+          when [String]
+            tt = RubyType::BaseType.from_ruby_class(Fixnum)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
+      end
+
+      class SendStripExNode<SendNode
+        include SendUtil
+        add_special_send_node :strip!
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          case [slf.ruby_type]
+          when [String]
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
+            tt = RubyType::BaseType.from_ruby_class(NilClass)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
+      end
+
+      class SendTrExNode<SendNode
+        include SendUtil
+        add_special_send_node :tr!
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          p @arguments[2].type_list(cursig)
+          case [slf.ruby_type]
+          when [String]
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
+      end
+
+      class SendOpenNode<SendNode
+        include SendUtil
+        include SendSingletonClassUtil
+        add_special_send_node :open
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          case [slf.ruby_type]
+          when [NilClass]
+            tt = RubyType::BaseType.from_ruby_class(IO)
+            add_type(cursig, tt)
+          when [Class]
+            clsobj = get_singleton_class_object(@arguments[2])
+            if clsobj.ruby_type <= IO then
+              tt = RubyType::BaseType.from_ruby_class(IO)
+              add_type(cursig, tt)
+            end
+          end
+
+          context
+        end
+      end
+
+      class SendReadNode<SendNode
+        include SendUtil
+        add_special_send_node :read
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          case [slf.ruby_type]
+          when [IO], [NilClass]
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
+      end
+
+      class SendGetsNode<SendReadNode
+        add_special_send_node :gets
       end
 
       class SendCompareNode<SendNode

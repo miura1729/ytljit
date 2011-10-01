@@ -977,6 +977,29 @@ LocalVarNode
         end
       end
 
+      module SendSingletonClassUtil
+        def get_singleton_class_object(slfnode)
+          tt = nil
+          case slfnode
+          when ConstantRefNode
+            clstop = slfnode.value_node
+            case clstop
+            when ClassTopNode
+              tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
+            when LiteralNode
+              tt = RubyType::BaseType.from_ruby_class(clstop.value)
+            else
+              raise "Unkown node type in constant #{slfnode.value_node.class}"
+            end
+            
+          else
+            raise "Unkonwn node type #{@arguments[2].class} "
+          end
+
+          tt
+        end
+      end
+
       module MultipleCodeSpaceUtil
         def find_cs_by_signature(sig)
           @code_spaces.each do |csig, val|
