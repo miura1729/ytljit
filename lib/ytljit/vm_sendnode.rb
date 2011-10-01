@@ -1272,7 +1272,6 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
-          p @arguments[2].type_list(cursig)
           case [slf.ruby_type]
           when [String]
             tt = RubyType::BaseType.from_ruby_class(String)

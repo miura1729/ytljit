@@ -959,7 +959,7 @@ module YTLJit
        
         node = BranchIfNode.new(curnode, cond, nllab)
         node.debug_info = context.debug_info
-        nllab.come_from[node] = nil
+        nllab.come_from[node] = context.expstack.last
 
         curnode.body = node
         context.current_node = node
@@ -973,7 +973,7 @@ module YTLJit
         
         node = BranchUnlessNode.new(curnode, cond, nllab)
         node.debug_info = context.debug_info
-        nllab.come_from[node] = nil
+        nllab.come_from[node] = context.expstack.last
 
         curnode.body = node
         context.current_node = node
