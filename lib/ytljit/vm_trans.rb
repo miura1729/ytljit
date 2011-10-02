@@ -433,7 +433,7 @@ module YTLJit
       def visit_getglobal(code, ins, context)
         name = ins[1]
         curnode = context.current_node
-        node = GlobalVarRefNode.new(curnode, name)
+        node = GlobalVarRefNode.instance(curnode, name)
         curnode.body = node
         context.expstack.push node
       end

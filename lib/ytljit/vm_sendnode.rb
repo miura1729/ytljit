@@ -384,6 +384,8 @@ module YTLJit
           when nil
 
           else
+            p @arguments[2].type_list(context.to_signature)
+            p @func.name
             raise "Unsupported calling conversion #{callconv}"
           end
           
@@ -1323,6 +1325,24 @@ module YTLJit
 
       class SendGetsNode<SendReadNode
         add_special_send_node :gets
+      end
+
+      class SendDirnameNode<SendNode
+        include SendUtil
+        include SendSingletonClassUtil
+        add_special_send_node :dirname
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          if slf.ruby_type == Class and
+              clsobj = get_singleton_class_object(@arguments[2])  and
+              clsobj.ruby_type <= File then
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
+          end
+
+          context
+        end
       end
 
       class SendCompareNode<SendNode

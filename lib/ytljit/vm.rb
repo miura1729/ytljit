@@ -2941,6 +2941,11 @@ LocalVarNode
                   mth = slfval[0].instance_method(@name)
                   @ruby_reciever = slfval[0]
                 rescue NameError
+                  begin
+                    mth = slfval[0].method(@name)
+                    @ruby_reciever = ClassClassWrapper.instance(slfval[0])
+                  rescue NameError
+                  end
                 end
               end
               if slfval == nil or mth == nil then
@@ -3532,6 +3537,22 @@ LocalVarNode
 
       # Global Variable
       class GlobalVarRefNode<VariableRefCommonNode
+        def self.instance(parent, name)
+          if /^\$[a-zA-Z]/ =~ name.to_s then
+            GlobalVarNormalRefNode.new(parent, name)
+          else
+            GlobalVarSpecialRefNode.new(parent, name)
+          end
+        end
+
+        def collect_info(context)
+          @assign_nodes = context.modified_global_var[@name]
+          context
+        end
+      end
+
+
+      class GlobalVarNormalRefNode<GlobalVarRefNode
         include NodeUtil
         include TypeListWithoutSignature
         include UnboxedArrayUtil
@@ -3540,11 +3561,6 @@ LocalVarNode
           @name = name
           @assign_nodes = nil
           @offset = nil
-        end
-
-        def collect_info(context)
-          @assign_nodes = context.modified_global_var[@name]
-          context
         end
 
         def collect_candidate_type(context)
@@ -3576,6 +3592,61 @@ LocalVarNode
             end
             context.ret_reg = RETR
           end
+          context
+        end
+      end
+
+      class GlobalVarSpecialRefNode<GlobalVarRefNode
+        include NodeUtil
+        include TypeListWithoutSignature
+        include UnboxedArrayUtil
+        include SendNodeCodeGen
+
+        def initialize(parent, name)
+          super(parent)
+          @name = name
+          @assign_nodes = nil
+          @offset = nil
+        end
+
+        def collect_candidate_type(context)
+          tt = RubyType::BaseType.from_object(eval(@name.to_s))
+          sig = context.to_signature
+          add_type(sig, tt)
+          
+          context
+        end
+
+        def compile(context)
+          asm = context.assembler
+          add = lambda { 
+            a = address_of("rb_global_entry")
+            $symbol_table[a] = "rb_global_entry"
+            a
+          }
+          gentry = OpVarMemAddress.new(add)
+
+          add = lambda { 
+            a = address_of("rb_gvar_get")
+            $symbol_table[a] = "rb_gvar_get"
+            a
+          }
+          gget = OpVarMemAddress.new(add)
+          wsize = AsmType::MACHINE_WORD.size
+          symid = ((@name.__id__ << 1) / (5 * wsize))
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], symid)
+          end
+          context = gen_save_thepr(context)
+          context = gen_call(context, gentry, 1)
+
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], RETR)
+          end
+          context = gen_save_thepr(context)
+          context = gen_call(context, gget, 1)
+
+          context.ret_reg = RETR
           context
         end
       end
