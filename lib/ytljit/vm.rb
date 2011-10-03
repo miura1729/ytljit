@@ -2938,10 +2938,12 @@ LocalVarNode
               mth = nil
               if slfval then
                 begin
-                  mth = slfval[0].instance_method(@name)
-                  @ruby_reciever = slfval[0]
+                  # search normal method
+                  mth = slfval[0].class.instance_method(@name)
+                  @ruby_reciever = slfval[0].class
                 rescue NameError
                   begin
+                    # search sigleton method
                     mth = slfval[0].method(@name)
                     @ruby_reciever = ClassClassWrapper.instance(slfval[0])
                   rescue NameError
