@@ -134,7 +134,7 @@ module YTLJit
         offset = 8 + spos * 8
         code += asm.update_state(gen.mov(TMPR, OpIndirect.new(SPR, offset)))
       end
-      code += asm.update_state(gen.send(inst, src, TMPR))
+      code += asm.update_state(gen.send(inst, dst, TMPR))
       code
     end
   end

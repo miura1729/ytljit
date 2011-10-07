@@ -61,7 +61,7 @@ module YTLJit
       fainfo = gen.funcarg_info
       code = ""
       code += asm.update_state(gen.mov(TMPR, src_opecode))
-      code += asm.update_state(gen.send(inst, src, TMPR))
+      code += asm.update_state(gen.send(inst, dst, TMPR))
       code
     end
   end
