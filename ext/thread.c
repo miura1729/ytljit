@@ -3,16 +3,37 @@
 #include "ruby.h"
 
 #include "ytljit.h"
+#include "thread.h"
 
-void
-ytl_therad_create(void *(*entry)(void *), void *argv)
+VALUE ytl_cThread;
+
+/* You may think arguments order is wrong. But it is correct.
+  This is for efficient code. See SendThreadNewNode#compile in 
+  github#ytl/lib/ytl/thread.rb 
+*/
+VALUE
+ytl_thread_create(void *argv, void *(*entry)(void *))
 {
-  pthread_t thread;
-  pthread_attr_t attr;
+  struct ytl_thread *th;
+  VALUE obj;
 
-  pthread_attr_init(&attr);
-  pthread_attr_setstacksize(&attr, 64 * 1024);
-  pthread_create(&thread, &attr, entry, argv);
-  pthread_join(thread, NULL);
-  pthread_attr_destroy(&attr);
+  th = malloc(sizeof(struct ytl_thread));
+  pthread_attr_init(&th->attr);
+  pthread_attr_setstacksize(&th->attr, 64 * 1024);
+  pthread_create(&th->thread, &th->attr, entry, argv);
+
+  return Data_Wrap_Struct(ytl_cThread, NULL, NULL, (void *)th);
 }
+
+VALUE
+ytl_thread_join(VALUE self)
+{
+  struct ytl_thread *th;
+
+  Data_Get_Struct(self, struct ytl_thread, th);
+  pthread_join(th->thread, NULL);
+  pthread_attr_destroy(&th->attr);
+
+  return self;
+}
+

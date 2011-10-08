@@ -6,6 +6,7 @@
 #include "ruby/st.h"
 
 #include "ytljit.h"
+#include "thread.h"
 
 VALUE ytl_mYTLJit;
 VALUE ytl_cCodeSpace;
@@ -676,6 +677,9 @@ Init_ytljit_ext()
   rb_define_method(ytl_cArena, "body_address", ytl_arena_address, 0);
   rb_define_method(ytl_cArena, "raw_address", ytl_arena_raw_address, 0);
   rb_define_method(ytl_cArena, "to_s", ytl_arena_to_s, 0);
+
+  ytl_cThread = rb_define_class_under(ytl_mRuntime, "Thread", rb_cObject);
+  rb_define_method(ytl_cThread, "join", ytl_thread_join, 0);
 
   /* Open Handles */
 #ifdef __CYGWIN__

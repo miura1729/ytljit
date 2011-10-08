@@ -819,7 +819,6 @@ LocalVarNode
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
           context.end_arg_reg
-          context.end_using_reg(fnc)
           context.ret_reg = RETR
           context.set_reg_content(context.ret_reg, self)
           
@@ -873,6 +872,12 @@ LocalVarNode
               casm.mov(FUNC_ARG_YTL[0], TMPR)
             end
             context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, prevenv)
+          elsif @func.is_a?(DirectBlockNode) then
+            context = @arguments[0].compile(context)
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[0], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, context.ret_node)
           else
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[0], BPR)
@@ -927,7 +932,6 @@ LocalVarNode
           context.cpustack_popn(numarg * 8)
           context.end_arg_reg
           context.end_arg_reg(FUNC_ARG_YTL)
-          context.end_using_reg(fnc)
 
           context
         end
@@ -968,7 +972,6 @@ LocalVarNode
           
           context.cpustack_popn(numarg * AsmType::MACHINE_WORD.size)
           context.end_arg_reg
-          context.end_using_reg(fnc)
           context.ret_reg = RETR
           context.set_reg_content(context.ret_reg, self)
           
@@ -2755,12 +2758,50 @@ LocalVarNode
             asm.mov(PTMPR, prevenv)
             asm.mov(PTMPR, slfarg)
           end
-          context.set_reg_content(PTMPR, :argv)
+          context.set_reg_content(PTMPR, :self_of_block)
           context.ret_reg2 = PTMPR
           
           context.ret_reg = @frame_info.offset_arg(1, BPR)
           context.ret_node = self
           context.set_reg_content(context.ret_reg, self)
+          context
+        end
+      end
+
+      # Use when you wish call block without calling method with block
+      class DirectBlockNode<BaseNode
+        include NodeUtil
+        include SendUtil
+
+        def initialize(parent, blk)
+          super(parent)
+          @block = blk
+        end
+
+        attr :name
+        attr :frame_info
+
+        def collect_info(context)
+          context
+        end
+
+        def collect_candidate_type(context)
+          context
+        end
+
+        def calling_convention(context)
+          :ytl
+        end
+
+        def method_top_node(ctop, slf)
+          @block
+        end
+
+        def compile(context)
+          context = super(context)
+          asm = context.assembler
+          context.ret_reg = @block.code_space.var_base_address
+          context.ret_reg2 = PTMPR
           context
         end
       end
@@ -2822,9 +2863,9 @@ LocalVarNode
       class MethodSelectNode<BaseNode
         include SendNodeCodeGen
 
-        def initialize(parent, val)
+        def initialize(parent, name)
           super(parent)
-          @name = val
+          @name = name
           @calling_convention = :unkown
           @reciever = nil
           @send_node = nil
