@@ -2771,11 +2771,14 @@ LocalVarNode
       # Use when you wish call block without calling method with block
       class DirectBlockNode<BaseNode
         include NodeUtil
+
         include SendUtil
 
         def initialize(parent, blk)
           super(parent)
+          @name = "direct call block"
           @block = blk
+          @frame_info = search_frame_info
         end
 
         attr :name
@@ -2800,6 +2803,10 @@ LocalVarNode
         def compile(context)
           context = super(context)
           asm = context.assembler
+          slfarg = OpIndirect.new(TMPR2, AsmType::MACHINE_WORD.size * 3)
+          asm.with_retry do
+            asm.mov(PTMPR, slfarg)
+          end
           context.ret_reg = @block.code_space.var_base_address
           context.ret_reg2 = PTMPR
           context
