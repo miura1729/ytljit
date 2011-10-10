@@ -1094,6 +1094,7 @@ LocalVarNode
         attr          :yield_node
 
         attr          :signature_cache
+        attr          :classtop
         attr_accessor :exception_table
 
         def modified_instance_var

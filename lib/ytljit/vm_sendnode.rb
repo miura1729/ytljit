@@ -180,9 +180,17 @@ module YTLJit
           # @arguments[2].type = nil
           slf = nil
           if is_fcall or is_vcall then
-            slf = RubyType::BaseType.from_ruby_class(NilClass)
             mt = @func.method_top_node(@class_top, nil)
-            
+            if mt then
+              klassobj = mt.classtop.klass_object
+              if klassobj != Object then
+                slf = RubyType::BaseType.from_ruby_class(klassobj)
+              else
+                slf = RubyType::BaseType.from_ruby_class(NilClass)
+              end
+            else
+              slf =  @arguments[2].decide_type_once(cursig)
+            end
           else
             slf = @arguments[2].decide_type_once(cursig)
             if slf.instance_of?(RubyType::DefaultType0) then
