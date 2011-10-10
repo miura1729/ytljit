@@ -722,8 +722,7 @@ LO        |                       |   |  |
             rtype = argcomphook.call(context, arg, i)
           else
             context = arg.compile(context)
-            context.ret_node.decide_type_once(cursig)
-            rtype = context.ret_node.type
+            rtype = context.ret_node.decide_type_once(cursig)
           end
           context = rtype.gen_boxing(context)
           dst = OpIndirect.new(SPR, i * AsmType::MACHINE_WORD.size)

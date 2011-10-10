@@ -707,10 +707,12 @@ LocalVarNode
             res.push args[1].decide_type_once(ynode.signature(context))
             context.pop_signature
           else
-#            args[1].type = nil
+            #            args[1].type = nil
             res.push args[1].decide_type_once(cursig)
-#            args[2].type = nil
-            slf = args[2].decide_type_once(cursig)
+            #            args[2].type = nil
+            if slf == nil then
+              slf = args[2].decide_type_once(cursig)
+            end
           end
           res.push slf
 

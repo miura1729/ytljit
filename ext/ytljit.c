@@ -338,9 +338,23 @@ ytl_code_call(int argc, VALUE *argv, VALUE self)
   raddr = (void *)NUM2ULONG(addr);
 
 #ifdef __x86_64__
-  asm("mov %1, %%rax;"
+  asm("push %%rbx;"
+      "push %%rdi;"
+      "push %%rsi;"
+      "push %%r12;"
+      "push %%r13;"
+      "push %%r14;"
+      "push %%r15;"
+      "mov %1, %%rax;"
       "call *%2;"
       "mov %%rax, %0;"
+      "pop  %%r15;"
+      "pop  %%r14;"
+      "pop  %%r13;"
+      "pop  %%r12;"
+      "pop  %%rsi;"
+      "pop  %%rdi;"
+      "pop  %%rbx;"
       : "=r"(rc) 
       : "r"(args), "r"(raddr) 
       : "%rax", "%rbx");

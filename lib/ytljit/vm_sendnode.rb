@@ -178,11 +178,13 @@ module YTLJit
         def get_send_method_node(cursig)
           mt = nil
           # @arguments[2].type = nil
-          slf = @arguments[2].decide_type_once(cursig)
+          slf = nil
           if is_fcall or is_vcall then
+            slf = RubyType::BaseType.from_ruby_class(NilClass)
             mt = @func.method_top_node(@class_top, nil)
             
           else
+            slf = @arguments[2].decide_type_once(cursig)
             if slf.instance_of?(RubyType::DefaultType0) then
               # Chaos
               #p debug_info
