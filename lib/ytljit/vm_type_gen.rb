@@ -38,6 +38,12 @@ module YTLJit
           # Do not copy. It is immutable
           self
         end
+
+        def ==(other)
+          other and
+            self.ruby_type == other.ruby_type and
+            self.boxed == other.boxed
+        end
       end
 
       module FixnumTypeUnboxedCodeGen
@@ -186,20 +192,6 @@ module YTLJit
             false
           end
         end
-
-=begin
-        def eql?(other)
-          if other then
-            oc = other.ruby_type
-            sc = self.ruby_type
-
-            sc == oc and
-              boxed == other.boxed
-          else
-            false
-          end
-        end
-=end
 
         def inspect
           etype = @element_type.inspect

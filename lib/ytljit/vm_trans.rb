@@ -766,8 +766,9 @@ module YTLJit
         if (op_flag & (0b11 << 3)) != 0 and # fcall, vcall
             slf.is_a?(LiteralNode) and 
             slf.value == nil and 
-            context.current_class_node.name != :top then
+            (context.current_class_node.name != :top or true) then
           slf = SelfRefNode.new(curnode)
+          slf.debug_info = context.debug_info
         end
         arg.push slf
 

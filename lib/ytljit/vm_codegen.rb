@@ -148,6 +148,9 @@ LO        |                       |   |  |
 
         cursignode = @current_method_signature_node[offset]
         curmethod = @current_method[offset]
+        if curmethod == nil then
+          return nil
+        end
 
         sigc = curmethod.signature_cache
         if sigc.size == 1 then

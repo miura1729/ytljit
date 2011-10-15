@@ -183,14 +183,8 @@ module YTLJit
             mt = @func.method_top_node(@class_top, nil)
             if mt then
               klassobj = mt.classtop.klass_object
-              if klassobj != Object then
-                slf = RubyType::BaseType.from_ruby_class(klassobj)
-              else
-                slf = RubyType::BaseType.from_ruby_class(NilClass)
-              end
-            else
-              slf =  @arguments[2].decide_type_once(cursig)
             end
+            slf =  @arguments[2].decide_type_once(cursig)
           else
             slf = @arguments[2].decide_type_once(cursig)
             if slf.instance_of?(RubyType::DefaultType0) then
@@ -324,8 +318,6 @@ module YTLJit
                 yargs = ynode.arguments.dup
                 ysignat = ynode.signature(context)
 
-                same_type(ynode, blknode, signat, ysignat, context)
-
                 # inherit self from caller node
                 yargs[2] = context.current_method_signature_node[-2][2]
                 ysignat[2] = cursig[2]
@@ -340,6 +332,8 @@ module YTLJit
                     end
                   }
                 end
+
+                same_type(ynode, blknode, signat, ysignat, context)
                 context = blknode.collect_candidate_type(context, 
                                                          yargs, ysignat)
 
@@ -1302,7 +1296,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
           case [slf.ruby_type]
-          when [NilClass]
+          when [NilClass], [Object]
             tt = RubyType::BaseType.from_ruby_class(IO)
             add_type(cursig, tt)
           when [Class]
@@ -1324,7 +1318,7 @@ module YTLJit
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
           case [slf.ruby_type]
-          when [IO], [NilClass]
+          when [IO], [NilClass], [Object]
             tt = RubyType::BaseType.from_ruby_class(String)
             add_type(cursig, tt)
           end

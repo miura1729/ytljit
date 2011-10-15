@@ -280,7 +280,8 @@ LocalVarNode
                   rele[2] != sele[2] then
                 # Add entry for old element type version of self
                 rtype = rele[2].decide_type_once(rele[1])
-                if rtype == nil or rtype.ruby_type == NilClass then
+                if rtype == nil or 
+                    rtype.ruby_type == NilClass then
                   nele = [rele[0], sele[1], sele[2], sele[3]]
                   if !res.include?(nele) then
                     res.push nele
@@ -572,6 +573,7 @@ LocalVarNode
 
               if sig == cursig  and 
                   ((@type.ruby_type == slf.ruby_type or
+#                    slf.ruby_type == Object or
                     slf.ruby_type == NilClass) and
                    @type.boxed == slf.boxed) then
                 node = ele[2]
@@ -709,10 +711,6 @@ LocalVarNode
           else
             #            args[1].type = nil
             res.push args[1].decide_type_once(cursig)
-            #            args[2].type = nil
-            if slf == nil then
-              slf = args[2].decide_type_once(cursig)
-            end
           end
           res.push slf
 
@@ -1925,10 +1923,11 @@ LocalVarNode
             argoff = @offset - fragstart
             tobj = context.current_method_signature_node.last[argoff]
             cursig = context.to_signature
-            cursig2 = context.to_signature(-2)
+
             if tobj then
+              cursig2 = context.to_signature(-2)
               same_type(self, tobj, cursig, cursig2, context)
-#              same_type(tobj, self, cursig2, cursig, context)
+              # same_type(tobj, self, cursig2, cursig, context)
             end
           end
           context
@@ -3011,10 +3010,12 @@ LocalVarNode
                 rescue NameError
 =begin
                   p @parent.debug_info
+=end
                   p sig
                   p @name
                   p @reciever.class
                   p @reciever.instance_eval {@type_list }
+=begin
                   p @reciever.type_list(sig)
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
@@ -3365,8 +3366,22 @@ LocalVarNode
 #=begin
         def collect_candidate_type(context)
           if @topnode.is_a?(ClassTopNode) then
-            @type = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
-            add_type(context.to_signature, @type)
+            tt = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
+            # size of @var_type_info is always 1.because you can't assign self
+            topnode, node = @var_type_info[0]
+            cursig = context.to_signature
+
+            vsig = context.to_signature(topnode)
+            vtype = node.decide_type_once(vsig)
+            same_type(self, node, cursig, vsig, context)
+            if vtype.boxed != tt.boxed then
+              if vtype.boxed then
+                tt= tt.to_box
+              else
+                tt = tt.to_unbox
+              end
+            end
+            add_type(cursig, tt)
             context
           else
             super(context)

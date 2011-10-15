@@ -13,7 +13,7 @@ module YTLJit
           if key == cnode.key then
             return cnode
           end
-          
+
           if key.zip(cnode.key).all? {|k, n| k.is_a?(n.class)} then
             cnode = cnode.same_klass
             if cnode == nil then
