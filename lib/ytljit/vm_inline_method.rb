@@ -216,7 +216,7 @@ module YTLJit
           idxval = idx
         else
           context = idx.compile(context)
-          itype = idx.decide_type_once(context)
+          itype = idx.decide_type_once(context.to_signature)
           if itype.boxed then
             context = itype.gen_unboxing(context)
           end
@@ -259,7 +259,7 @@ module YTLJit
           idxval = idx
         else
           context = idx.compile(context)
-          itype = idx.decide_type_once(context)
+          itype = idx.decide_type_once(context.to_signature)
           if itype.boxed then
             context = itype.gen_unboxing(context)
           end

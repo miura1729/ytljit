@@ -709,13 +709,13 @@ LocalVarNode
             res.push args[1].decide_type_once(ynode.signature(context))
             context.pop_signature
           else
-            #            args[1].type = nil
+            # args[1].type = nil
             res.push args[1].decide_type_once(cursig)
           end
           res.push slf
 
           args[3..-1].each do |ele|
-#            ele.type = nil
+            # ele.type = nil
             res.push ele.decide_type_once(cursig)
           end
 
@@ -2483,6 +2483,8 @@ LocalVarNode
           @res_area = nil
         end
 
+        attr :node
+
         def traverse_childlen
           yield @node
         end
@@ -2976,6 +2978,8 @@ LocalVarNode
               else
                 if body.is_a?(CRubyInstanceVarAssignNode) and
                     body.val.is_a?(MultiplexNode) and
+                    body.val.node.is_a?(LocalVarRefNode) and
+                    ! body.val.node.is_a?(SelfRefNode) and
                     body.body.is_a?(SetResultNode) and
                     body.body.body.is_a?(MethodEndNode) then
                   @calling_convention = :setter

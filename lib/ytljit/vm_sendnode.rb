@@ -177,14 +177,11 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-          # @arguments[2].type = nil
+          @arguments[2].type = nil
           slf = nil
           if is_fcall or is_vcall then
-            mt = @func.method_top_node(@class_top, nil)
-            if mt then
-              klassobj = mt.classtop.klass_object
-            end
             slf =  @arguments[2].decide_type_once(cursig)
+            mt = @func.method_top_node(@class_top, nil)
           else
             slf = @arguments[2].decide_type_once(cursig)
             if slf.instance_of?(RubyType::DefaultType0) then
@@ -376,7 +373,6 @@ module YTLJit
             context = @arguments[2].compile(context)
             rectype = @arguments[2].decide_type_once(cursig)
             context = inode.compile_main_aux(context, context.ret_reg, rectype)
-
 
           when :setter
             inode = @func.inline_node
@@ -853,6 +849,9 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
+          else
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
           end
 
           context
