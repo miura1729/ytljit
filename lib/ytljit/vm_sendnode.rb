@@ -2125,6 +2125,16 @@ module YTLJit
         end
       end
 
+      class SendLogNode<SendMathFuncNode
+        add_special_send_node :log
+        def compile_main(context)
+          context = compile_call_func(context, "log")
+          context.ret_node = self
+          context.ret_reg = XMM0
+          context
+        end
+      end
+
       class RawSendNode<SendNode
         def collect_candidate_type(context)
           @arguments.each do |arg|
