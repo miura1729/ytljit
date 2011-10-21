@@ -316,3 +316,26 @@ typedef struct {
 } rb_binding_t;
 
 rb_iseq_t *rb_method_get_iseq(VALUE method);
+
+#ifndef RCLASS_M_TBL
+#define RCLASS_M_TBL(c) (RCLASS(c)->m_tbl)
+#endif
+
+#ifndef RCLASS_M_SUPER
+#define RCLASS_SUPER(c) (RCLASS(c)->ptr->super)
+#endif
+
+#ifndef ROBJECT_NUMIV
+#define ROBJECT_NUMIV(o) \
+    ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
+     ROBJECT_EMBED_LEN_MAX : \
+     ROBJECT(o)->as.heap.numiv)
+#define ROBJECT_IVPTR(o) \
+    ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
+     ROBJECT(o)->as.ary : \
+     ROBJECT(o)->as.heap.ivptr)
+#define ROBJECT_IV_INDEX_TBL(o) \
+    ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
+     RCLASS_IV_INDEX_TBL(rb_obj_class(o)) : \
+     ROBJECT(o)->as.heap.iv_index_tbl)
+#endif

@@ -715,10 +715,10 @@ module YTLJit
             end
 
             case ins[3]
-            when 0
+            when 0, 3
               klassobj = Class.new(supklass)
               
-            when 2
+            when 2, 5
               klassobj = Module.new
             end
           end
