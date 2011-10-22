@@ -111,7 +111,7 @@ LocalVarNode
               @my_element_node = BaseNode.new(self)
             end
             if @element_node_list == [] then
-              @element_node_list = [[sig[2], sig, @my_element_node, nil]]
+              @element_node_list = [[type, sig, @my_element_node, nil]]
             end
           end
         end
@@ -140,7 +140,7 @@ LocalVarNode
               @my_element_node = BaseNode.new(self)
             end
             if @element_node_list == [] then
-              @element_node_list = [[sig[2], sig, @my_element_node, nil]]
+              @element_node_list = [[type, sig, @my_element_node, nil]]
             end
           end
         end
@@ -268,7 +268,6 @@ LocalVarNode
 
         def marge_element_node(dst, src, context)
           res = dst
-          regnode = dst[0]
           src.each do |sele|
             exist_same_type = false
 #=begin
@@ -418,7 +417,9 @@ LocalVarNode
           # search entry whose index( [3]) is nil
           nlentry = nil
           @element_node_list.each do |e| 
-            if e[0].boxed == curslf.boxed and e[3] == nil then
+            if e[1] == encsig and
+                e[0] == curslf and
+                e[3] == nil then
               nlentry = e
               break
             end
@@ -568,15 +569,13 @@ LocalVarNode
             etype2 = {}
             etype = nil
             @element_node_list.each do |ele|
+              node = ele[2]
               sig = ele[1]
               slf = ele[0]
 
               if sig == cursig  and 
-                  ((@type.ruby_type == slf.ruby_type or
-#                    slf.ruby_type == Object or
-                    slf.ruby_type == NilClass) and
-                   @type.boxed == slf.boxed) then
-                node = ele[2]
+                  @type.ruby_type == slf.ruby_type and
+                  @type.boxed == slf.boxed then
                 node.type = nil
                 tt = node.decide_type_once(sig, local_cache)
                 etype2[ele[3]] ||= []
@@ -907,7 +906,7 @@ LocalVarNode
             context.set_reg_content(FUNC_ARG_YTL[i + 3].dst_opecode, 
                                     context.ret_node)
           end
-          
+
           entry = @arguments[1].code_space.var_base_immidiate_address
           casm.with_retry do 
             casm.mov(FUNC_ARG_YTL[1], entry)

@@ -1503,8 +1503,6 @@ module YTLJit
                 esig = epare2[1]
                 enode = epare2[2]
                 if enode.type_list(esig) != [[], []] then
-#                  p enode.decide_type_once(cursig)
-#                  p ele[3]
                   epare = epare2
                   same_type(self, enode, cursig, esig, context)
                 end
@@ -1546,7 +1544,7 @@ module YTLJit
             if epare == nil then
               nele = @arguments[2].element_node_list.select {|e| e[3] == nil}
               if nele.size == 1 then
-                epare = @arguments[2].element_node_list[0]
+                epare = nele[0]
                 esig = epare[1]
                 enode = epare[2]
                 same_type(self, enode, cursig, esig, context)
@@ -1564,7 +1562,6 @@ module YTLJit
                 p "foo"
               end
             end
-
             @type = nil
             
           when [Hash]
@@ -1634,12 +1631,13 @@ module YTLJit
             @arguments[2].type = nil
             slf = @arguments[2].decide_type_once(cursig)
 
-            arg = [slf, cursig, val, cidx, context]
-            @arguments[2].add_element_node_backward(arg)
+#            arg = [slf, cursig, val, cidx, context]
+#            @arguments[2].add_element_node_backward(arg)
+            @arguments[2].add_element_node(slf, cursig, val, cidx, context)
 
             epare = nil
             @arguments[2].element_node_list.each do |ele|
-              if ele[3] == cidx and ele[2] != self then
+              if ele[3] == cidx and ele[2] != self and ele[0] == slf then
                 epare = ele
                 break
               end
