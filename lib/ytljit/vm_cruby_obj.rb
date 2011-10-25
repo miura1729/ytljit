@@ -57,9 +57,7 @@ module YTLJit
             asm.mov(FUNC_ARG[1], off)
           end
           context = gen_save_thepr(context)
-          asm.with_retry do
-            asm.call_with_arg(ivarget, 2)
-          end
+          context = gen_call(context, ivarget, 2)
 
           context.end_arg_reg
           context.ret_reg = RETR
@@ -132,9 +130,8 @@ module YTLJit
             asm.mov(FUNC_ARG[2], TMPR2)
           end
           context = gen_save_thepr(context)
-          asm.with_retry do
-            asm.call_with_arg(ivarset, 3)
-          end
+          context = gen_call(context, ivarset, 3)
+
           context.end_arg_reg
           context.end_using_reg(TMPR2)
           

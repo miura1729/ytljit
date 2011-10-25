@@ -177,7 +177,7 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-          @arguments[2].type = nil
+          # @arguments[2].type = nil
           slf = nil
           if is_fcall or is_vcall then
             slf =  @arguments[2].decide_type_once(cursig)
@@ -384,9 +384,9 @@ module YTLJit
           when nil
 
           else
-            p @arguments[2].type_list(context.to_signature)
-            p @func.name
-            raise "Unsupported calling conversion #{callconv}"
+#            p @arguments[2].type_list(context.to_signature)
+#            p @func.name
+#            raise "Unsupported calling conversion #{callconv}"
           end
           
           decide_type_once(cursig)
@@ -615,6 +615,7 @@ module YTLJit
               @type = nil
             elsif type_list(cursig)[0].include?(tt.to_unbox) then
               type_list(cursig)[0] = []
+              @type = nil
             end
 
             add_type(cursig, tt)
@@ -754,7 +755,7 @@ module YTLJit
                 if context.options[:compile_array_as_uboxed] and
                     @element_node_list.size > 1 and
                       @element_node_list[1..-1].all? {|e|
-                        e[3]
+                        e[3] or e[2].class == BaseNode
                       } and 
                     @is_escape and @is_escape != :global_export then
                   tt = tt.to_unbox
@@ -1377,7 +1378,9 @@ module YTLJit
         end
 
         def compile(context)
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          cursig = context.to_signature
+          @arguments[2].type = nil
+          rtype = @arguments[2].decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
@@ -1387,7 +1390,7 @@ module YTLJit
           if rrtype == Fixnum or rrtype == Float then
             context = gen_eval_self(context)
             context.ret_node.type = nil
-            srtype = context.ret_node.decide_type_once(context.to_signature)
+            srtype = context.ret_node.decide_type_once(cursig)
             context = srtype.gen_unboxing(context)
             context = compile_compare(context, rtype)
             
@@ -1502,7 +1505,7 @@ module YTLJit
                 epare2 = ele
                 esig = epare2[1]
                 enode = epare2[2]
-                if enode.type_list(esig) != [[], []] then
+                if enode.decide_type_once(esig).ruby_type != Object  then
                   epare = epare2
                   same_type(self, enode, cursig, esig, context)
                 end
@@ -1516,7 +1519,7 @@ module YTLJit
                   epare2 = ele
                   esig = epare2[1]
                   enode = epare2[2]
-                  if enode.type_list(esig) != [[], []] then
+                  if enode.decide_type_once(esig).ruby_type != Object then
                     epare = epare2
                     same_type(self, enode, cursig, esig, context)
                   end
@@ -1631,9 +1634,9 @@ module YTLJit
             @arguments[2].type = nil
             slf = @arguments[2].decide_type_once(cursig)
 
-#            arg = [slf, cursig, val, cidx, context]
-#            @arguments[2].add_element_node_backward(arg)
-            @arguments[2].add_element_node(slf, cursig, val, cidx, context)
+            arg = [slf, cursig, val, cidx, context]
+            @arguments[2].add_element_node_backward(arg)
+#            @arguments[2].add_element_node(slf, cursig, val, cidx, context)
 
             epare = nil
             @arguments[2].element_node_list.each do |ele|
@@ -1970,6 +1973,7 @@ module YTLJit
           p sig
           p @arguments[2].type_list(sig)
 #          p @arguments[2].instance_eval {@type_list}
+          p @arguments[2].is_escape
           p @arguments[2].class
           context
         end
@@ -2164,7 +2168,7 @@ module YTLJit
           if context.options[:compile_array_as_uboxed] and
               @element_node_list.size > 1 and 
                 @element_node_list[1..-1].all? {|e|
-                  e[3]
+                  e[3] or e[2].class == BaseNode
                 } then
             tt = tt.to_unbox
           end

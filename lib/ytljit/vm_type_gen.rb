@@ -186,7 +186,7 @@ module YTLJit
               ((other.element_type == nil and
                @element_type == nil) or
                (other.element_type and @element_type and
-                @element_type[nil] == other.element_type[nil])) and
+                @element_type[nil][0] == other.element_type[nil][0])) and
               boxed == other.boxed
           else
             false

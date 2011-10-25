@@ -270,10 +270,9 @@ LocalVarNode
           res = dst
           src.each do |sele|
             exist_same_type = false
-#=begin
+=begin
             res.each do |rele|
-              if rele[0].ruby_type == sele[0].ruby_type and
-                  rele[0].boxed == sele[0].boxed and
+              if rele[0] == sele[0]  and
                   rele[3] == sele[3] and
                   rele[1] == sele[1] and
                   rele[2] != sele[2] then
@@ -288,7 +287,7 @@ LocalVarNode
                 end
               end
             end
-#=end
+=end
             
             if !exist_same_type and !res.include?(sele) then
               res.push sele
@@ -443,6 +442,7 @@ LocalVarNode
               @element_node_list.each do |tmpslf, tmpsig, tmpnode, tmpindex|
                 if tmpslf == curslf and
                     tmpindex == index and
+                    tmpsig == encsig and
                     tmpnode != enode then
                   same_type(tmpnode, enode, tmpsig, encsig, context)
                 end
@@ -574,9 +574,9 @@ LocalVarNode
               slf = ele[0]
 
               if sig == cursig  and 
-                  @type.ruby_type == slf.ruby_type and
-                  @type.boxed == slf.boxed then
-                node.type = nil
+                  (@type.ruby_type == slf.ruby_type and
+                   @type.boxed == slf.boxed) then
+#                node.type = nil
                 tt = node.decide_type_once(sig, local_cache)
                 etype2[ele[3]] ||= []
                 curidx = etype2[ele[3]]
@@ -1206,12 +1206,13 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, signode, sig)
+          context.visited_top_node[self] ||= []
           if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self] then
+              context.visited_top_node[self].include?(sig) then
             return context
           end
 
-          context.visited_top_node[self] = true
+          context.visited_top_node[self].push sig
 
           if !@signature_cache.include?(sig) then
             @signature_cache.push sig
@@ -1479,13 +1480,14 @@ LocalVarNode
         def collect_candidate_type(context, signode, sig)
           @type = RubyType::BaseType.from_ruby_class(@klassclass)
           add_type(sig, @type)
+          context.visited_top_node[self] ||= []
 
           if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self] then
+              context.visited_top_node[self].include?(sig) then
             return context
           end
 
-          context.visited_top_node[self] = true
+          context.visited_top_node[self].push sig
           @signature_cache.push sig
           
           context.push_signature(signode, self)
@@ -3013,12 +3015,10 @@ LocalVarNode
                 rescue NameError
 =begin
                   p @parent.debug_info
-=end
                   p sig
                   p @name
                   p @reciever.class
                   p @reciever.instance_eval {@type_list }
-=begin
                   p @reciever.type_list(sig)
                   mc = @reciever.get_send_method_node(context.to_signature)[0]
                   iv = mc.end_nodes[0].parent.value_node
@@ -3057,8 +3057,8 @@ LocalVarNode
                     @calling_convention = :mixed
                   end
                         
-                  p @parent.debug_info
-                  p @calling_convention
+#                  p @parent.debug_info
+#                  p @calling_convention
                   return @calling_convention
                 end
               end
@@ -3370,9 +3370,9 @@ LocalVarNode
         def collect_candidate_type(context)
           if @topnode.is_a?(ClassTopNode) then
             tt = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
+            cursig = context.to_signature
             # size of @var_type_info is always 1.because you can't assign self
             topnode, node = @var_type_info[0]
-            cursig = context.to_signature
 
             vsig = context.to_signature(topnode)
             vtype = node.decide_type_once(vsig)
