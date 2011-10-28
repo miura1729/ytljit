@@ -270,10 +270,9 @@ LocalVarNode
           res = dst
           src.each do |sele|
             exist_same_type = false
-=begin
+#=begin
             res.each do |rele|
-              if rele[0] == sele[0]  and
-                  rele[3] == sele[3] and
+              if rele[3] == sele[3] and
                   rele[1] == sele[1] and
                   rele[2] != sele[2] then
                 # Add entry for old element type version of self
@@ -283,11 +282,12 @@ LocalVarNode
                   nele = [rele[0], sele[1], sele[2], sele[3]]
                   if !res.include?(nele) then
                     res.push nele
+                    exist_same_type = true
                   end
                 end
               end
             end
-=end
+#=end
             
             if !exist_same_type and !res.include?(sele) then
               res.push sele
@@ -442,7 +442,6 @@ LocalVarNode
               @element_node_list.each do |tmpslf, tmpsig, tmpnode, tmpindex|
                 if tmpslf == curslf and
                     tmpindex == index and
-                    tmpsig == encsig and
                     tmpnode != enode then
                   same_type(tmpnode, enode, tmpsig, encsig, context)
                 end

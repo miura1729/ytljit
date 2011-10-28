@@ -845,13 +845,12 @@ module YTLJit
         add_special_send_node :+
 
         def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
           case [slf.ruby_type]
           when [Fixnum], [Float], [String], [Array]
-            cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
           else
-            cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
           end
 
@@ -1529,16 +1528,15 @@ module YTLJit
 
 =begin
             if epare == nil then
-              @arguments[2].element_node_list.reverse.each do |ele|
+              @arguments[2].element_node_list.each do |ele|
                 if ele[3] == cidx and ele[2] != self and 
                     ele[0].ruby_type == slf.ruby_type then
                   epare2 = ele
                   esig = epare2[1]
                   enode = epare2[2]
-                  unless enode.type_list(esig) == [[], []]
+                  if enode.decide_type_once(esig).ruby_type != Object then
                     epare = epare2
                     same_type(self, enode, cursig, esig, context)
-                    break
                   end
                 end
               end
