@@ -2552,11 +2552,7 @@ LocalVarNode
         def collect_candidate_type(context)
           sig = context.to_signature
           if @type == nil then
-            if @type_list != [[], []] then
-              @type = decide_type_once(sig)
-            else
-              @type = RubyType::BaseType.from_object(@value) 
-            end
+            @type = RubyType::BaseType.from_object(@value) 
           end
 
           case @value
