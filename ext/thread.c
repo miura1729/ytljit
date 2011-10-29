@@ -18,9 +18,12 @@ ytl_thread_create(void *argv, void *(*entry)(void *))
   VALUE obj;
 
   th = malloc(sizeof(struct ytl_thread));
+  th->pself = ((VALUE *)argv)[4];
+  th->cself = ((VALUE *)argv)[3];
   pthread_attr_init(&th->attr);
   pthread_attr_setstacksize(&th->attr, 64 * 1024);
   pthread_create(&th->thread, &th->attr, entry, argv);
+  printf("%x %x \n", th->pself, th->cself);
 
   return Data_Wrap_Struct(ytl_cThread, NULL, NULL, (void *)th);
 }

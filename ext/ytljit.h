@@ -325,15 +325,25 @@ rb_iseq_t *rb_method_get_iseq(VALUE method);
 #define RCLASS_SUPER(c) (RCLASS(c)->ptr->super)
 #endif
 
+#ifndef RCLASS_IV_INDEX_TBL
+#define RCLASS_IV_INDEX_TBL(c) (RCLASS(c)->iv_index_tbl)
+#endif
+
 #ifndef ROBJECT_NUMIV
 #define ROBJECT_NUMIV(o) \
     ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
      ROBJECT_EMBED_LEN_MAX : \
      ROBJECT(o)->as.heap.numiv)
+#endif
+
+#ifndef ROBJECT_IVPTR
 #define ROBJECT_IVPTR(o) \
     ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
      ROBJECT(o)->as.ary : \
      ROBJECT(o)->as.heap.ivptr)
+#endif
+
+#ifndef ROBJECT_IV_INDEX_TBL
 #define ROBJECT_IV_INDEX_TBL(o) \
     ((RBASIC(o)->flags & ROBJECT_EMBED) ? \
      RCLASS_IV_INDEX_TBL(rb_obj_class(o)) : \
