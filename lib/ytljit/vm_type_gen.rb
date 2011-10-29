@@ -1,7 +1,37 @@
 module YTLJit
   module VM
     module TypeCodeGen
+      module TypeUtil
+        include AbsArch
+        include CommonCodeGen
+
+        def gen_copy_common(context, func)
+          asm = context.assembler
+          val = context.ret_reg
+          vnode = context.ret_node
+          context.start_arg_reg
+          addr = lambda {
+            a = address_of(func)
+            $symbol_table[a] = func
+            a
+          }
+          rbstrdup = OpVarMemAddress.new(addr)
+          asm.with_retry do
+            asm.mov(FUNC_ARG[0], val)
+          end
+          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
+          context = gen_save_thepr(context)
+          context = gen_call(context, rbstrdup, 1, vnode)
+          context.end_arg_reg
+          context.ret_reg = RETR
+          
+          context
+        end
+      end
+
       module DefaultTypeCodeGen
+        include TypeUtil
+
         def instance
           self
         end
@@ -27,7 +57,7 @@ module YTLJit
         end
 
         def gen_copy(context)
-          context
+          gen_copy_common(context, 'rb_obj_dup')
         end
 
         def inspect
@@ -46,7 +76,24 @@ module YTLJit
         end
       end
 
+      module NilClassTypeBoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module NilClassTypeUnboxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
       module FixnumTypeUnboxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
 
@@ -74,9 +121,14 @@ module YTLJit
         def gen_unboxing(context)
           context
         end
+
+        def gen_copy(context)
+          context
+        end
       end
 
       module FixnumTypeBoxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
 
@@ -99,9 +151,14 @@ module YTLJit
           context.ret_reg = TMPR
           context
         end
+
+        def gen_copy(context)
+          context
+        end
       end
 
       module FloatTypeBoxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
 
@@ -119,9 +176,14 @@ module YTLJit
           context.ret_reg = XMM0
           context
         end
+
+        def gen_copy(context)
+          context
+        end
       end
 
       module FloatTypeUnboxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
 
@@ -165,9 +227,15 @@ module YTLJit
         def gen_unboxing(context)
           context
         end
+
+        def gen_copy(context)
+          context
+        end
       end
 
       module ArrayTypeCommonCodeGen
+        include TypeUtil
+
         def init
           @element_type = nil
         end
@@ -212,26 +280,7 @@ module YTLJit
         end
 
         def gen_copy(context)
-          asm = context.assembler
-          val = context.ret_reg
-          vnode = context.ret_node
-          context.start_arg_reg
-          addr = lambda {
-            a = address_of("rb_ary_dup")
-            $symbol_table[a] = "rb_ary_dup"
-            a
-          }
-          rbarydup = OpVarMemAddress.new(addr)
-          asm.with_retry do
-            asm.mov(FUNC_ARG[0], val)
-          end
-          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_save_thepr(context)
-          context = gen_call(context, rbarydup, 1, vnode)
-          context.end_arg_reg
-          context.ret_reg = RETR
-
-          context
+          gen_copy_common(context, 'rb_ary_dup')
         end
 
         def copy_type
@@ -325,34 +374,18 @@ module YTLJit
       end
 
       module StringTypeBoxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
 
         def gen_copy(context)
-          asm = context.assembler
-          val = context.ret_reg
-          vnode = context.ret_node
-          context.start_arg_reg
-          addr = lambda {
-            a = address_of("rb_str_dup")
-            $symbol_table[a] = "rb_str_dup"
-            a
-          }
-          rbstrdup = OpVarMemAddress.new(addr)
-          asm.with_retry do
-            asm.mov(FUNC_ARG[0], val)
-          end
-          context.set_reg_content(FUNC_ARG[0].dst_opecode, vnode)
-          context = gen_save_thepr(context)
-          context = gen_call(context, rbstrdup, 1, vnode)
-          context.end_arg_reg
-          context.ret_reg = RETR
-          
-          context
+          gen_copy_common(context, 'rb_str_dup')
         end
       end
 
       module RangeTypeCommonCodeGen
+        include TypeUtil
+
         def init
           @args = nil
           @element_type = nil
@@ -377,6 +410,7 @@ module YTLJit
       end
 
       module RangeTypeBoxedCodeGen
+        include TypeUtil
         include RangeTypeCommonCodeGen
 
         def instance
@@ -396,6 +430,7 @@ module YTLJit
       end
 
       module RangeTypeUnboxedCodeGen
+        include TypeUtil
         include AbsArch
         include CommonCodeGen
         include RangeTypeCommonCodeGen
