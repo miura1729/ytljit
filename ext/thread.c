@@ -23,7 +23,8 @@ ytl_thread_create(void *argv, void *(*entry)(void *))
   pthread_attr_init(&th->attr);
   pthread_attr_setstacksize(&th->attr, 64 * 1024);
   pthread_create(&th->thread, &th->attr, entry, argv);
-  printf("%x %x \n", th->pself, th->cself);
+
+  //printf("%x %x \n", th->pself, th->cself);
 
   return Data_Wrap_Struct(ytl_cThread, NULL, NULL, (void *)th);
 }
