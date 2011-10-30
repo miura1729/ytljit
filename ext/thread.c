@@ -83,13 +83,23 @@ ytl_obj_copy(VALUE dest, VALUE obj)
 }
 
 VALUE
-ytl_thread_merged_join(VALUE self, VALUE newself)
+ytl_thread_join(VALUE self)
 {
   struct ytl_thread *th;
 
   Data_Get_Struct(self, struct ytl_thread, th);
   pthread_join(th->thread, NULL);
   pthread_attr_destroy(&th->attr);
+
+  return self;
+}
+
+VALUE
+ytl_thread_merge(VALUE self, VALUE newself)
+{
+  struct ytl_thread *th;
+  Data_Get_Struct(self, struct ytl_thread, th);
+
   if (th->pself != newself) {
     ytl_obj_copy(th->pself, newself);
   }
