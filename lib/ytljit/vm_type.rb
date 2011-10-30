@@ -182,21 +182,22 @@ module YTLJit
 
         klass.ancestors.reverse.each do |curcls|
           box_unbox = base.name.gsub(/.*::Ruby/, "")
-          mixinname = curcls.name + box_unbox + "CodeGen"
+          curclsn = curcls.name.gsub(/:/, '')
+          mixinname = curclsn + box_unbox + "CodeGen"
           begin
             mixin = VM::TypeCodeGen.const_get(mixinname)
             baseslf.extend mixin
           rescue NameError
           end
 
-          mixinname = curcls.name + "TypeBoxedCodeGen"
+          mixinname = curclsn + "TypeBoxedCodeGen"
           begin
             mixin = VM::TypeCodeGen.const_get(mixinname)
             boxslf.extend mixin
           rescue NameError
           end
 
-          mixinname = curcls.name + "TypeUnboxedCodeGen"
+          mixinname = curclsn + "TypeUnboxedCodeGen"
           begin
             mixin = VM::TypeCodeGen.const_get(mixinname)
             unboxslf.extend mixin
