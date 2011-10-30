@@ -693,7 +693,9 @@ Init_ytljit_ext()
   rb_define_method(ytl_cArena, "to_s", ytl_arena_to_s, 0);
 
   ytl_cThread = rb_define_class_under(ytl_mRuntime, "Thread", rb_cObject);
-  rb_define_method(ytl_cThread, "join", ytl_thread_join, 0);
+  rb_define_method(ytl_cThread, "merged_join", ytl_thread_merged_join, 1);
+  rb_define_method(ytl_cThread, "pself", ytl_thread_pself, 0);
+  rb_define_method(ytl_cThread, "cself", ytl_thread_cself, 0);
 
   /* Open Handles */
 #ifdef __CYGWIN__

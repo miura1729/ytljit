@@ -84,7 +84,23 @@ module YTLJit
         end
       end
 
-      module NilClassTypeUnboxedCodeGen
+      module SymbolTypeBoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module FalseClassTypeBoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module TrueClassTypeBoxedCodeGen
         include TypeUtil
 
         def gen_copy(context)
