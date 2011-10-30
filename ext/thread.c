@@ -7,6 +7,13 @@
 
 VALUE ytl_cThread;
 
+static void
+ytl_thread_mark(struct ytl_thread *th)
+{
+  rb_gc_mark(th->pself);
+  rb_gc_mark(th->cself);
+}
+
 /* You may think arguments order is wrong. But it is correct.
   This is for efficient code. See SendThreadNewNode#compile in 
   github#ytl/lib/ytl/thread.rb 
@@ -26,7 +33,7 @@ ytl_thread_create(void *argv, void *(*entry)(void *))
 
   //printf("%x %x \n", th->pself, th->cself);
 
-  return Data_Wrap_Struct(ytl_cThread, NULL, NULL, (void *)th);
+  return Data_Wrap_Struct(ytl_cThread, ytl_thread_mark, NULL, (void *)th);
 }
 
 static void

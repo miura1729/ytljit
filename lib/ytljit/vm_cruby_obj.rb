@@ -120,9 +120,7 @@ module YTLJit
           end
 
           context = val.compile(context)
-          if val.is_escape != :global_export then
-            context = rtype.gen_boxing(context)
-          end
+          context = rtype.gen_boxing(context)
 
           asm.with_retry do
             asm.mov(TMPR2, context.ret_reg)
