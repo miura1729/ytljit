@@ -1970,6 +1970,7 @@ module YTLJit
           p debug_info
           p sig
           p @arguments[2].type_list(sig)
+          p @arguments[2].decide_type_once(sig)
 #          p @arguments[2].instance_eval {@type_list}
           p @arguments[2].is_escape
           p @arguments[2].class
@@ -1977,6 +1978,41 @@ module YTLJit
         end
 
        def compile(context)
+         @body.compile(context)
+       end
+     end
+
+     class SendSelfOfCallerTypeNode<SendNode
+       include NodeUtil
+       add_special_send_node :self_of_caller
+       
+       def initialize(parent, func, arguments, op_flag, seqno)
+         super
+         @frame_info = search_frame_info
+       end
+       
+       def collect_candidate_type_regident(context, slf)
+         cursig = context.to_signature
+         callersig = context.to_signature(-2)
+         tt = callersig[2]
+         add_type(cursig, tt)
+         context
+       end
+       
+       def compile(context)
+         asm = context.assembler
+         prevenv = @frame_info.offset_arg(0, BPR)
+         # offset of self is common, so it no nessery traverse 
+         # prev frame for @frame_info.
+         slfarg = @frame_info.offset_arg(2, TMPR2)
+         context.start_using_reg(TMPR2)
+         asm.with_retry do
+           asm.mov(TMPR2, prevenv)
+           asm.mov(RETR, slfarg)
+         end
+         context.end_using_reg(TMPR2)
+         context.ret_reg = RETR
+         context.ret_node = self
          @body.compile(context)
        end
      end
