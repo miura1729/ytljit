@@ -65,6 +65,8 @@ ytl_obj_copy(VALUE dest, VALUE obj)
       RBASIC(dest)->flags &= ~ROBJECT_EMBED;
     }
     break;
+
+#if 0    
   case T_CLASS:
   case T_MODULE:
     if (RCLASS_IV_TBL(dest)) {
@@ -79,6 +81,7 @@ ytl_obj_copy(VALUE dest, VALUE obj)
       RCLASS_IV_TBL(dest) = st_copy(RCLASS_IV_TBL(obj));
     }
     break;
+#endif
   }
 }
 
@@ -114,6 +117,16 @@ ytl_thread_pself(VALUE self)
 
   Data_Get_Struct(self, struct ytl_thread, th);
   return th->pself;
+}
+
+VALUE
+ytl_thread_set_pself(VALUE self, VALUE val)
+{
+  struct ytl_thread *th;
+
+  Data_Get_Struct(self, struct ytl_thread, th);
+  th->pself = val;
+  return val;
 }
 
 VALUE

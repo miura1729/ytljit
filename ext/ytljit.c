@@ -696,6 +696,7 @@ Init_ytljit_ext()
   rb_define_method(ytl_cThread, "_join", ytl_thread_join, 0);
   rb_define_method(ytl_cThread, "_merge", ytl_thread_merge, 1);
   rb_define_method(ytl_cThread, "pself", ytl_thread_pself, 0);
+  rb_define_method(ytl_cThread, "pself=", ytl_thread_set_pself, 1);
   rb_define_method(ytl_cThread, "cself", ytl_thread_cself, 0);
 
   /* Open Handles */
