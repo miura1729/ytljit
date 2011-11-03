@@ -2929,7 +2929,7 @@ LocalVarNode
                 addr = recobj.method_address_of(@name)
                 $symbol_table[addr] = @name
                 if addr then
-                  mth = recobj.method(@name)
+                  mth = recobj.instance_method(@name)
                   if variable_argument?(mth.parameters) then
                     @calling_convention = :c_vararg
                   else
