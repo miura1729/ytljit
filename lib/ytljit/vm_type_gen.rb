@@ -108,6 +108,38 @@ module YTLJit
         end
       end
 
+      module ModuleTypeBoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module ModuleTypeUnoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module ClassTypeBoxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
+      module ClassTypeUnboxedCodeGen
+        include TypeUtil
+
+        def gen_copy(context)
+          context
+        end
+      end
+
       module FixnumTypeUnboxedCodeGen
         include TypeUtil
         include AbsArch
