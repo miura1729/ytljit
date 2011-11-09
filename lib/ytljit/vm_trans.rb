@@ -232,7 +232,13 @@ module YTLJit
         (arg_size - locals.size).times do 
           locals.push nil
         end
+
         cnode = mtopnode.construct_frame_info(locals, arg_size, args)
+        # Get code space each optional argument label
+        cnode.opt_label.each do |lab|
+          cnode.opt_label_node.push get_vmnode_from_label(context, lab)
+        end
+
         exptab = code.header['exception_table']
         context.exception_table = {}
         if exptab.size != 0 then

@@ -1130,14 +1130,16 @@ LocalVarNode
           block_index = -1
           simple = -1
           if args.is_a?(Array) then
-            argc = args[0]
-            opt_label = args[1]
-            post_len = args[2]
-            post_start = args[3]
-            rest_index = args[4]
-            block_index = args[5]
-            simple = args[6]
+            argc, opt_label, post_len, post_start, 
+              rest_index, block_index, simple = args
+            finfo.opt_label = opt_label
+            finfo.post_len = post_len
+            finfo.post_start = post_start
+            finfo.rest_index = rest_index
+            finfo.block_index = block_index
+            finfo.simple = simple
           end
+          finfo.argc = argc
           
           lsize = locals.size + finfo.system_num
           
@@ -1768,6 +1770,15 @@ LocalVarNode
           @offset_cache = {}
           @local_area_size = nil
           @alloca_area_size = 0
+
+          @argc = nil
+          @opt_label = []
+          @opt_label_node = []
+          @post_len = nil
+          @post_start = nil
+          @rest_index = nil
+          @block_index = nil
+          @simple = true
         end
 
         def init_after_construct
@@ -1795,6 +1806,15 @@ LocalVarNode
         attr_accessor :argument_num
         attr_accessor :system_num
         attr          :previous_frame
+
+        attr_accessor :argc
+        attr_accessor :opt_label
+        attr_accessor :opt_label_node
+        attr_accessor :post_len
+        attr_accessor :post_start
+        attr_accessor :rest_index
+        attr_accessor :block_index
+        attr_accessor :simple
 
         def traverse_childlen
           @frame_layout.each do |vinf|
