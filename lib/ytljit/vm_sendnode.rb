@@ -99,6 +99,20 @@ module YTLJit
                   argruby = ele.to_ruby(ToRubyContext.new).ret_code.last
                   args.push eval(argruby)
                 end
+
+                # define used methods in macro
+                @@macro_tab.each do |name, val|
+                  val.each do |rec, proc|
+                    if rec.is_a?(Module) then
+                      name1 = ("ytl__eval_" + name.to_s).to_sym
+                      if proc.is_a?(Proc)
+                        rec.class_eval {define_method(name1, &proc)}
+                      end
+                    end
+                  end
+                end
+
+                # call eval included method
                 return mproc.call(*args)
               end
             end

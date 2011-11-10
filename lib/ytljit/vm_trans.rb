@@ -271,13 +271,12 @@ module YTLJit
         klassnode = context.current_class_node
         top.exception_table = context.exception_table
         if top.class == MethodTopNode then
+          SendNode.get_macro_tab[top.name] ||= {}
           if context.macro_method then
-            code = top.to_ruby(ToRubyContext.new).ret_code.last
+            maccontext = ToRubyContext.new
+            code = top.to_ruby(maccontext).ret_code.last
             #            print code
             proc = eval("lambda" + code)
-            if SendNode.get_macro_tab[top.name] == nil then
-              SendNode.get_macro_tab[top.name] = {}
-            end
             SendNode.get_macro_tab[top.name][:last] = proc
           else
             if !SendNode.get_user_defined_method_tab[top.name] then
@@ -285,6 +284,7 @@ module YTLJit
             end
             klassobj = klassnode.klass_object
             SendNode.get_user_defined_method_tab[top.name].push klassobj
+            SendNode.get_macro_tab[top.name][:last] = top
           end
         end
       end
