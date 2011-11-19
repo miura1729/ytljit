@@ -118,6 +118,7 @@ LO        |                       |   |  |
         @current_method = [tnode]
         @convergent = false
         @visited_top_node = {}
+        @visited_block_node = {}
         # Options from user
         @options = {}
       end
@@ -253,6 +254,7 @@ LO        |                       |   |  |
       attr          :current_method_signature_node
       attr_accessor :convergent
       attr_accessor :visited_top_node
+      attr_accessor :visited_block_node
       attr_accessor :options
     end
 

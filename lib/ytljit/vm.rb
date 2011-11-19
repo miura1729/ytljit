@@ -1190,7 +1190,7 @@ LocalVarNode
           finfo
         end
 
-        def collect_info(context)
+        def collect_info_top(context)
           context.yield_node.push []
           context = @body.collect_info(context)
           @yield_node = context.yield_node.pop
@@ -1206,11 +1206,20 @@ LocalVarNode
           context
         end
 
+        def collect_info(context)
+          collect_info_top(context)
+        end
+
         def collect_candidate_type(context, signode, sig)
           context.visited_top_node[self] ||= []
           if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self].include?(sig) then
+              context.visited_top_node[self].include?(sig) and 
+              (!signode[1].is_a?(BlockTopNode) or
+               context.visited_block_node[signode[1]] or true) then
             return context
+          end
+          if signode[1].is_a?(BlockTopNode) then
+            context.visited_block_node[signode[1]] = true
           end
 
           context.visited_top_node[self].push sig
@@ -1319,7 +1328,7 @@ LocalVarNode
       class BlockTopNode<MethodTopNode
         def collect_info(context)
           context.modified_local_var.last.push Hash.new
-          context = @body.collect_info(context)
+          context = collect_info_top(context)
           context.modified_local_var.last.pop
           context
         end
@@ -1646,6 +1655,7 @@ LocalVarNode
         def collect_candidate_type(context, signode, sig)
           context.convergent = true
           context.visited_top_node = {}
+          context.visited_block_node = {}
           if @init_node then
             context = @init_node.collect_candidate_type(context, signode, sig)
           end
@@ -2608,6 +2618,7 @@ LocalVarNode
               @type.args.push exclnode
               context = exclnode.collect_candidate_type(context)
               add_element_node(@type, sig, fstnode, [0], context)
+              add_element_node(@type, sig, sndnode, [1], context)
             end
           else
             add_type(sig, @type)
@@ -2669,9 +2680,9 @@ LocalVarNode
           [@value]
         end
 
-#        def type=(val)
-#          val
-#        end
+        def type=(val)
+          val
+        end
       end
 
       class ClassValueNode<BaseNode
@@ -2742,10 +2753,12 @@ LocalVarNode
           super(parent)
           @name = "block yield"
           @frame_info = search_frame_info
+          @depth = 0
         end
 
         attr :name
         attr :frame_info
+        attr_accessor :depth
 
         def collect_info(context)
           context.yield_node.last.push @parent
@@ -2767,21 +2780,46 @@ LocalVarNode
         def compile(context)
           context = super(context)
           asm = context.assembler
-          # You can crash when you use yield in block.
-          # You can fix this bug for traversing PTMPR for method top.
-          # But is is little troublesome. So it  is not supported.
           prevenv = @frame_info.offset_arg(0, BPR)
+          prevenv2 = @frame_info.offset_arg(0, PTMPR)
+          prevenv3 = @frame_info.offset_arg(0, TMPR2)
           # offset of self is common, so it no nessery traverse prev frame
           # for @frame_info.
           slfarg = @frame_info.offset_arg(2, PTMPR)
           asm.with_retry do
             asm.mov(PTMPR, prevenv)
+          end
+
+          @depth.times do
+            asm.with_retry do
+              asm.mov(PTMPR, prevenv)
+            end
+          end
+          
+          asm.with_retry do
             asm.mov(PTMPR, slfarg)
           end
           context.set_reg_content(PTMPR, :self_of_block)
           context.ret_reg2 = PTMPR
-          
-          context.ret_reg = @frame_info.offset_arg(1, BPR)
+
+          if @depth == 0 then
+            context.ret_reg = @frame_info.offset_arg(1, BPR)
+          else
+            context.start_using_reg(TMPR2)
+            asm.with_retry do
+              asm.mov(TMPR2, prevenv)
+            end
+            (@depth - 1).times do
+              asm.with_retry do
+                asm.mov(TMPR2, prevenv3)
+              end
+            end
+            asm.with_retry do
+              asm.mov(TMPR2, @frame_info.offset_arg(1, TMPR2))
+            end
+            context.ret_reg = TMPR2
+          end
+            
           context.ret_node = self
           context.set_reg_content(context.ret_reg, self)
           context
@@ -2956,6 +2994,7 @@ LocalVarNode
                     @calling_convention = :c_fixarg
                   end
                 else
+                  p parent.debug_info
                   raise "Unkown method - #{recobj}##{@name}"
                   @calling_convention = :c
                 end
@@ -3072,9 +3111,12 @@ LocalVarNode
                   else
                     @calling_convention = :mixed
                   end
-                        
-#                  p @parent.debug_info
-#                  p @calling_convention
+
+                  p sig
+                  p @reciever.instance_eval {@type_list}
+                  p @name
+                  p @parent.debug_info
+                  p @calling_convention
                   return @calling_convention
                 end
               end
@@ -3329,8 +3371,8 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
+          cursig = context.to_signature
           @var_type_info.each do |topnode, node|
-            cursig = context.to_signature
             varsig = context.to_signature(topnode)
             same_type(self, node, cursig, varsig, context)
             same_type(node, self, varsig, cursig, context)
@@ -3500,7 +3542,7 @@ LocalVarNode
           @depth.times { tmpctx = tmpctx.prev_context}
           tmpctx.set_reg_content(offarg, @val)
 
-          context.ret_reg = nil
+          context.ret_reg = TMPR
           if base == TMPR2 then
             context.end_using_reg(base)
           end

@@ -276,15 +276,46 @@ module YTLJit
           end
         end
 
+        # inherit self/block from caller node
+        def inherit_from_callee(context, cursig, prevsig, signat, args)
+          args[1] = context.current_method_signature_node[-2][1]
+          signat[1] = prevsig[1]
+          args[2] = context.current_method_signature_node[-2][2]
+          signat[2] = prevsig[2]
+          if args[2].decide_type_once(cursig).ruby_type == Object then
+            context.current_method_signature_node.reverse.each {|e0| 
+              if e0[2].class == SendNewArenaNode then
+                if args[2].type then
+                  args[2] = e0[2]
+                  signat[2] = args[2].type
+                end
+                break
+              end
+            }
+          end
+        end
+
+        def collect_candidate_type_block(context, blknode, signat, mt, cursig)
+          mt.yield_node.map do |ynode|
+            yargs = ynode.arguments.dup
+            ysignat = ynode.signature(context)
+            
+            # inherit self from caller node
+            # notice: this region pushed callee signature_node
+            inherit_from_callee(context, cursig, cursig, ysignat, yargs)
+            same_type(ynode, blknode, signat, ysignat, context)
+            context = blknode.collect_candidate_type(context, yargs, ysignat)
+            context.visited_block_node[blknode] = true
+          end
+          
+          context
+        end
+
         def collect_candidate_type(context)
           cursig = context.to_signature
 
           # get saved original signature
           metsigent = search_signature(cursig)
-          oldsignat = nil
-          if metsigent then
-            oldsignat = metsigent[1]
-          end
 
           # prev env
           context = @arguments[0].collect_candidate_type(context)
@@ -301,7 +332,6 @@ module YTLJit
           context = @func.collect_candidate_type(context)
 
           signat = signature(context)
-          changed = check_signature_changed(context, signat, metsigent, cursig)
 =begin
           if changed then
             @arguments.each do |arg|
@@ -313,47 +343,37 @@ module YTLJit
 
           mt, slf = get_send_method_node(cursig)
           if mt then
+            changed = check_signature_changed(context, signat, 
+                                              metsigent, cursig)
             if changed then
               mt.type_list(metsigent[1])[1] = []
               mt.ti_reset
             end
 
             context = mt.collect_candidate_type(context, @arguments, signat)
-
             same_type(self, mt, cursig, signat, context)
 
             context.push_signature(@arguments, mt)
             if blknode.is_a?(TopNode) then
               # Have block
-              mt.yield_node.map do |ynode|
-                yargs = ynode.arguments.dup
-                ysignat = ynode.signature(context)
-
-                # inherit self from caller node
-                yargs[2] = context.current_method_signature_node[-2][2]
-                ysignat[2] = cursig[2]
-                if yargs[2].decide_type_once(cursig).ruby_type == Object then
-                  context.current_method_signature_node.reverse.each {|e0| 
-                    if e0[2].class == SendNewArenaNode then
-                      if yargs[2].type then
-                        yargs[2] = e0[2]
-                        ysignat[2] = yargs[2].type
-                      end
-                      break
-                    end
-                  }
-                end
-
-                same_type(ynode, blknode, signat, ysignat, context)
-                context = blknode.collect_candidate_type(context, 
-                                                         yargs, ysignat)
-
-              end
+              context = collect_candidate_type_block(context, blknode, 
+                                                     signat, mt, cursig)
             else
               context = blknode.collect_candidate_type(context)
             end
             context.pop_signature
             
+          elsif @func.is_a?(YieldNode) then
+            mt = context.current_method_signature_node.last[1]
+            if mt.is_a?(TopNode) then
+              args = @arguments.dup
+              prevsig = context.to_signature(-2)
+              inherit_from_callee(context, cursig, prevsig, signat, args)
+              context = mt.collect_candidate_type(context, args, signat)
+              context.visited_block_node[mt] = true
+              
+              same_type(self, mt, cursig, signat, context)
+            end
           else
             context = collect_candidate_type_regident(context, slf)
           end
@@ -953,6 +973,11 @@ module YTLJit
             same_type(self, @arguments[2], cursig, cursig, context)
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             @arguments[3].add_type(context.to_signature, fixtype)
+
+          when [Array]
+            same_type(self, @arguments[2], cursig, cursig, context)
+            fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
+            @arguments[3].add_type(context.to_signature, fixtype)
           end
 
           context
@@ -964,6 +989,7 @@ module YTLJit
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == String or
+              rrtype == Array or
              @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -1985,7 +2011,7 @@ module YTLJit
           p sig
           p @arguments[2].type_list(sig)
           p @arguments[2].decide_type_once(sig)
-#          p @arguments[2].instance_eval {@type_list}
+          #          p @arguments[2].instance_eval {@type_list}
           p @arguments[2].is_escape
           p @arguments[2].class
           context

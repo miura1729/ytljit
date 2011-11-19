@@ -844,6 +844,7 @@ module YTLJit
         curnode = context.current_node
         func = YieldNode.new(curnode)
         func.debug_info = context.debug_info
+        func.depth = depth_of_block(code)
         numarg = ins[1]
         op_flag = ins[2]
         seqno = ins[3]
