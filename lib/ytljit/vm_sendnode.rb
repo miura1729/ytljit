@@ -305,7 +305,6 @@ module YTLJit
             inherit_from_callee(context, cursig, cursig, ysignat, yargs)
             same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
-            context.visited_block_node[blknode] = true
           end
           
           context
@@ -370,7 +369,6 @@ module YTLJit
               prevsig = context.to_signature(-2)
               inherit_from_callee(context, cursig, prevsig, signat, args)
               context = mt.collect_candidate_type(context, args, signat)
-              context.visited_block_node[mt] = true
               
               same_type(self, mt, cursig, signat, context)
             end

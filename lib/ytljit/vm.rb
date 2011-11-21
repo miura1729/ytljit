@@ -1213,13 +1213,8 @@ LocalVarNode
         def collect_candidate_type(context, signode, sig)
           context.visited_top_node[self] ||= []
           if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self].include?(sig) and 
-              (!signode[1].is_a?(BlockTopNode) or
-               context.visited_block_node[signode[1]] or true) then
+              context.visited_top_node[self].include?(sig) then
             return context
-          end
-          if signode[1].is_a?(BlockTopNode) then
-            context.visited_block_node[signode[1]] = true
           end
 
           context.visited_top_node[self].push sig
@@ -1655,7 +1650,6 @@ LocalVarNode
         def collect_candidate_type(context, signode, sig)
           context.convergent = true
           context.visited_top_node = {}
-          context.visited_block_node = {}
           if @init_node then
             context = @init_node.collect_candidate_type(context, signode, sig)
           end
