@@ -13,6 +13,8 @@ module YTLJit
         @current_file_name = nil
         @current_class_node = @the_top
         @current_method_node = nil
+        
+        @send_nodes_with_block = []
 
         @enc_label = ""
         @enc_pos_in_source = ""
@@ -41,6 +43,8 @@ module YTLJit
       attr_accessor :current_file_name
       attr_accessor :current_class_node
       attr_accessor :current_method_node
+
+      attr          :send_nodes_with_block
       
       attr_accessor :enc_label
       attr_accessor :enc_pos_in_source
@@ -270,6 +274,7 @@ module YTLJit
         top = context.top_nodes.last
         klassnode = context.current_class_node
         top.exception_table = context.exception_table
+        top.send_nodes_with_block = context.send_nodes_with_block
         if top.class == MethodTopNode then
           SendNode.get_macro_tab[top.name] ||= {}
           if context.macro_method then
@@ -821,6 +826,9 @@ module YTLJit
           sn.debug_info = context.debug_info
           func.set_reciever(sn)
           context.expstack.push sn
+          if blk_iseq then
+            context.send_nodes_with_block.push sn
+          end
         else
           # macro(including eval method). execute in compile time and
           # compile eval strings.

@@ -1083,6 +1083,7 @@ LocalVarNode
           @end_nodes = []
           @signature_cache = []
           @exception_table = nil
+          @send_nodes_with_block = nil
         end
 
         attr_accessor :name
@@ -1092,6 +1093,7 @@ LocalVarNode
         attr          :signature_cache
         attr          :classtop
         attr_accessor :exception_table
+        attr_accessor :send_nodes_with_block
 
         def modified_instance_var
           search_end.modified_instance_var

@@ -296,6 +296,22 @@ module YTLJit
         end
 
         def collect_candidate_type_block(context, blknode, signat, mt, cursig)
+          cursig2 = cursig
+          nest = 0
+          while mt.yield_node.size == 0
+            if mt.send_nodes_with_block.size == 0 then
+              break
+            end
+
+            sn = mt.send_nodes_with_block[0]
+            args = sn.arguments
+            mt, slf = sn.get_send_method_node(cursig2)
+            context.push_signature(args, mt)
+
+            cursig2 = context.to_signature
+            nest = nest + 1
+          end
+
           mt.yield_node.map do |ynode|
             yargs = ynode.arguments.dup
             ysignat = ynode.signature(context)
@@ -305,6 +321,10 @@ module YTLJit
             inherit_from_callee(context, cursig, cursig, ysignat, yargs)
             same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
+          end
+
+          nest.times do 
+            context.pop_signature
           end
           
           context
