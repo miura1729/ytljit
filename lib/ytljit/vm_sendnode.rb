@@ -277,10 +277,10 @@ module YTLJit
         end
 
         # inherit self/block from caller node
-        def inherit_from_callee(context, cursig, prevsig, signat, args)
-          args[1] = context.current_method_signature_node[-2][1]
+        def inherit_from_callee(context, cursig, prevsig, signat, args, nest)
+          args[1] = context.current_method_signature_node[-2 - nest][1]
           signat[1] = prevsig[1]
-          args[2] = context.current_method_signature_node[-2][2]
+          args[2] = context.current_method_signature_node[-2 - nest][2]
           signat[2] = prevsig[2]
           if args[2].decide_type_once(cursig).ruby_type == Object then
             context.current_method_signature_node.reverse.each {|e0| 
@@ -296,8 +296,10 @@ module YTLJit
         end
 
         def collect_candidate_type_block(context, blknode, signat, mt, cursig)
-          cursig2 = cursig
+          # traverse a nested block
+          # mt and signat are set corresponding to the nest level of yield
           nest = 0
+          sn = nil
           while mt.yield_node.size == 0
             if mt.send_nodes_with_block.size == 0 then
               break
@@ -305,11 +307,14 @@ module YTLJit
 
             sn = mt.send_nodes_with_block[0]
             args = sn.arguments
-            mt, slf = sn.get_send_method_node(cursig2)
+            mt, slf = sn.get_send_method_node(cursig)
             context.push_signature(args, mt)
 
-            cursig2 = context.to_signature
+            cursig = context.to_signature
             nest = nest + 1
+          end
+          if sn then
+            signat = sn.signature(context)
           end
 
           mt.yield_node.map do |ynode|
@@ -318,9 +323,14 @@ module YTLJit
             
             # inherit self from caller node
             # notice: this region pushed callee signature_node
-            inherit_from_callee(context, cursig, cursig, ysignat, yargs)
+            inherit_from_callee(context, cursig, cursig, ysignat, yargs, nest)
+
+            # collect candidate type of block and yield
             same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
+
+            # fill type cache(@type) of block node
+            blknode.decide_type_once(ysignat)
           end
 
           nest.times do 
@@ -387,7 +397,7 @@ module YTLJit
             if mt.is_a?(TopNode) then
               args = @arguments.dup
               prevsig = context.to_signature(-2)
-              inherit_from_callee(context, cursig, prevsig, signat, args)
+              inherit_from_callee(context, cursig, prevsig, signat, args, 0)
               context = mt.collect_candidate_type(context, args, signat)
               
               same_type(self, mt, cursig, signat, context)
