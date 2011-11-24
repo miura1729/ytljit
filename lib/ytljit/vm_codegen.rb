@@ -282,6 +282,9 @@ LO        |                       |   |  |
 
         # Options from user
         @options = {}
+
+        # Comment of type inference
+        @comment = {}
       end
 
       attr          :top_node
@@ -301,6 +304,7 @@ LO        |                       |   |  |
       attr_accessor :slf
 
       attr_accessor :options
+      attr_accessor :comment
 
       def set_reg_content(dst, val)
         if dst.is_a?(FunctionArgument) then

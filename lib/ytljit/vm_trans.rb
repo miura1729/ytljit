@@ -129,6 +129,7 @@ module YTLJit
         end
         @iseqs.each do |code|
           pos = "#{code.header['filename']}:#{context.current_line_no}"
+          context.current_file_name = code.header['filename']
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
             lstr = context.enc_label + "+blk+" + 

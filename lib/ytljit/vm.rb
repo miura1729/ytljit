@@ -1261,6 +1261,24 @@ LocalVarNode
           end
         end
 
+        def gen_comment(context)
+          method_name = @name
+          if debug_info then
+            lineno = debug_info[3]
+            fname = debug_info[0]
+            entry = [method_name]
+            @code_spaces.each do |sig, cs|
+              ent2 = []
+              ent2.push sig
+              ent2.push decide_type_once(sig)
+              entry.push ent2
+            end
+            
+            context.comment[fname] ||= {}
+            context.comment[fname][lineno] = entry
+          end
+        end
+
         def compile_init(context)
           context
         end
@@ -1294,6 +1312,10 @@ LocalVarNode
 
           if context.options[:disp_signature] then
             disp_signature
+          end
+
+          if context.options[:insert_signature_comment] then
+            gen_comment(context)
           end
 
           context.ret_node = self
