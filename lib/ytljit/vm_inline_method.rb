@@ -280,12 +280,14 @@ module YTLJit
             asm.add(TMPR, TMPR) # * 8
           end
           asm.add(TMPR2, TMPR)
+          asm.push(TMPR2)
         end
         context.set_reg_content(TMPR2, :refer_of_static_heap)
         context = val.compile(context)
 
         valreg = context.ret_reg
         asm.with_retry do
+          asm.pop(TMPR2)
           if !valreg.is_a?(OpRegistor) then
             asm.mov(RETR, valreg)
             valreg = RETR

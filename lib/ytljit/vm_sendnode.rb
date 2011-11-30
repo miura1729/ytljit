@@ -298,25 +298,29 @@ module YTLJit
         def collect_candidate_type_block(context, blknode, signat, mt, cursig)
           # traverse a nested block
           # mt and signat are set corresponding to the nest level of yield
-          nest = 0
+          if mt.is_a?(BlockTopNode) then
+            nest = @depth
+          else
+            nest = 0
+          end
           sn = nil
           while mt.yield_node.size == 0
             if mt.send_nodes_with_block.size == 0 then
               break
             end
-
             sn = mt.send_nodes_with_block[0]
             args = sn.arguments
             mt, slf = sn.get_send_method_node(cursig)
             context.push_signature(args, mt)
-
+            mt = args[1]
+            
             cursig = context.to_signature
             nest = nest + 1
           end
           if sn then
             signat = sn.signature(context)
           end
-
+            
           mt.yield_node.map do |ynode|
             yargs = ynode.arguments.dup
             ysignat = ynode.signature(context)
@@ -324,11 +328,11 @@ module YTLJit
             # inherit self from caller node
             # notice: this region pushed callee signature_node
             inherit_from_callee(context, cursig, cursig, ysignat, yargs, nest)
-
+            
             # collect candidate type of block and yield
             same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
-
+            
             # fill type cache(@type) of block node
             blknode.decide_type_once(ysignat)
           end
@@ -412,6 +416,7 @@ module YTLJit
         def compile(context)
           context = super(context)
 
+          @type = nil
           cursig = context.to_signature
           context.start_using_reg(TMPR2)
           context.start_using_reg(PTMPR)
@@ -452,7 +457,7 @@ module YTLJit
           end
           
           decide_type_once(cursig)
-          if @type.is_a?(RubyType::RubyTypeUnboxed) and 
+          if !@type.boxed and 
               @type.ruby_type == Float then
             context.ret_reg = XMM0
           else
@@ -1648,13 +1653,14 @@ module YTLJit
         def compile(context)
           sig = context.to_signature
           asm = context.assembler
-          @arguments[2].type = nil
+#          @arguments[2].type = nil
           rtype = @arguments[2].decide_type_once(sig)
           rrtype = rtype.ruby_type
 
           if rrtype == Array and !rtype.boxed and 
               @arguments[2].is_escape != :global_export then
             context = gen_ref_element(context, @arguments[2], @arguments[3])
+#            @type = nil
             rtype = decide_type_once(sig)
             if rtype.ruby_type == Float and !rtype.boxed then
               asm.with_retry do
@@ -1689,7 +1695,6 @@ module YTLJit
         add_special_send_node :[]=
         def collect_candidate_type_regident(context, slf)
           cursig = context.to_signature
-          rtype = nil
           case [slf.ruby_type]
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
@@ -1702,30 +1707,9 @@ module YTLJit
 
             arg = [slf, cursig, val, cidx, context]
             @arguments[2].add_element_node_backward(arg)
-#            @arguments[2].add_element_node(slf, cursig, val, cidx, context)
 
-            epare = nil
-            @arguments[2].element_node_list.each do |ele|
-              if ele[3] == cidx and ele[2] != self and ele[0] == slf then
-                epare = ele
-                break
-              end
-            end
-            if epare == nil then
-              epare = @arguments[2].element_node_list[0]
-              @arguments[2].element_node_list.each do |ele|
-                if ele[3] == nil and ele[2] != self and ele[0] == slf then
-                  epare = ele
-                  break
-                end
-              end
-            end
+            same_type(self, val, cursig, cursig, context)
 
-            esig = epare[1]
-            enode = epare[2]
-            if enode != self then
-              same_type(self, enode, cursig, esig, context)
-            end
             if slf.boxed then
               @arguments[4].set_escape_node_backward(:global_export)
             else
@@ -1777,6 +1761,7 @@ module YTLJit
         end
 
         def compile(context)
+#          @arguments[2].type = nil
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
@@ -1814,6 +1799,7 @@ module YTLJit
         end
 
         def compile(context)
+#          @arguments[2].type = nil
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
@@ -1861,6 +1847,7 @@ module YTLJit
         end
 
         def compile(context)
+#          @arguments[2].type = nil
           @arguments[2].decide_type_once(context.to_signature)
           rtype = @arguments[2].type
           rrtype = rtype.ruby_type
