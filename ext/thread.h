@@ -14,6 +14,7 @@ struct ytl_thread {
 };
 
 extern VALUE ytl_thread_create(void *, void *(*)(void *));
+extern void ytl_thread_exit(VALUE);
 extern VALUE ytl_thread_join(VALUE);
 extern VALUE ytl_thread_merge(VALUE, VALUE);
 extern VALUE ytl_thread_pself(VALUE);

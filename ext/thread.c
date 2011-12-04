@@ -85,6 +85,12 @@ ytl_obj_copy(VALUE dest, VALUE obj)
   }
 }
 
+void
+ytl_thread_exit(VALUE val)
+{
+  pthread_exit((void *)val);
+}
+
 VALUE
 ytl_thread_join(VALUE self)
 {
