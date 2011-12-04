@@ -298,7 +298,7 @@ module YTLJit
         def collect_candidate_type_block(context, blknode, signat, mt, cursig)
           # traverse a nested block
           # mt and signat are set corresponding to the nest level of yield
-          if mt.is_a?(BlockTopNode) then
+          if @func.is_a?(YieldNode) then
             nest = @depth
           else
             nest = 0
@@ -396,7 +396,7 @@ module YTLJit
             end
             context.pop_signature
             
-          elsif @func.is_a?(YieldNode) then
+          elsif @func.is_a?(YieldNode) and false then
             mt = context.current_method_signature_node.last[1]
             if mt.is_a?(TopNode) then
               args = @arguments.dup
