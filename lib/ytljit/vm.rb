@@ -3693,6 +3693,7 @@ LocalVarNode
         end
 
         def collect_info(context)
+          context.modified_global_var[@name] ||= []
           @assign_nodes = context.modified_global_var[@name]
           context
         end
@@ -3711,9 +3712,11 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          @offset = @assign_nodes[0].offset
-          sig = context.to_signature
-          same_type(self, @assign_nodes[0], sig, sig, context)
+          if @assign_nodes then
+            @offset = @assign_nodes[0].offset
+            sig = context.to_signature
+            same_type(self, @assign_nodes[0], sig, sig, context)
+          end
           context
         end
 
@@ -3815,8 +3818,9 @@ LocalVarNode
 
         def collect_info(context)
           context = @value.collect_info(context)
-          if context.modified_global_var[@name] == nil then
-            context.modified_global_var[@name] = []
+          if context.modified_global_var[@name] == nil or 
+              context.modified_global_var[@name] == [] then
+            context.modified_global_var[@name] ||= []
             @offset = context.modified_global_var.keys.size - 1
           end
           @assign_nodes = context.modified_global_var[@name]
