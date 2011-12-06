@@ -3818,9 +3818,8 @@ LocalVarNode
 
         def collect_info(context)
           context = @value.collect_info(context)
-          if context.modified_global_var[@name] == nil or 
-              context.modified_global_var[@name] == [] then
-            context.modified_global_var[@name] ||= []
+          context.modified_global_var[@name] ||= []
+          if @offset == nil then
             @offset = context.modified_global_var.keys.size - 1
           end
           @assign_nodes = context.modified_global_var[@name]
