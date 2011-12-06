@@ -2435,8 +2435,10 @@ LocalVarNode
           handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
           ensureoff = OpIndirect.new(TMPR, 0)
           asm.with_retry do
+            asm.push(TMPR)
             asm.mov(TMPR, handoff)
             asm.call(ensureoff)
+            asm.pop(TMPR)
           end
           gen_method_epilogue(context)
         end
@@ -2448,9 +2450,9 @@ LocalVarNode
             
           elsif @state == 2 then # break
             context = @exception_object.compile(context)
-            asm.with_retry do
-              if context.ret_reg != RETR then
-                asm.mov(RETR, context.ret_reg)                
+            if context.ret_reg != TMPR then
+              asm.with_retry do
+                asm.mov(TMPR, context.ret_reg)                
               end
             end
             context.set_reg_content(RETR, context.ret_node)
@@ -2463,13 +2465,15 @@ LocalVarNode
             end
 
           elsif @state == 1 then # return
-            if context.ret_reg != RETR then
-              asm.mov(RETR, context.ret_reg)                
+            context = @exception_object.compile(context)
+            if context.ret_reg != TMPR then
+              asm.with_retry do
+                asm.mov(TMPR, context.ret_reg)                
+              end
             end
             context.set_reg_content(RETR, context.ret_node)
             tnode = search_frame_info
             finfo = tnode
-            depth = 0
             while finfo.parent.is_a?(BlockTopNode)
               finfo = finfo.previous_frame
               # two epilogue means block and method which is called with block
