@@ -3689,7 +3689,7 @@ LocalVarNode
       # Global Variable
       class GlobalVarRefNode<VariableRefCommonNode
         def self.instance(parent, name)
-          if /^\$[a-zA-Z]/ =~ name.to_s then
+          if /^\$[a-zA-Z_]/ =~ name.to_s then
             GlobalVarNormalRefNode.new(parent, name)
           else
             GlobalVarSpecialRefNode.new(parent, name)
