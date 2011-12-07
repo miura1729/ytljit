@@ -1645,6 +1645,10 @@ module YTLJit
             @arguments[3].type = nil
             @arguments[3].add_type(cursig, niltype)
             @arguments[2].add_element_node(rtype, cursig, self, cidx, context)
+
+          when [String]
+            tt = RubyType::BaseType.from_ruby_class(String)
+            add_type(cursig, tt)
           end
 
           context
@@ -1889,9 +1893,16 @@ module YTLJit
       class SendRandNode<SendNode
         add_special_send_node :rand
         def collect_candidate_type_regident(context, slf)
-          sig = context.to_signature
-          floattype = RubyType::BaseType.from_ruby_class(Float)
-          add_type(sig, floattype)
+          cursig = context.to_signature
+          if @arguments[3] then
+            # when argument is 0, type is Float
+            # but ignor it by current version
+            context = @arguments[3].collect_candidate_type(context)
+            tt = RubyType::BaseType.from_ruby_class(Fixnum)
+          else
+            tt = RubyType::BaseType.from_ruby_class(Float)
+          end
+          add_type(cursig, tt)
           context
         end
       end
