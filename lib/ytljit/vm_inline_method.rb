@@ -153,11 +153,25 @@ module YTLJit
         end
           
         asm = context.assembler
-        asm.with_retry do
-          if context.ret_reg != tempreg2 then
-            asm.mov(tempreg2, context.ret_reg)
+        if context.ret_reg != tempreg2 then
+          if tempreg2.is_a?(OpRegXMM) and 
+              !context.ret_reg.is_a?(OpRegXMM) then
+            asm.with_retry do
+              asm.cvtsi2sd(tempreg2, context.ret_reg)
+            end
+          elsif !tempreg2.is_a?(OpRegXMM) and 
+              context.ret_reg.is_a?(OpRegXMM) then
+            asm.with_retry do
+              asm.cvtsd2si(tempreg2, context.ret_reg)
+            end
+          else
+            asm.with_retry do
+              asm.mov(tempreg2, context.ret_reg)
+            end
           end
-          context.set_reg_content(tempreg2, context.ret_node)
+        end
+        context.set_reg_content(tempreg2, context.ret_node)
+        asm.with_retry do
           asm.send(cinst, tempreg2, tempreg)
           asm.send(sinst, resreg)
           asm.add(resreg, resreg)
