@@ -2803,8 +2803,7 @@ LocalVarNode
           context = super(context)
           asm = context.assembler
           prevenv = @frame_info.offset_arg(0, BPR)
-          prevenv2 = @frame_info.offset_arg(0, PTMPR)
-          prevenv3 = @frame_info.offset_arg(0, TMPR2)
+          prevenv2 = @frame_info.offset_arg(0, TMPR2)
           # offset of self is common, so it no nessery traverse prev frame
           # for @frame_info.
           slfarg = @frame_info.offset_arg(2, PTMPR)
@@ -2833,7 +2832,7 @@ LocalVarNode
             end
             (@depth - 1).times do
               asm.with_retry do
-                asm.mov(TMPR2, prevenv3)
+                asm.mov(TMPR2, prevenv2)
               end
             end
             asm.with_retry do
