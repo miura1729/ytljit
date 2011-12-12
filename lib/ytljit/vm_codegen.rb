@@ -191,8 +191,9 @@ LO        |                       |   |  |
       end
 
       def to_signature_aux(cursignode, offset, cache)
+        sig = to_signature(offset - 1, cache)
         res = cursignode.map { |enode|
-          enode.decide_type_once(to_signature(offset - 1, cache))
+          enode.decide_type_once(sig)
         }
         
         res
