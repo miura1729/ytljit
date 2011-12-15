@@ -1752,6 +1752,17 @@ module YTLJit
         end
       end
 
+      class Send__ID__Node<SendNode
+        add_special_send_node :__id__
+
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          fixnumtype = RubyType::BaseType.from_ruby_class(Fixnum)
+          add_type(sig, fixnumtype)
+          context
+        end
+      end
+
       class SendToFNode<SendNode
         include AbsArch
 
