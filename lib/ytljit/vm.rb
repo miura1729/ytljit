@@ -1486,6 +1486,13 @@ LocalVarNode
         def search_constant_with_super(name, klassobj = @klass_object)
           clsnode = @@class_top_tab[klassobj]
           if clsnode then
+            clsnode.before_search_module.each do |scope, mod|
+              ctab = mod.get_constant_tab
+              if val = ctab[name] then
+                return [val, mod]
+              end
+            end
+
             ctab = clsnode.get_constant_tab
             if val = ctab[name] then
               return [val, clsnode]

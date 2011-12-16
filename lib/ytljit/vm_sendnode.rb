@@ -634,14 +634,24 @@ module YTLJit
       end
 
       class SendIncludeCommonNode<SendNode
+        def collect_info(context)
+          slfnode = @arguments[2]
+          modvalue = @arguments[3].value_node
+          modnode = ClassTopNode.get_class_top_node(modvalue.get_constant_value[0])
+          add_search_module(slfnode, modnode)
+          super
+        end
+
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
           rtype = slfnode.decide_type_once(context.to_signature)
           add_type(context.to_signature, rtype)
-          modnode = @arguments[3].value_node
 
-          add_search_module(slfnode, modnode)
           context
+        end
+
+        def compile(context)
+          @body.compile(context)
         end
       end
 
