@@ -154,6 +154,7 @@ module YTLJit
 
           @result_cache = nil
           @method_signature = []
+          @yield_signature_cache = {}
 
           @current_exception_table = nil
         end
@@ -168,6 +169,7 @@ module YTLJit
         attr          :modified_instance_var
         attr_accessor :result_cache
         attr          :seq_no
+        attr          :yield_signature_cache
 
         attr_accessor :current_exception_table
 
@@ -278,10 +280,15 @@ module YTLJit
 
         # inherit self/block from caller node
         def inherit_from_callee(context, cursig, prevsig, signat, args, nest)
-          args[1] = context.current_method_signature_node[-2 - nest][1]
-          signat[1] = prevsig[1]
-          args[2] = context.current_method_signature_node[-2 - nest][2]
-          signat[2] = prevsig[2]
+          if context.is_a?(TypeInferenceContext) then
+            (0..2).each do |n|
+              args[n] = context.current_method_signature_node[-2 - nest][n]
+            end
+          end
+          (0..2).each do |n|
+            signat[n] = prevsig[n]
+          end
+
           if args[2].decide_type_once(cursig).ruby_type == Object then
             context.current_method_signature_node.reverse.each {|e0| 
               if e0[2].class == SendNewArenaNode then
@@ -304,36 +311,54 @@ module YTLJit
             nest = 0
           end
           sn = nil
-          while mt.yield_node.size == 0
-            if mt.send_nodes_with_block.size == 0 then
+          while mt.yield_node.size == 0 and
+              mt.send_nodes_with_block.size != 0
+            sn = mt.send_nodes_with_block[0]
+            mt, slf = sn.get_send_method_node(cursig)
+            if mt == nil then
+              return context
+            end
+            args = sn.arguments
+
+            context.push_signature(args, mt)
+
+            nest = nest + 1
+            if mt.yield_node.size == 0 then
               break
             end
-            sn = mt.send_nodes_with_block[0]
-            args = sn.arguments
-            mt, slf = sn.get_send_method_node(cursig)
-            context.push_signature(args, mt)
+            ynode = mt.yield_node[0]
+            yargs = ynode.arguments.dup
+            (0..2).each do |n|
+              yargs[n] = context.current_method_signature_node[-1 - nest][n]
+            end
             mt = args[1]
-            
-            cursig = context.to_signature
+            context.push_signature(yargs, mt)
             nest = nest + 1
           end
           if sn then
             signat = sn.signature(context)
           end
-            
+
           mt.yield_node.map do |ynode|
             yargs = ynode.arguments.dup
+            yargs[2.. -1].each do |arg|
+              context = arg.collect_candidate_type(context)
+            end
             ysignat = ynode.signature(context)
             
             # inherit self from caller node
             # notice: this region pushed callee signature_node
-            inherit_from_callee(context, cursig, cursig, ysignat, yargs, nest)
+            prevsig = context.to_signature(-2 - nest)
+            inherit_from_callee(context, cursig, prevsig, ysignat, yargs, nest)
+#            ysignat[1] = signat[0]
             
             # collect candidate type of block and yield
             same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
+            @yield_signature_cache[cursig] = ysignat
             
             # fill type cache(@type) of block node
+            blknode.type = nil
             blknode.decide_type_once(ysignat)
           end
 
@@ -365,6 +390,13 @@ module YTLJit
           context = @func.collect_candidate_type(context)
 
           signat = signature(context)
+          ysig = @yield_signature_cache[cursig]
+          if ysig then
+            signat[1] = blknode.decide_type_once(ysig)
+          end
+          if @func.is_a?(YieldNode) then
+            signat[1] = cursig[0]
+          end
 =begin
           if changed then
             @arguments.each do |arg|
@@ -384,32 +416,37 @@ module YTLJit
             end
 
             context = mt.collect_candidate_type(context, @arguments, signat)
-            same_type(self, mt, cursig, signat, context)
 
-            context.push_signature(@arguments, mt)
             if blknode.is_a?(TopNode) then
-              # Have block
-              context = collect_candidate_type_block(context, blknode, 
-                                                     signat, mt, cursig)
+              if @yield_signature_cache[cursig] == nil then
+                context.push_signature(@arguments, mt)
+                # Have block
+                context = collect_candidate_type_block(context, blknode, 
+                                                       signat, mt, cursig)
+                context.pop_signature
+                if signat[1] != blknode.type then
+                  signat[1] = blknode.type
+                  context = mt.collect_candidate_type(context, 
+                                                      @arguments, signat)
+                end
+              end
+              same_type(self, mt, cursig, signat, context)
             else
+              context.push_signature(@arguments, mt)
               context = blknode.collect_candidate_type(context)
-            end
-            context.pop_signature
-            
-          elsif @func.is_a?(YieldNode) and false then
-            mt = context.current_method_signature_node.last[1]
-            if mt.is_a?(TopNode) then
-              args = @arguments.dup
-              prevsig = context.to_signature(-2)
-              inherit_from_callee(context, cursig, prevsig, signat, args, 0)
-              context = mt.collect_candidate_type(context, args, signat)
-              
+              context.pop_signature
               same_type(self, mt, cursig, signat, context)
             end
+
           else
             context = collect_candidate_type_regident(context, slf)
           end
 
+          if @func.is_a?(YieldNode) then
+            add_type(cursig, cursig[1])
+            @type = nil
+            decide_type_once(cursig)
+          end
           @body.collect_candidate_type(context)
         end
 
@@ -2057,6 +2094,7 @@ module YTLJit
           p debug_info
           p sig
           p @arguments[2].type_list(sig)
+          @arguments[2].type = nil
           p @arguments[2].decide_type_once(sig)
           #          p @arguments[2].instance_eval {@type_list}
           p @arguments[2].is_escape

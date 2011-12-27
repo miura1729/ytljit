@@ -152,6 +152,11 @@ LO        |                       |   |  |
           return nil
         end
 
+        cursig = curmethod.current_signature
+        if cursig then
+          return cursig
+        end
+
         sigc = curmethod.signature_cache
         if sigc.size == 1 then
           return sigc[0]
@@ -202,20 +207,33 @@ LO        |                       |   |  |
       def to_signature_aux2(mt, args, cursig, offset, cache)
         res = []
         args.each do |ele|
-          ele.decide_type_once(cursig)
-          res.push ele.type
+          res.push ele.decide_type_once(cursig)
+        end
+
+        if !args[1].is_a?(Node::BlockTopNode) then
+          return res
         end
 
         ynode = mt.yield_node[0]
-        if ynode then
+        if ynode and false then
           yargs = ynode.arguments
-          push_signature(yargs, ynode.frame_info.parent)
+          push_signature(yargs, mt)
           ysig = to_signature_aux3(yargs, -1, cache)
+          # inherit self and block from caller node
+          ysig[1] = cursig[1]
+          ysig[2] = cursig[2]
+
           args[1].type = nil
           res[1] = args[1].decide_type_once(ysig)
-#          p res
-#          p res[1]
+          #p res
+          #p res[1]
           pop_signature
+        else
+          sig =  args[1].search_valid_signature
+          if sig then
+            args[1].type = nil
+            res[1] = args[1].decide_type_once(sig)
+          end
         end
         
         res
@@ -235,6 +253,7 @@ LO        |                       |   |  |
           res = cursignode.map { |enode|
             enode.decide_type_once(sig)
           }
+
           cache[cursignode] = res
           res
         end
@@ -252,6 +271,7 @@ LO        |                       |   |  |
 
       attr          :top_node
       attr          :current_method_signature_node
+      attr          :current_method
       attr_accessor :convergent
       attr_accessor :visited_top_node
       attr_accessor :options

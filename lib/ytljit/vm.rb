@@ -601,6 +601,15 @@ LocalVarNode
           end
         end
 
+        def search_valid_signature
+          node = @type_list.search_valid_node
+          if node then
+            node.key
+          else
+            nil
+          end
+        end
+
         def inference_type
           cs = @type_inference_proc
           cs.call(cs.var_base_address)
@@ -698,23 +707,31 @@ LocalVarNode
         def signature(context, args = @arguments)
           res = []
           cursig = context.to_signature
-          res.push args[0].decide_type_once(cursig)
-
-          mt, slf = get_send_method_node(cursig)
-          if mt and (ynode = mt.yield_node[0]) then
-            context.push_signature(args, mt)
-            args[1].type = nil
-            res.push args[1].decide_type_once(ynode.signature(context))
-            context.pop_signature
+          if args[1].is_a?(BlockTopNode) then 
+            res.push cursig[1]
           else
-            # args[1].type = nil
+            res.push args[0].decide_type_once(cursig)
+          end
+          if @func.is_a?(YieldNode) then
+            res.push cursig[0]
+          else
             res.push args[1].decide_type_once(cursig)
           end
+
+          mt, slf = get_send_method_node(cursig)
           res.push slf
 
           args[3..-1].each do |ele|
             # ele.type = nil
             res.push ele.decide_type_once(cursig)
+          end
+
+          if mt and args[1].is_a?(BlockTopNode) then
+            sig =  @yield_signature_cache[cursig]
+            if sig then
+              args[1].type = nil
+              res[1] = args[1].decide_type_once(sig)
+            end
           end
 
           res
@@ -831,7 +848,7 @@ LocalVarNode
         def compile_ytl(context)
           fnc = nil
           numarg = @arguments.size
-          sig = context.to_signature
+          cursig = context.to_signature
           
           context.start_arg_reg
           context.start_arg_reg(FUNC_ARG_YTL)
@@ -847,7 +864,7 @@ LocalVarNode
                 ent = entbase[3]
               end
               if ent then
-                csadd = ent.get_code_space(sig).var_base_immidiate_address
+                csadd = ent.get_code_space(cursig).var_base_immidiate_address
               else
                 csadd = TopTopNode.get_nothing_proc.var_base_immidiate_address
               end
@@ -906,7 +923,10 @@ LocalVarNode
                                     context.ret_node)
           end
 
-          entry = @arguments[1].code_space.var_base_immidiate_address
+          sig = @yield_signature_cache[cursig]
+          ecs = @arguments[1].code_space_from_signature[sig]
+          ecs ||= @arguments[1].code_space
+          entry = ecs.var_base_immidiate_address
           casm.with_retry do 
             casm.mov(FUNC_ARG_YTL[1], entry)
           end
@@ -1074,6 +1094,7 @@ LocalVarNode
           super(parent)
           @name = name
           @code_spaces = [] # [[nil, CodeSpace.new]]
+          @code_space_from_signature = {}  # return type -> codespace
           @yield_node = []
           if @parent then
             @classtop = search_class_top
@@ -1082,15 +1103,18 @@ LocalVarNode
           end
           @end_nodes = []
           @signature_cache = []
+          @current_signature = []
           @exception_table = nil
           @send_nodes_with_block = nil
         end
 
         attr_accessor :name
+        attr          :code_space_from_signature
         attr          :end_nodes
         attr          :yield_node
 
         attr          :signature_cache
+        attr          :current_signature
         attr          :classtop
         attr_accessor :exception_table
         attr_accessor :send_nodes_with_block
@@ -1212,22 +1236,9 @@ LocalVarNode
           collect_info_top(context)
         end
 
-        def collect_candidate_type(context, signode, sig)
-          context.visited_top_node[self] ||= []
-          if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self].include?(sig) then
-            return context
-          end
-
-          context.visited_top_node[self].push sig
-
-          if !@signature_cache.include?(sig) then
-            @signature_cache.push sig
-          end
-          
+        def collect_candidate_type_common(context, signode, sig)
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
-
           if @exception_table then
             @exception_table.each do |kind, lst|
               lst.each do |st, ed, cnt, body|
@@ -1237,13 +1248,13 @@ LocalVarNode
               end
             end
           end
-
           context.pop_signature
 
           @end_nodes.each do |enode|
             same_type(self, enode, sig, sig, context)
             same_type(enode, self, sig, sig, context)
           end
+          @current_signature = nil
           context
         end
 
@@ -1304,6 +1315,7 @@ LocalVarNode
               end
             end
             context.current_method_signature.pop
+            @code_space_from_signature[sig] = cs
           end
 
           if oldcs then
@@ -1334,6 +1346,24 @@ LocalVarNode
           context
         end
 
+        def collect_candidate_type(context, signode, sig)
+          @current_signature = nil
+          context.visited_top_node[self] ||= []
+          if add_cs_for_signature(sig) == nil and  
+              context.visited_top_node[self].include?(sig) then
+            return context
+          end
+
+          @current_signature = sig
+          context.visited_top_node[self].push sig
+
+          if !@signature_cache.include?(sig) then
+            @signature_cache.push sig
+          end
+
+          collect_candidate_type_common(context, signode, sig)
+        end
+
         def construct_frame_info(locals, argnum, args)
           locals.unshift :_self
           locals.unshift :_block
@@ -1350,6 +1380,18 @@ LocalVarNode
           context = collect_info_top(context)
           context.modified_local_var.last.pop
           context
+        end
+
+        def collect_candidate_type(context, signode, sig)
+          @current_signature = nil
+          context.visited_top_node[self] ||= []
+
+          if add_cs_for_signature(sig) == nil and  
+              context.visited_top_node[self].include?(sig) then
+            return context
+          end
+
+          collect_candidate_type_common(context, signode, sig)
         end
 
         include MethodTopCodeGen
@@ -1514,6 +1556,7 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, signode, sig)
+          @current_signature = nil
           @type = RubyType::BaseType.from_ruby_class(@klassclass)
           add_type(sig, @type)
           context.visited_top_node[self] ||= []
@@ -1523,8 +1566,11 @@ LocalVarNode
             return context
           end
 
+          @current_signature = sig
           context.visited_top_node[self].push sig
-          @signature_cache.push sig
+          if !@signature_cache.include?(sig) then
+            @signature_cache.push sig
+          end
           
           context.push_signature(signode, self)
           context = @body.collect_candidate_type(context)
@@ -1536,6 +1582,7 @@ LocalVarNode
           end
 
           set_escape_node(:not_export)
+          @current_signature = nil
 
           context
         end
@@ -1977,9 +2024,8 @@ LocalVarNode
           if fragstart <= @offset then
             argoff = @offset - fragstart
             tobj = context.current_method_signature_node.last[argoff]
-            cursig = context.to_signature
-
             if tobj then
+              cursig = context.to_signature
               cursig2 = context.to_signature(-2)
               same_type(self, tobj, cursig, cursig2, context)
               # same_type(tobj, self, cursig2, cursig, context)
@@ -2607,6 +2653,11 @@ LocalVarNode
         end
         
         attr :value
+
+        # Dummy for pass as block (nil)
+        def code_space_from_signature
+          {}
+        end
 
         def collect_candidate_type(context)
           sig = context.to_signature
@@ -3293,6 +3344,10 @@ LocalVarNode
 
               sig = @parent.signature(context)
               cs = mtop.find_cs_by_signature(sig)
+              if cs == nil then
+                sig[0] = context.to_signature[1]
+                cs = mtop.find_cs_by_signature(sig)
+              end
               context.ret_reg = cs.var_base_address
 
             else

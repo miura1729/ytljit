@@ -61,6 +61,20 @@ module YTLJit
         
         nil
       end
+
+      def search_valid_node
+        cnode = @node
+        
+        while cnode
+          if cnode.value != [[], []] then
+            return cnode
+          end
+
+          cnode = cnode.next_klass
+        end
+        
+        nil
+      end
     end
 
     class KlassTreeNode
@@ -89,6 +103,10 @@ module YTLJit
 
       def search_types(key)
         @types_tree.search(key)
+      end
+
+      def search_valid_node
+        @types_tree.search_valid_node
       end
 
       def add_type(key, type, pos)
