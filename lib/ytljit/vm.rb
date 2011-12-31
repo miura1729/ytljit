@@ -335,7 +335,7 @@ LocalVarNode
           if orgsize != dtsize then
             dst.type = nil
             dst.ti_changed
-            context.convergent = false
+#            context.convergent = false
           end
 
           dtlist = dst.element_node_list
@@ -345,7 +345,7 @@ LocalVarNode
           dst.element_node_list = marge_element_node(dtlist, stlist, context)
           if orgsize != dtlist.size then
             dst.ti_changed
-            context.convergent = false
+#            context.convergent = false
           end
           
           dst.set_escape_node(src.is_escape)
@@ -372,15 +372,25 @@ LocalVarNode
           ti_update(dst, src, dsig, ssig, context)
         end
 
-        def add_element_node_backward(args, visitnode = {})
+        def add_element_node_backward(args)
+          add_element_node(*args)
+          visitnode = {}
+          visitnode[self] = true
+          @ti_observee.each do |rec|
+            rec.add_element_node(*args, true)
+#            rec.add_element_node_backward_aux(args, visitnode)
+          end
+        end
+
+        def add_element_node_backward_aux(args, visitnode)
           if visitnode[self] then
             return
           end
 
-          add_element_node(*args)
+          add_element_node(*args, true)
           visitnode[self] = true
           @ti_observee.each do |rec|
-            rec.add_element_node_backward(args, visitnode)
+            rec.add_element_node_backward_aux(args, visitnode)
           end
         end
 
@@ -410,7 +420,8 @@ LocalVarNode
           end
         end
 
-        def add_element_node(curslf, encsig, enode, index, context)
+        def add_element_node(curslf, encsig, enode, index, context, 
+                             backp = false)
           newele = [curslf, encsig, enode, index]
 
           # search entry whose index( [3]) is nil
@@ -447,8 +458,10 @@ LocalVarNode
                 end
               end
             end
-
-            ti_changed
+            
+            if !backp then
+              ti_changed
+            end
             #            context.convergent = false
           end
         end
@@ -572,10 +585,8 @@ LocalVarNode
               sig = ele[1]
               slf = ele[0]
 
-              if sig == cursig  and 
-                  (@type.ruby_type == slf.ruby_type and
-                   @type.boxed == slf.boxed) then
-#                node.type = nil
+              if @type == slf then
+                # node.type = nil
                 tt = node.decide_type_once(sig, local_cache)
                 etype2[ele[3]] ||= []
                 curidx = etype2[ele[3]]
@@ -722,8 +733,12 @@ LocalVarNode
           res.push slf
 
           args[3..-1].each do |ele|
-            # ele.type = nil
-            res.push ele.decide_type_once(cursig)
+            if ele.type_list(cursig) == [[], []] then
+              res.push ele.type
+            else
+              ele.type = nil
+              res.push ele.decide_type_once(cursig)
+            end
           end
 
           if mt and args[1].is_a?(BlockTopNode) then
@@ -1389,6 +1404,13 @@ LocalVarNode
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
             return context
+          end
+
+          @current_signature = sig
+          context.visited_top_node[self].push sig
+
+          if !@signature_cache.include?(sig) then
+            @signature_cache.push sig
           end
 
           collect_candidate_type_common(context, signode, sig)
@@ -3458,7 +3480,7 @@ LocalVarNode
           @var_type_info.each do |topnode, node|
             varsig = context.to_signature(topnode)
             same_type(self, node, cursig, varsig, context)
-            same_type(node, self, varsig, cursig, context)
+            # same_type(node, self, varsig, cursig, context)
           end
           context
         end
@@ -3778,9 +3800,11 @@ LocalVarNode
 
         def collect_candidate_type(context)
           if @assign_nodes then
-            @offset = @assign_nodes[0].offset
+            @offset = @assign_nodes[0][0].offset
             sig = context.to_signature
-            same_type(self, @assign_nodes[0], sig, sig, context)
+            @assign_nodes.reverse.each do |an, asig|
+              same_type(self, an, sig, asig, context)
+            end
           end
           context
         end
@@ -3877,6 +3901,7 @@ LocalVarNode
           @value = value
           @assign_nodes = nil
           @offset = nil
+          @assign_no = nil
         end
 
         attr :offset
@@ -3885,20 +3910,22 @@ LocalVarNode
           context = @value.collect_info(context)
           context.modified_global_var[@name] ||= []
           @assign_nodes = context.modified_global_var[@name]
-          if @assign_nodes == [] then
+          asize = @assign_nodes.size
+          if asize == 0 then
             @offset = context.modified_global_var.keys.size - 1
           end
-          @assign_nodes.push self
+          @assign_no  = asize
+          @assign_nodes.push [self, nil]
           @body.collect_info(context)
         end
 
         def collect_candidate_type(context)
           sig = context.to_signature
+          @assign_nodes[@assign_no][1] = sig
           context = @value.collect_candidate_type(context)
-          same_type(@assign_nodes[0], @value, sig, sig, context)
-          same_type(self, @assign_nodes[0], sig, sig, context)
+          same_type(self, @value, sig, sig, context)
           if @offset == nil then
-            @offset = @assign_nodes[0].offset
+            @offset = @assign_nodes[0][0].offset
           end
           @body.collect_candidate_type(context)
         end

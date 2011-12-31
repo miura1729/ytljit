@@ -305,11 +305,12 @@ module YTLJit
         def collect_candidate_type_block(context, blknode, signat, mt, cursig)
           # traverse a nested block
           # mt and signat are set corresponding to the nest level of yield
-          if @func.is_a?(YieldNode) then
-            nest = @depth
+          if @func.is_a?(YieldNode) and false then
+            level = @depth
           else
-            nest = 0
+            level = 0
           end
+          nest = 0
           sn = nil
           while mt.yield_node.size == 0 and
               mt.send_nodes_with_block.size != 0
@@ -329,7 +330,8 @@ module YTLJit
             ynode = mt.yield_node[0]
             yargs = ynode.arguments.dup
             (0..2).each do |n|
-              yargs[n] = context.current_method_signature_node[-1 - nest][n]
+              cl = nest + level
+              yargs[n] = context.current_method_signature_node[-1 - cl][n]
             end
             mt = args[1]
             context.push_signature(yargs, mt)
@@ -345,16 +347,17 @@ module YTLJit
               context = arg.collect_candidate_type(context)
             end
             ysignat = ynode.signature(context)
-            
+
             # inherit self from caller node
             # notice: this region pushed callee signature_node
-            prevsig = context.to_signature(-2 - nest)
-            inherit_from_callee(context, cursig, prevsig, ysignat, yargs, nest)
+            cl =   nest + level
+            prevsig = context.to_signature(-2 - cl)
+            inherit_from_callee(context, cursig, prevsig, ysignat, yargs, cl)
 #            ysignat[1] = signat[0]
             
             # collect candidate type of block and yield
-            same_type(ynode, blknode, signat, ysignat, context)
             context = blknode.collect_candidate_type(context, yargs, ysignat)
+            same_type(ynode, blknode, signat, ysignat, context)
             @yield_signature_cache[cursig] = ysignat
             
             # fill type cache(@type) of block node
@@ -408,35 +411,34 @@ module YTLJit
 
           mt, slf = get_send_method_node(cursig)
           if mt then
+=begin
             changed = check_signature_changed(context, signat, 
                                               metsigent, cursig)
             if changed then
               mt.type_list(metsigent[1])[1] = []
               mt.ti_reset
             end
+=end
 
             context = mt.collect_candidate_type(context, @arguments, signat)
 
             if blknode.is_a?(TopNode) then
-              if @yield_signature_cache[cursig] == nil then
-                context.push_signature(@arguments, mt)
-                # Have block
-                context = collect_candidate_type_block(context, blknode, 
-                                                       signat, mt, cursig)
-                context.pop_signature
-                if signat[1] != blknode.type then
-                  signat[1] = blknode.type
-                  context = mt.collect_candidate_type(context, 
-                                                      @arguments, signat)
-                end
+              context.push_signature(@arguments, mt)
+              # Have block
+              context = collect_candidate_type_block(context, blknode, 
+                                                     signat, mt, cursig)
+              context.pop_signature
+              if signat[1] != blknode.type then
+                signat[1] = blknode.type
+                context = mt.collect_candidate_type(context, 
+                                                    @arguments, signat)
               end
-              same_type(self, mt, cursig, signat, context)
             else
               context.push_signature(@arguments, mt)
               context = blknode.collect_candidate_type(context)
               context.pop_signature
-              same_type(self, mt, cursig, signat, context)
             end
+            same_type(self, mt, cursig, signat, context)
 
           else
             context = collect_candidate_type_regident(context, slf)
