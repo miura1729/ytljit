@@ -724,14 +724,53 @@ module YTLJit
           if slf.ruby_type.is_a?(Class) then
             tt = get_singleton_class_object(@arguments[2])
             clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
+            @type = nil
             if context.options[:compile_array_as_uboxed] and
+                tt.ruby_type != Array and
                 @is_escape and @is_escape != :global_export and
                 (clt and  !clt.body.is_a?(DummyNode)) then
               tt = tt.to_unbox
-              @type = nil
             elsif type_list(cursig)[0].include?(tt.to_unbox) then
               type_list(cursig)[0] = []
-              @type = nil
+            end
+
+            # set element type
+            parg = @parent.arguments
+            if tt.ruby_type == Range then
+              tt.args = parg[3..-1]
+              add_element_node(tt, cursig, parg[3], [0], context)
+              add_element_node(tt, cursig, parg[4], [1], context)
+              
+            elsif tt.ruby_type == Array then
+              if context.options[:compile_array_as_uboxed] and 
+                  @is_escape and @is_escape != :global_export then
+                if @element_node_list.size > 1 and
+                    @element_node_list[1..-1].all? {|e|
+                    e[3] or e[2].class == BaseNode
+                  } then
+                  tt = tt.to_unbox
+                elsif parg[3] and 
+                    siz0 = parg[3].get_constant_value and 
+                    (siz = siz0[0]) < 10 then
+                  @element_node_list = []
+                  dnode = LiteralNode.new(self, nil)
+                  tt = tt.to_unbox
+                  siz.times do |i|
+                    add_element_node(tt, cursig, dnode, [i], context)
+                  end
+                end
+              end
+              if parg[4] then
+                siz = parg[3].get_constant_value
+                if siz and false then
+                  # Here is buggy yet Fix me
+                  siz[0].times do |i|
+                    add_element_node(tt, cursig, parg[4], [i], context)
+                  end
+                else
+                  add_element_node(tt, cursig, parg[4], nil, context)
+                end
+              end
             end
 
             add_type(cursig, tt)
@@ -832,69 +871,15 @@ module YTLJit
           cursig = context.to_signature
 
           if slf.ruby_type.is_a?(Class) then
-            @is_escape = search_class_top.is_escape
-            @allocmethod.is_escape = @is_escape
-            case slfnode
-            when ConstantRefNode
-              context = @initmethod.collect_candidate_type(context)
-              clstop = slfnode.value_node
-              tt = nil
-              case clstop
-              when ClassTopNode
-                tt = RubyType::BaseType.from_ruby_class(clstop.klass_object)
-                
-              when LiteralNode
-                tt = RubyType::BaseType.from_ruby_class(clstop.value)
-
-              else
-                raise "Unkown node type in constant #{slfnode.value_node.class}"
-              end
-
-              clt =  ClassTopNode.get_class_top_node(tt.ruby_type_raw)
-              if context.options[:compile_array_as_uboxed] and
-                  @is_escape and @is_escape != :global_export and
-                  (clt and  !clt.body.is_a?(DummyNode)) then
-                tt = tt.to_unbox
-                @type = nil
-              elsif type_list(cursig)[0].include?(tt.to_unbox) then
-                type_list(cursig)[0] = []
-                @type = nil
-              end
-
-              # set element type
-              if tt.ruby_type == Range then
-                tt.args = @arguments[3..-1]
-                add_element_node(tt, cursig, @arguments[3], [0], context)
-                add_element_node(tt, cursig, @arguments[4], [1], context)
-
-              elsif tt.ruby_type == Array then
-                if context.options[:compile_array_as_uboxed] and
-                    @element_node_list.size > 1 and
-                      @element_node_list[1..-1].all? {|e|
-                        e[3] or e[2].class == BaseNode
-                      } and 
-                    @is_escape and @is_escape != :global_export then
-                  tt = tt.to_unbox
-                end
-                if @arguments[4] then
-                  siz = @arguments[3].get_constant_value
-                  if siz and false then
-                    # Here is buggy yet Fix me
-                    siz[0].times do |i|
-                      add_element_node(tt, cursig, @arguments[4], [i], context)
-                    end
-                  else
-                    add_element_node(tt, cursig, @arguments[4], nil, context)
-                  end
-                end
-              end
-
-              add_type(cursig, tt)
-            else
-              raise "Unkonwn node type #{@arguments[2].class} "
-            end
+            set_escape_node(search_class_top.is_escape)
+            @allocmethod.set_escape_node(@is_escape)
+            @initmethod.type = nil
+            context = @initmethod.collect_candidate_type(context)
+            same_type(self, @allocmethod, cursig, cursig, context)
+            context
+          else
+            super
           end
-          context
         end
 
         def compile_range(context)
@@ -1752,22 +1737,22 @@ module YTLJit
           when [Array]
             fixtype = RubyType::BaseType.from_ruby_class(Fixnum)
             val = @arguments[4]
-            val.is_escape = :local_export
             @arguments[3].add_type(cursig, fixtype)
             cidx = @arguments[3].get_constant_value
             @arguments[2].type = nil
             slf = @arguments[2].decide_type_once(cursig)
 
+            val.type = nil
+            if slf.boxed and val.is_escape != :global_export then
+              val.set_escape_node_backward(:global_export)
+              context = val.collect_candidate_type(context)
+            else
+              val.set_escape_node_backward(:local_export)
+            end
             arg = [slf, cursig, val, cidx, context]
             @arguments[2].add_element_node_backward(arg)
 
             same_type(self, val, cursig, cursig, context)
-
-            if slf.boxed then
-              @arguments[4].set_escape_node_backward(:global_export)
-            else
-              @arguments[4].set_escape_node_backward(:local_export)
-            end
 
           when [Hash]
             cidx = @arguments[3].get_constant_value
@@ -2092,6 +2077,7 @@ module YTLJit
      class SendDispTypeNode<SendNode
         add_special_send_node :disp_type
         def collect_candidate_type_regident(context, slf)
+=begin
           sig = context.to_signature
           p debug_info
           p sig
@@ -2101,10 +2087,20 @@ module YTLJit
           #          p @arguments[2].instance_eval {@type_list}
           p @arguments[2].is_escape
           p @arguments[2].class
+=end
           context
         end
 
        def compile(context)
+          sig = context.to_signature
+          p debug_info
+          p sig
+          p @arguments[2].type_list(sig)
+          @arguments[2].type = nil
+          p @arguments[2].decide_type_once(sig)
+          #          p @arguments[2].instance_eval {@type_list}
+          p @arguments[2].is_escape
+          p @arguments[2].class
          @body.compile(context)
        end
      end

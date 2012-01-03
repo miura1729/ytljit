@@ -493,9 +493,9 @@ LocalVarNode
           when 2
             if tlist[0].ruby_type == tlist[1].ruby_type then
               if tlist[0].abnormal? then
-                tlist[0]
-              else
                 tlist[1]
+                else
+                tlist[0]
               end
               
             elsif tlist[0].ruby_type == NilClass then
@@ -532,9 +532,9 @@ LocalVarNode
             if tmptlist.size == 2 and 
                 tmptlist[0].ruby_type == tmptlist[1].ruby_type then
               if tmptlist[0].abnormal? then
-                tmptlist[0]
-              else
                 tmptlist[1]
+              else
+                tmptlist[0]
               end
 
             elsif tmptlist[0].ruby_type == tmptlist[1].ruby_type and
@@ -3371,7 +3371,6 @@ LocalVarNode
                 cs = mtop.find_cs_by_signature(sig)
               end
               context.ret_reg = cs.var_base_address
-
             else
               # regident type 
 
@@ -3749,9 +3748,10 @@ LocalVarNode
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype != Fixnum and rrtype != Float then
-            if cursig[2].boxed then
+            if cursig[2].boxed and @val.is_escape != :global_export then
               @val.set_escape_node_backward(:global_export)
-#              @class_top.set_escape_node(:global_export)
+              context = @val.collect_candidate_type(context)
+              context.convergent = false
             else
               @val.set_escape_node_backward(:local_export)
             end
