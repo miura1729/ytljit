@@ -912,6 +912,18 @@ module YTLJit
 
         def compile(context)
           rtype = @arguments[2].decide_type_once(context.to_signature)
+          if context.options[:insert_signature_comment] then
+            lineno = debug_info[3]
+            fname = debug_info[0]
+            context.comment[fname] ||= {}
+            context.comment[fname][lineno] ||= []
+            ent = []
+            ent.push 2
+            ent.push is_escape
+            ent.push rtype
+            context.comment[fname][lineno].push ent
+          end
+
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
@@ -1251,6 +1263,12 @@ module YTLJit
 
           when [Array]
             val = @arguments[3]
+            if slf.boxed and val.is_escape != :global_export then
+              val.set_escape_node_backward(:global_export)
+              context = val.collect_candidate_type(context)
+            else
+              val.set_escape_node_backward(:local_export)
+            end
             arg = [slf, cursig, val, nil, context]
             @arguments[2].add_element_node_backward(arg)
             same_type(self, val, cursig, cursig, context)

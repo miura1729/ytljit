@@ -1121,6 +1121,8 @@ LocalVarNode
           @current_signature = []
           @exception_table = nil
           @send_nodes_with_block = nil
+
+          @escape_info = []
         end
 
         attr_accessor :name
@@ -1133,6 +1135,7 @@ LocalVarNode
         attr          :classtop
         attr_accessor :exception_table
         attr_accessor :send_nodes_with_block
+        attr          :escape_info
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -1288,20 +1291,20 @@ LocalVarNode
         end
 
         def gen_comment(context)
-          method_name = @name
           if debug_info then
             lineno = debug_info[3]
             fname = debug_info[0]
-            entry = [method_name]
+            entry = [1, @name]
             @code_spaces.each do |sig, cs|
               ent2 = []
               ent2.push sig
               ent2.push decide_type_once(sig)
               entry.push ent2
             end
-            
+
             context.comment[fname] ||= {}
-            context.comment[fname][lineno] = entry
+            context.comment[fname][lineno] ||= []
+            context.comment[fname][lineno].push entry
           end
         end
 
@@ -1361,11 +1364,20 @@ LocalVarNode
           context
         end
 
+        def apply_escape_info_to_args(signode)
+          @escape_info.each_with_index do |val, idx|
+            if val then
+              signode[idx].set_escape_node_backward(val)
+            end
+          end
+        end
+
         def collect_candidate_type(context, signode, sig)
           @current_signature = nil
           context.visited_top_node[self] ||= []
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
+            apply_escape_info_to_args(signode)
             return context
           end
 
@@ -1403,6 +1415,7 @@ LocalVarNode
 
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
+            apply_escape_info_to_args(signode)
             return context
           end
 
@@ -2056,6 +2069,17 @@ LocalVarNode
           context
         end
 
+        def set_escape_node(value)
+          topnode = @parent.parent
+          flay = @parent.frame_layout
+          fragstart = flay.size - @parent.argument_num
+          if fragstart <= @offset then
+            argoff = @offset - fragstart
+            topnode.escape_info[argoff] = value
+          end
+          super(value)
+        end
+
         def compile(context)
           context = super(context)
           context
@@ -2116,6 +2140,16 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
+          if context.options[:insert_signature_comment] then
+            lineno = debug_info[3] + 1
+            fname = debug_info[0]
+            context.comment[fname] ||= {}
+            context.comment[fname][lineno] ||= []
+            ent = []
+            ent.push 3
+            ent.push @is_escape
+            context.comment[fname][lineno].push ent
+          end
           context = gen_method_epilogue(context)
           curas = context.assembler
           curas.with_retry do
@@ -3748,10 +3782,10 @@ LocalVarNode
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype != Fixnum and rrtype != Float then
-            if cursig[2].boxed and @val.is_escape != :global_export then
+            if cursig[2].boxed and @val.is_escape != :global_export and true then
               @val.set_escape_node_backward(:global_export)
               context = @val.collect_candidate_type(context)
-              context.convergent = false
+#              context.convergent = false
             else
               @val.set_escape_node_backward(:local_export)
             end
