@@ -3498,6 +3498,7 @@ LocalVarNode
 
         def collect_candidate_type(context)
           cursig = context.to_signature
+          @type = nil
           @var_type_info.each do |topnode, node|
             varsig = context.to_signature(topnode)
             same_type(self, node, cursig, varsig, context)

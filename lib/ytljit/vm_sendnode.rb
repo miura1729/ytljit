@@ -193,7 +193,9 @@ module YTLJit
 
         def get_send_method_node(cursig)
           mt = nil
-          # @arguments[2].type = nil
+          if @arguments[2].type_list(cursig) != [[], []] then
+            @arguments[2].type = nil
+          end
           slf = nil
           if is_fcall or is_vcall then
             slf =  @arguments[2].decide_type_once(cursig)
