@@ -1122,7 +1122,8 @@ LocalVarNode
           @exception_table = nil
           @send_nodes_with_block = nil
 
-          @escape_info = []
+          @escape_info_tab = {}
+          @escape_info = nil
         end
 
         attr_accessor :name
@@ -1374,6 +1375,8 @@ LocalVarNode
 
         def collect_candidate_type(context, signode, sig)
           @current_signature = nil
+          @escape_info_tab[sig] ||= []
+          @escape_info = @escape_info_tab[sig]
           context.visited_top_node[self] ||= []
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
@@ -1388,7 +1391,9 @@ LocalVarNode
             @signature_cache.push sig
           end
 
-          collect_candidate_type_common(context, signode, sig)
+          context = collect_candidate_type_common(context, signode, sig)
+          @escape_info = nil
+          context
         end
 
         def construct_frame_info(locals, argnum, args)
@@ -1407,26 +1412,6 @@ LocalVarNode
           context = collect_info_top(context)
           context.modified_local_var.last.pop
           context
-        end
-
-        def collect_candidate_type(context, signode, sig)
-          @current_signature = nil
-          context.visited_top_node[self] ||= []
-
-          if add_cs_for_signature(sig) == nil and  
-              context.visited_top_node[self].include?(sig) then
-            apply_escape_info_to_args(signode)
-            return context
-          end
-
-          @current_signature = sig
-          context.visited_top_node[self].push sig
-
-          if !@signature_cache.include?(sig) then
-            @signature_cache.push sig
-          end
-
-          collect_candidate_type_common(context, signode, sig)
         end
 
         include MethodTopCodeGen
@@ -2064,6 +2049,7 @@ LocalVarNode
               cursig2 = context.to_signature(-2)
               same_type(self, tobj, cursig, cursig2, context)
               # same_type(tobj, self, cursig2, cursig, context)
+              # tobj.set_escape_node_backward(@is_escape)
             end
           end
           context
@@ -2071,11 +2057,13 @@ LocalVarNode
 
         def set_escape_node(value)
           topnode = @parent.parent
-          flay = @parent.frame_layout
-          fragstart = flay.size - @parent.argument_num
-          if fragstart <= @offset then
-            argoff = @offset - fragstart
-            topnode.escape_info[argoff] = value
+          if topnode.escape_info then
+            flay = @parent.frame_layout
+            fragstart = flay.size - @parent.argument_num
+            if fragstart <= @offset then
+              argoff = @offset - fragstart
+              topnode.escape_info[argoff] = value
+            end
           end
           super(value)
         end
