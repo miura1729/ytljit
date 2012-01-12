@@ -683,6 +683,7 @@ LO        |                       |   |  |
         end
         cpuinfo.push context.reg_content.dup
         cpuinfo.push context.stack_content.dup
+        cpuinfo.push context.to_signature
         context.top_node.frame_struct_array.push [vretadd, cpuinfo]
         
         if context.options[:dump_context] then

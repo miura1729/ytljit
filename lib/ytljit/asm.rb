@@ -24,6 +24,7 @@ module YTLJit
       if frame_struct_tab[pc] then
         STDERR.print frame_struct_tab[pc][0].class, "\n"
         STDERR.print frame_struct_tab[pc][0].debug_info, "\n"
+        STDERR.print frame_struct_tab[pc][3], "\n"
         STDERR.print frame_struct_tab[pc][2].map {|n| n.class}, "\n"
         bp = memref(bp)
         backtrace(bp)
@@ -36,6 +37,7 @@ module YTLJit
       frame_struct_tab = VM::Node::TopTopNode.get_frame_struct_tab
       STDERR.print frame_struct_tab[regval[1]][0].debug_info, "\n"
       STDERR.print frame_struct_tab[regval[1]][2].map {|n| n.class}, "\n"
+      STDERR.print frame_struct_tab[regval[1]][3], "\n"
       REGS.each do |rname, no|
         STDERR.print rname
         STDERR.print ": 0x"
