@@ -175,10 +175,10 @@ search_free_chunk(CodeSpaceArena *arena)
   while (arena) {
     for (i = 0;(cbitmap = arena->bitmap[i]) == 0; i++);
     if (i < alocarea_off) {
-      arena_search_tab[logsize] = arena;
-
       /* found free chunk */
       int bitpos = ffs64(cbitmap);
+
+      arena_search_tab[logsize] = arena;
 
       /* bitmap free -> used */
       // fprintf(stderr, "%x %x\n", bitpos, arena->bitmap[i]);

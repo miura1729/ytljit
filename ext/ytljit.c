@@ -107,7 +107,6 @@ ytl_method_address_of_raw(VALUE klass, VALUE mname)
 VALUE
 ytl_binding_to_a(VALUE self)
 {
-  rb_proc_t *proc;
   rb_binding_t *bptr;
   rb_env_t *env;
   VALUE resary;
@@ -451,7 +450,6 @@ ytl_backtrace(VALUE rip,
 {
   VALUE *argv;
   uintptr_t sp;
-  int i;
 
   argv = ALLOCA_N(VALUE, NUMREGS + 1);
 

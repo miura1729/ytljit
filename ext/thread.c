@@ -22,7 +22,6 @@ VALUE
 ytl_thread_create(void *argv, void *(*entry)(void *))
 {
   struct ytl_thread *th;
-  VALUE obj;
 
   th = malloc(sizeof(struct ytl_thread));
   th->pself = ((VALUE *)argv)[4];

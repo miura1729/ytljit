@@ -47,8 +47,6 @@ ytl_arena_mark(struct ArenaHeader *arenah)
 void
 ytl_arena_free(struct ArenaHeader *arenah)
 {
-  VALUE *base;
-  VALUE *start;
   struct ArenaBody *curptr;
   struct ArenaBody *curptr_next;
   
@@ -169,7 +167,6 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
   struct ArenaHeader *arenah;
 
   int raw_offset;
-  int newsize;
   VALUE *newlastptr;
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
@@ -228,7 +225,7 @@ ytl_arena_to_s(VALUE self)
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
 
-  return rb_sprintf("#<Arena %p size=%d body=%p last=%p>", 
+  return rb_sprintf("#<Arena %p size=%lu body=%p last=%p>", 
 		    (void *)self, 
 		    ytl_arena_size(self) / 2,
 		    (void *)arenah->body->body,
