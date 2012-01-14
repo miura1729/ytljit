@@ -321,7 +321,7 @@ rb_iseq_t *rb_method_get_iseq(VALUE method);
 #define RCLASS_M_TBL(c) (RCLASS(c)->m_tbl)
 #endif
 
-#ifndef RCLASS_M_SUPER
+#ifndef RCLASS_SUPER
 #define RCLASS_SUPER(c) (RCLASS(c)->ptr->super)
 #endif
 

@@ -836,7 +836,7 @@ module YTLJit
           val, evalstr = sn
           evalstr = evalstr.join("\n")
           is = RubyVM::InstructionSequence.compile(
-                  evalstr, "macro #{ins[1]}", "", 0, YTL::ISEQ_OPTS).to_a
+                  evalstr, "macro #{ins[1]}", "", 1, YTL::ISEQ_OPTS).to_a
           ncode = VMLib::InstSeqTree.new(code, is)
           ncode.body.pop        # Chop leave instruction
           translate_main(ncode, context)
