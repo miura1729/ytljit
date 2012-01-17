@@ -873,7 +873,7 @@ module YTLJit
           cursig = context.to_signature
 
           if slf.ruby_type.is_a?(Class) then
-            set_escape_node(search_class_top.is_escape)
+            set_escape_node(@parent.is_escape)
             @allocmethod.set_escape_node(@is_escape)
             @initmethod.type = nil
             context = @initmethod.collect_candidate_type(context)
@@ -2097,7 +2097,7 @@ module YTLJit
      class SendDispTypeNode<SendNode
         add_special_send_node :disp_type
         def collect_candidate_type_regident(context, slf)
-=begin
+#=begin
           sig = context.to_signature
           p debug_info
           p sig
@@ -2107,20 +2107,22 @@ module YTLJit
           #          p @arguments[2].instance_eval {@type_list}
           p @arguments[2].is_escape
           p @arguments[2].class
-=end
+#=end
           context
         end
 
        def compile(context)
-          sig = context.to_signature
-          p debug_info
-          p sig
-          p @arguments[2].type_list(sig)
-          @arguments[2].type = nil
-          p @arguments[2].decide_type_once(sig)
-          #          p @arguments[2].instance_eval {@type_list}
-          p @arguments[2].is_escape
-          p @arguments[2].class
+=begin
+         sig = context.to_signature
+         p debug_info
+         p sig
+         p @arguments[2].type_list(sig)
+         @arguments[2].type = nil
+         p @arguments[2].decide_type_once(sig)
+         #          p @arguments[2].instance_eval {@type_list}
+         p @arguments[2].is_escape
+         p @arguments[2].class
+=end
          @body.compile(context)
        end
      end

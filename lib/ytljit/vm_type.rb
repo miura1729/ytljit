@@ -113,9 +113,8 @@ module YTLJit
         tvs = @types_tree.search(key)
         if tvs then
           tvsv = tvs.value[pos]
-          if !tvsv.include? type then
-            tvsv.push type
-          end
+          tvsv.delete(type)
+          tvsv.push type
         else
           # inherit types of most similar signature 
           ival = [[], []]

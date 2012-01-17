@@ -300,16 +300,20 @@ LocalVarNode
         def marge_type(dst, src)
           res = dst
           src.each do |sele|
-            if res.all? {|e| e.ruby_type != sele.ruby_type or 
-                e.boxed != sele.boxed } then
-              res.push sele
-            elsif sele.have_element? and sele.element_type then
-              # Replace type object which have more collect element type
-              res.each_with_index do |rele, i|
-                if rele == sele and rele.element_type == nil then
-                  res[i] = sele
-                end
+            org = nil
+            res.delete_if {|e| 
+              if e.ruby_type == sele.ruby_type and
+                  e.boxed == sele.boxed then
+                org = e
+              else
+                nil
               end
+            }
+
+            if org and org.have_element? and org.element_type then
+              res.push org
+            else
+              res.push sele
             end
           end
           
@@ -492,11 +496,7 @@ LocalVarNode
 
           when 2
             if tlist[0].ruby_type == tlist[1].ruby_type then
-              if tlist[0].abnormal? then
-                tlist[1]
-                else
-                tlist[0]
-              end
+              tlist[0]
               
             elsif tlist[0].ruby_type == NilClass then
               # nil-able type
@@ -531,11 +531,7 @@ LocalVarNode
             tmptlist.delete_if {|ele| ele.ruby_type == NilClass}
             if tmptlist.size == 2 and 
                 tmptlist[0].ruby_type == tmptlist[1].ruby_type then
-              if tmptlist[0].abnormal? then
-                tmptlist[1]
-              else
-                tmptlist[0]
-              end
+              tmptlist[0]
 
             elsif tmptlist[0].ruby_type == tmptlist[1].ruby_type and
                   tmptlist[0].ruby_type == tmptlist[2].ruby_type  then
@@ -569,7 +565,7 @@ LocalVarNode
           if  # @decided_signature != cursig or
               @type.equal?(nil) or 
               @type.is_a?(RubyType::DefaultType0) then
-            tlist = type_list(cursig).flatten.uniq
+            tlist = type_list(cursig).flatten.reverse.uniq
             @decided_signature = cursig
             @type = decide_type_core(tlist, cursig, local_cache)
           end
@@ -2049,7 +2045,6 @@ LocalVarNode
               cursig2 = context.to_signature(-2)
               same_type(self, tobj, cursig, cursig2, context)
               # same_type(tobj, self, cursig2, cursig, context)
-              # tobj.set_escape_node_backward(@is_escape)
             end
           end
           context
