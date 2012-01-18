@@ -3481,7 +3481,11 @@ LocalVarNode
           end
 
           if vti then
-            @var_type_info = vti.map {|e| e.dup }
+            if depth == 0 then
+              @var_type_info = vti.map {|e| e.dup }
+            else
+              @var_type_info = vti
+            end
           else
             raise "maybe bug"
             roff = @current_frame_info.real_offset(@offset)
