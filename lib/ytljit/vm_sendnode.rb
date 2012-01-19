@@ -739,6 +739,9 @@ module YTLJit
             # set element type
             parg = @parent.arguments
             if tt.ruby_type == Range then
+              if @is_escape != :global_export then
+                tt = tt.to_unbox
+              end
               tt.args = parg[3..-1]
               add_element_node(tt, cursig, parg[3], [0], context)
               add_element_node(tt, cursig, parg[4], [1], context)
@@ -930,7 +933,7 @@ module YTLJit
           if rrtype.is_a?(Class) then
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
-            if @is_escape != :global_export and 
+            if !ctype.boxed and 
                 crtype == Range then
               return compile_range(context)
               
@@ -1991,12 +1994,12 @@ module YTLJit
         end
 
         def compile(context)
-          sig = context.to_signature
-          rtype = @arguments[2].decide_type_once(sig)
+          cursig = context.to_signature
+          @arguments[2].type = nil
+          rtype = @arguments[2].decide_type_once(cursig)
           rrtype = rtype.ruby_type
-          decide_type_once(sig)
-          if rrtype == Range and !rtype.boxed and 
-              @arguments[2].is_escape != :global_export then
+          decide_type_once(cursig)
+          if rrtype == Range and !rtype.boxed then
             context = @arguments[2].compile(context)
             slotoff = OpIndirect.new(TMPR, arg_offset)
             asm = context.assembler
