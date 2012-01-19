@@ -3589,6 +3589,7 @@ LocalVarNode
           val.parent = self
           @val = val
           @var_from = nil
+          @var_type_info = nil
         end
 
         def traverse_childlen
@@ -3618,6 +3619,7 @@ LocalVarNode
           end
             
           context.modified_local_var.last[-@depth - 1][@offset] = nodepare
+          @var_type_info = nodepare
 
           @body.collect_info(context)
         end
@@ -3625,9 +3627,16 @@ LocalVarNode
         def collect_candidate_type(context)
           context = @val.collect_candidate_type(context)
           cursig = context.to_signature
-          varcursig = context.to_signature(@var_from)
-          same_type(self, @val, varcursig, cursig, context)
-#          same_type(@val, self, cursig, varcursig, context)
+          varsig = context.to_signature(@var_from)
+          same_type(self, @val, varsig, cursig, context)
+#          same_type(@val, self, cursig, varsig, context)
+
+          @var_type_info.each do |topnode, node|
+            if node != self then
+              varsig2 = context.to_signature(topnode)
+              same_type(self, node, cursig, varsig2, context)
+            end
+          end
           @body.collect_candidate_type(context)
         end
 
@@ -3635,13 +3644,29 @@ LocalVarNode
           context = super(context)
           context = @val.compile(context)
 
-          sig = context.to_signature(-@depth - 1)
-          decide_type_once(sig)
-          rtype = @val.decide_type_once(context.to_signature)
-          if @type.boxed then
-            context = rtype.gen_boxing(context)
+          cursig = context.to_signature
+          varsig = context.to_signature(-@depth - 1)
+
+          vartype = decide_type_once(varsig)
+          valtype = @val.decide_type_once(cursig)
+
+          asm = context.assembler
+          # type conversion
+          if vartype.ruby_type == Float and
+              valtype.ruby_type == Fixnum then
+            context = valtype.gen_unboxing(context)
+            asm.with_retry do
+              asm.mov(TMPR, context.ret_reg)
+              asm.cvtsi2sd(XMM0, TMPR)
+            end
+            context.ret_reg = XMM0
+            valtype = valtype.to_unbox
+          end
+
+          if vartype.boxed then
+            context = valtype.gen_boxing(context)
           else
-            context = rtype.gen_unboxing(context)
+            context = valtype.gen_unboxing(context)
           end
 
           valr = context.ret_reg
@@ -3650,7 +3675,6 @@ LocalVarNode
           base = context.ret_reg
           offarg = @current_frame_info.offset_arg(@offset, base)
 
-          asm = context.assembler
           if valr.is_a?(OpRegistor) or 
               (valr.is_a?(OpImmidiate) and !valr.is_a?(OpImmidiate64)) then
             asm.with_retry do
