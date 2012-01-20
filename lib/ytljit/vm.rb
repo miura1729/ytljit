@@ -2668,11 +2668,20 @@ LocalVarNode
             @compiled_by_signature.push sig
           else
             asm = context.assembler
-            asm.with_retry do
-              asm.mov(RETR, @res_area)
+            rtype = decide_type_once(sig)
+            if rtype.ruby_type == Float and !rtype.boxed then
+              asm.with_retry do
+                asm.movsd(XMM0, @res_area)
+              end
+              context.set_reg_content(XMM0, self)
+              context.ret_reg = XMM0
+            else
+              asm.with_retry do
+                asm.mov(RETR, @res_area)
+              end
+              context.set_reg_content(RETR, self)
+              context.ret_reg = RETR
             end
-            context.set_reg_content(RETR, self)
-            context.ret_reg = RETR
             context.ret_node = self
           end
 
