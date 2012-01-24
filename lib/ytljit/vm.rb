@@ -2399,7 +2399,7 @@ LocalVarNode
           yield @body
         end
 
-        def branch(as, address)
+        def branch(as, address, cond)
           # as.jn(address)
           # as.je(address)
           raise "Don't use this node direct"
@@ -2419,17 +2419,23 @@ LocalVarNode
 
           curas = context.assembler
           context = @cond.compile(context)
-          curas.with_retry do
-            if context.ret_reg != TMPR then
-              curas.mov(TMPR, context.ret_reg)
+
+          cnd = context.ret_reg
+          if cnd.is_a?(Fixnum) then
+            cnd = cnd & (~4)
+          else
+            curas.with_retry do
+              if context.ret_reg != TMPR then
+                curas.mov(TMPR, context.ret_reg)
+              end
+              
+              # In 64bit mode. It will be sign extended to 64 bit
+              curas.and(TMPR, OpImmidiate32.new(~4))
             end
-            
-            # In 64bit mode. It will be sign extended to 64 bit
-            curas.and(TMPR, OpImmidiate32.new(~4))
           end
 
           curas.with_retry do
-            branch(curas, jmptocs.var_base_address)
+            branch(curas, jmptocs.var_base_address, cnd)
           end
 
           context = @body.compile(context)
@@ -2442,14 +2448,26 @@ LocalVarNode
       end
 
       class BranchIfNode<BranchCommonNode
-        def branch(as, address)
-          as.jnz(address)
+        def branch(as, address, cond)
+          if cond.is_a?(Fixnum) then
+            if cond != 0 then
+              as.jmp(address)
+            end
+          else
+            as.jnz(address)
+          end
         end
       end
 
       class BranchUnlessNode<BranchCommonNode
-        def branch(as, address)
-          as.jz(address)
+        def branch(as, address, cond)
+          if cond.is_a?(Fixnum) then
+            if cond == 0 then
+              as.jmp(address)
+            end
+          else
+            as.jz(address)
+          end
         end
       end
 
