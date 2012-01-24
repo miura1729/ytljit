@@ -2097,6 +2097,34 @@ module YTLJit
         add_special_send_node :p
       end
 
+      class SendIsANode<SendNode
+        add_special_send_node :is_a?
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(TrueClass)
+          add_type(cursig, tt)
+          tt = RubyType::BaseType.from_ruby_class(FalseClass)
+          add_type(cursig, tt)
+          context
+        end
+        
+        def compile(context)
+          cursig = context.to_signature
+          @arguments[2].type = nil
+          rtype = @arguments[2].decide_type_once(cursig)
+          rrtype = rtype.ruby_type
+          ertype = @arguments[3].get_constant_value
+          ertype = ertype ? ertype[0] : nil
+          if rrtype <= ertype then
+            context.ret_reg = 2
+          else
+            context.ret_reg = 0
+          end
+          context
+        end
+      end
+
       class SendDispTypeNode<SendNode
         add_special_send_node :disp_type
         def collect_candidate_type_regident(context, slf)
