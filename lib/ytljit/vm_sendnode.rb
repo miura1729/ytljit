@@ -72,6 +72,15 @@ module YTLJit
           end
         end
 
+        def self.get_special_send_node(name)
+          cls = @@special_node_tab[name]
+          if cls then
+            cls
+          else
+            SendNode
+          end
+        end
+
         def self.macro_expand(context, func, arguments, op_flag, seqno)
           if @@macro_tab[func.name] and 
               (op_flag & (0b11 << 3)) != 0 then
