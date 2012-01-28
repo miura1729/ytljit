@@ -2102,10 +2102,6 @@ module YTLJit
         end
       end
 
-      class SendPNode<SendSameArgTypeNode
-        add_special_send_node :p
-      end
-
       class SendIsANode<SendNode
         add_special_send_node :is_a?
 
