@@ -729,7 +729,7 @@ LocalVarNode
           res.push slf
 
           args[3..-1].each do |ele|
-            if ele.type_list(cursig) == [[], []] then
+            if ele.type_list(cursig) == [[], []] and ele.type then
               res.push ele.type
             else
               ele.type = nil
