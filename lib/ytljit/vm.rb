@@ -3617,6 +3617,16 @@ LocalVarNode
           @val = val
           @var_from = nil
           @var_type_info = nil
+          @referrers = []
+        end
+
+        def add_referrer(ref)
+          if @referrers and ref.id[0..-2] == id[0..-2] then
+            @referrers.push.ref
+            @referrers = @referrers..sort_by {|a| a.id.last}.uniq
+          else
+            @referrers = nil
+          end
         end
 
         def traverse_childlen
