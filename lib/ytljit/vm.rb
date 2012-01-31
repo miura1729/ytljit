@@ -2568,6 +2568,7 @@ LocalVarNode
             context.set_reg_content(RETR, context.ret_node)
             # two epilogue means block and method which is called with block
             context = gen_method_epilogue(context)
+            # compile_unwind is basically same as gen_method_epilogue
             # instead of gen_method_epilogue because may need to ensure proc.
             context = compile_unwind(context)
             asm.with_retry do
@@ -2587,6 +2588,7 @@ LocalVarNode
             while finfo.parent.is_a?(BlockTopNode)
               finfo = finfo.previous_frame
               # two epilogue means block and method which is called with block
+              # compile_unwind is basically same as gen_method_epilogue
               context = gen_method_epilogue(context)
               context = compile_unwind(context)
             end
