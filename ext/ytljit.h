@@ -48,6 +48,8 @@ void ytl_step_handler(void);
 VALUE ytl_ivar_get_boxing(VALUE, int);
 VALUE ytl_ivar_set_boxing(VALUE, int, VALUE);
 
+VALUE ytl_toregexp(int, int, ...);
+
 void init_csarena();
 void *csalloc(int);
 void csfree(void *);

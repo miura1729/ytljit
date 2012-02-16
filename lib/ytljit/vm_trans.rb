@@ -545,7 +545,24 @@ module YTLJit
         context.expstack.push nnode
       end
 
-      # toregexp
+      def visit_toregexp(code, ins, context)
+        curnode = context.current_node
+        opt = ins[1]
+        argnum = ins[2]
+        args = []
+        func = FixArgCApiNode.new(curnode, "ytl_toregexp",
+                                  [:int, :int, :VALUE, :"..."])
+        
+        argnum.times do
+          argele = context.expstack.pop
+          args.push argele
+        end
+        args.push LiteralNode.new(nil, argnum)
+        args.push LiteralNode.new(nil, opt)
+        args = args.reverse
+        toregexpnode = gen_arg_node(context, RetToregexpSendNode, func, args)
+        context.expstack.push toregexpnode
+      end
 
       def newinst_to_sendnode(argnum, klass, code, ins, context)
         arg = []

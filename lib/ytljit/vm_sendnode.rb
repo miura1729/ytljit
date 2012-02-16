@@ -2373,6 +2373,16 @@ module YTLJit
         end
       end
 
+      class RetToregexpSendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(Regexp)
+          add_type(sig, tt)
+
+          context
+        end
+      end
+
       class RetArraySendNode<RawSendNode
         include AbsArch
         include UnboxedArrayUtil
