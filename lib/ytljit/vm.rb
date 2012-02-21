@@ -803,6 +803,7 @@ LocalVarNode
           
           argpos = 0
           cursrc = 0
+          casm = context.assembler
           @arguments.each do |arg|
             # skip prevenv and block_argument
             if cursrc < 2 then
@@ -817,7 +818,6 @@ LocalVarNode
               # use PTMPR for store self
               context = @func.compile(context)
               fnc = context.ret_reg
-              casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[0], context.ret_reg2)
               end
@@ -829,7 +829,6 @@ LocalVarNode
               rnode = context.ret_node
               rtype = rnode.decide_type_once(sig)
               context = rtype.gen_boxing(context)
-              casm = context.assembler
               casm.with_retry do 
                 casm.mov(FUNC_ARG[argpos], context.ret_reg)
               end
@@ -921,12 +920,9 @@ LocalVarNode
           tcontext.stack_content = []
           @arguments[1].compile(tcontext)
           
-          casm = context.assembler
-
           # other arguments
           @arguments[3..-1].each_with_index do |arg, i|
             context = arg.compile(context)
-            casm = context.assembler
             casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
             end
@@ -949,7 +945,6 @@ LocalVarNode
           # use PTMPR for store self
           context = @func.compile(context)
           fnc = context.ret_reg
-          casm = context.assembler
           casm.with_retry do 
             casm.mov(FUNC_ARG_YTL[2], context.ret_reg2)
           end
@@ -972,6 +967,7 @@ LocalVarNode
           
           context.start_arg_reg
           context.cpustack_pushn(numarg * AsmType::MACHINE_WORD.size)
+          casm = context.assembler
           
           @arguments.each_with_index do |arg, argpos|
 #            p "#{@func.name} #{argpos}"
@@ -988,7 +984,6 @@ LocalVarNode
               context = rtype.gen_boxing(context)
             end
 
-            casm = context.assembler
             casm.with_retry do 
               casm.mov(FUNC_ARG[argpos], context.ret_reg)
             end
