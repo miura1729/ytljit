@@ -2239,6 +2239,16 @@ module YTLJit
         add_special_send_node :reverse
       end
  
+      class SendScanNode<SendNode
+        add_special_send_node :scan
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          type = RubyType::BaseType.from_ruby_class(Array)
+          add_type(sig, type)
+          context
+        end
+      end
+
       class SendMathFuncNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
