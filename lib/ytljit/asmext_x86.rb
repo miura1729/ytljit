@@ -30,7 +30,12 @@ module YTLJit
       fainfo = gen.funcarg_info
       if @no == 0 then
         offset = asm.offset
-        code += asm.update_state(gen.sub(SPR, fainfo.maxargs * size))
+        if fainfo.maxargs  > 16 then
+          allocsiz = OpImmidiate32.new(fainfo.maxargs * size)
+        else
+          allocsiz = OpImmidiate8.new(fainfo.maxargs * size)
+        end
+        code += asm.update_state(gen.sub(SPR, allocsiz))
         fainfo.area_allocate_pos.push offset
         fainfo.used_arg_tab.push Hash.new
       end
@@ -112,9 +117,14 @@ module YTLJit
       if argnum != 0 then
         code += @asm.update_state(add(SPR, OpImmidiate8.new(argsize)))
         offset = @funcarg_info.area_allocate_pos.pop
+        if @funcarg_info.maxargs > 16 then
+          allocsiz = OpImmidiate32.new(argsize)
+        else
+          allocsiz = OpImmidiate8.new(argsize)
+        end
         alloc_argument_area = lambda {
           asm.with_current_address(asm.output_stream.base_address + offset) {
-            asm.output_stream[offset] = sub(SPR, argsize)
+            asm.output_stream[offset] = sub(SPR, allocsiz)
           }
         }
         asm.after_patch_tab.push alloc_argument_area

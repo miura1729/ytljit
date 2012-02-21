@@ -608,7 +608,7 @@ module YTLJit
             srcv = src.value
           end
 
-          if small_integer_8bit?(srcv) then
+          if small_integer_8bit?(srcv) and src.is_a?(Integer) then
             return common_operand_80_imm8(dst, srcv, optc, inst)
           end
 
@@ -624,9 +624,10 @@ module YTLJit
         when OpImmidiate64
           srcv = src.value
 
-          if small_integer_8bit?(srcv) then
-            return common_operand_80_imm8(dst, srcv, optc, inst)
-          end
+#          We must respect user's will...
+#          if small_integer_8bit?(srcv) then
+#            return common_operand_80_imm8(dst, srcv, optc, inst)
+#          end
 
           rexseq, rexfmt = rex(dst, src)
 
