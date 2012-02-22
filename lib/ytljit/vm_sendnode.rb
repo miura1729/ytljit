@@ -2427,14 +2427,14 @@ module YTLJit
               !rtype.boxed and 
               @is_escape != :global_export then
             sizent = @element_node_list[1..-1].max_by {|a| a[3] ? a[3][0] : -1}
-            siz = sizent[3][0] + 1
+            siz = sizent[3][0] + 2
             context = gen_alloca(context, siz)
 
             context.start_using_reg(TMPR2)
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, THEPR)
-              asm.mov(INDIRECT_TMPR2, siz)
+              asm.mov(INDIRECT_TMPR2, siz - 1)
               asm.add(TMPR2, 8)
             end
             context.set_reg_content(TMPR2, THEPR)
