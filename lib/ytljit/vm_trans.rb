@@ -35,6 +35,8 @@ module YTLJit
         @not_reached_pos = false
 
         @macro_method = nil
+
+        @options = nil
       end
 
       attr_accessor :the_top
@@ -64,6 +66,8 @@ module YTLJit
       attr_accessor :not_reached_pos
 
       attr_accessor :macro_method
+
+      attr_accessor :options
 
       def import_object(klass, name, value)
         ctn = ClassTopNode.get_class_top_node(klass)
@@ -259,6 +263,7 @@ module YTLJit
               ncontext.current_file_name = context.current_file_name
               ncontext.current_class_node = context.current_class_node
               ncontext.current_method_node = context.current_method_node
+              ncontext.options = context.options
               tr = self.class.new([VMLib::InstSeqTree.new(code, body)])
               tr.translate(ncontext)
             end
@@ -506,6 +511,7 @@ module YTLJit
         ncontext.current_class_node = context.current_class_node
         mname = context.expstack.last
         ncontext.current_method_node = mname
+        ncontext.options = context.options
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -764,6 +770,7 @@ module YTLJit
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
         ncontext.top_nodes.push cnode
+        ncontext.options = context.options
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -808,7 +815,14 @@ module YTLJit
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = context.current_class_node
           ncontext.current_method_node = context.current_method_node
-          btn = ncontext.current_node = BlockTopNode.new(curnode)
+          ncontext.options = context.options
+          btn = nil
+          if context.options[:inline_block] then
+            btn = ncontext.current_node = BlockTopInlineNode.new(curnode)
+            context.current_method_node.inline_block.push btn
+          else
+            btn = ncontext.current_node = BlockTopNode.new(curnode)
+          end
           ncontext.top_nodes.push btn
 
           tr = self.class.new([body])
@@ -944,7 +958,12 @@ module YTLJit
         when :method
           nnode = MethodEndNode.new(srnode)
         when :block
-          nnode = BlockEndNode.new(srnode)
+          nnode = nil
+          if context.options[:inline_block] then
+            nnode = BlockEndInlineNode.new(srnode)
+          else
+            nnode = BlockEndNode.new(srnode)
+          end
         when :class
           nnode = ClassEndNode.new(srnode)
         when :top

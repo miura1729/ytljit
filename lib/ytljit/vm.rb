@@ -1113,6 +1113,8 @@ LocalVarNode
           @exception_table = nil
           @send_nodes_with_block = nil
 
+          @inline_block = []
+
           @escape_info_tab = {}
           @escape_info = nil
         end
@@ -1126,6 +1128,9 @@ LocalVarNode
         attr          :current_signature
         attr          :classtop
         attr_accessor :exception_table
+
+        attr          :inline_block
+
         attr_accessor :send_nodes_with_block
         attr          :escape_info
 
@@ -1153,10 +1158,31 @@ LocalVarNode
           args
         end
 
+        def system_num
+          # 5means BP on Stack, HP, Exception Tag, BP and SP
+          5
+        end
+
+        def construct_system_frame(frame_layout, curpos, finfo)
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :RET_ADDR, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :OLD_BP, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :EXPTAG, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :TMPHEAP, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :OLD_BPSTACK, curpos)
+        end
+
         def construct_frame_info(locals, argnum, args)
           finfo = LocalFrameInfoNode.new(self)
-          # 5means BP on Stack, HP, Exception Tag, BP and SP
-          finfo.system_num = 5
+          finfo.system_num = system_num
 
           argc = args
           opt_label = []
@@ -1193,22 +1219,8 @@ LocalVarNode
             frame_layout[fargstart + i] = lnode
             i = i + 1
           end
-          
-          curpos = fargstart - 1
-          frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :RET_ADDR, curpos)
-          curpos -= 1
-          frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :OLD_BP, curpos)
-          curpos -= 1
-          frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :EXPTAG, curpos)
-          curpos -= 1
-          frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :TMPHEAP, curpos)
-          curpos -= 1
-          frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :OLD_BPSTACK, curpos)
+
+          construct_system_frame(frame_layout, fargstart - 1, finfo)
 
           j = 0
           lvarnum = lsize - finfo.system_num 
@@ -1406,6 +1418,39 @@ LocalVarNode
         end
 
         include MethodTopCodeGen
+      end
+
+      class BlockTopInlineNode<BlockTopNode
+        include MethodTopCodeGen
+
+        def initialize(parent, name = nil)
+          super(parent, name)
+          @frame_offset = nil
+        end
+
+        attr_accessor :frame_offset
+
+        def system_num
+          0
+        end
+
+        def construct_system_frame(frame_layout, curpos, finfo)
+        end
+
+        def gen_method_prologue(context)
+          asm = context.assembler
+
+          frame = OpIndirect.new(SPR, @frame_offset)
+          asm.with_retry do
+            # Make linkage of frame pointer
+            asm.push(BPR)
+            asm.mov(BPR, frame)
+          end
+          context.cpustack_push(BPR)
+          context.set_reg_content(BPR, :frame_ptr)
+            
+          context
+        end
       end
 
       class ClassTopNode<TopNode
@@ -2116,6 +2161,15 @@ LocalVarNode
           context
         end
 
+        def compile_main(context)
+          context = gen_method_epilogue(context)
+          curas = context.assembler
+          curas.with_retry do
+            curas.ret
+          end
+          context
+        end
+
         def compile(context)
           context = super(context)
           if context.options[:insert_signature_comment] then
@@ -2128,17 +2182,27 @@ LocalVarNode
             ent.push @is_escape
             context.comment[fname][lineno].push ent
           end
-          context = gen_method_epilogue(context)
-          curas = context.assembler
-          curas.with_retry do
-            curas.ret
-          end
-          context
+          compile_main(context)
         end
       end
 
       class BlockEndNode<MethodEndNode
         include MethodEndCodeGen
+      end
+
+      class BlockEndInlineNode<BlockEndNode
+        include MethodEndCodeGen
+
+        def compile_main(context)
+          asm = context.assembler
+          asm.with_retry do
+            asm.pop(BPR)
+            asm.ret
+          end
+          context.stack_content = []
+
+          context
+        end
       end
 
       class ClassEndNode<MethodEndNode
