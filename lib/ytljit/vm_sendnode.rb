@@ -85,7 +85,7 @@ module YTLJit
           if @@macro_tab[func.name] and 
               (op_flag & (0b11 << 3)) != 0 then
             cclsnode = context.current_class_node
-            if context.current_method_node == nil then
+            if context.current_method_name == nil then
               cclsnode = cclsnode.make_klassclass_node
             end
 

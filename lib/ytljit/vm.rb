@@ -960,6 +960,60 @@ LocalVarNode
           context
         end
 
+        def compile_ytl_inline(context)
+          fnc = nil
+          numarg = @arguments.size
+          cursig = context.to_signature
+          bprbase = @frame_info.parent.frame_offset
+          # 3 * 8 means hidden args set in top of method
+          argbase = bprbase + @frame_info.system_num + 3 * 8
+          
+          casm = context.assembler
+          # construct and set exception handler in current frame
+          fstentry = nil
+          if @current_exception_table then
+            [:ensure].each do |kind|
+              ent = nil
+              if entbase = @current_exception_table[kind] then
+                ent = entbase[3]
+              end
+              if ent then
+                csadd = ent.get_code_space(cursig).var_base_immidiate_address
+              else
+                csadd = TopTopNode.get_nothing_proc.var_base_immidiate_address
+              end
+              entry = casm.add_value_entry(csadd)
+              fstentry ||= entry.to_immidiate
+            end
+            
+            handoff = bprbase + AsmType::MACHINE_WORD.size * 2
+            handpos = OpIndirect.new(BPR, handoff)
+            casm.with_retry do
+              casm.mov(TMPR, fstentry)
+              casm.mov(handpos, TMPR)
+            end
+            context.set_reg_content(handoff, :first_exception_entry)
+          end
+
+          # push prev env
+          # Prev env is set in toplevel
+          # yield is no block
+          # self is set in toplevel
+          
+          # other arguments
+          @arguments[3..-1].each_with_index do |arg, i|
+            context = arg.compile(context)
+            argpos = OpIndirect.new(BPR, argbase + 8 * i)
+            casm.with_retry do 
+              casm.mov(argpos, context.ret_reg)
+            end
+            context.set_reg_content(argpos.dst_opecode, 
+                                    context.ret_node)
+          end
+          context = gen_call(context, fnc, 0)
+          context
+        end
+
         def compile_c_fixarg_raw(context)
           context = @func.compile(context)
           fnc = context.ret_reg
@@ -1324,6 +1378,21 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
+            @inline_block.each do |btop|
+              fsize = btop.body.frame_size
+              bfoff = btop.set_frame_offset(@body.static_alloca(fsize))
+
+              # copy prev env, block, self of this method
+              [0, 1, 2].each do |i|
+                src = @body.offset_arg(i, BPR)
+                dst = btop.body.offset_arg(i + bfoff, BPR)
+                asm = context.assembler
+                asm.with_retry do
+                  asm.mov(TMPR, src)
+                  asm.mov(dst, TMPR)
+                end
+              end
+            end
             context = compile_init(context)
             context = @body.compile(context)
 
@@ -1428,23 +1497,40 @@ LocalVarNode
           @frame_offset = nil
         end
 
-        attr_accessor :frame_offset
+        attr :frame_offset
+
+        def set_frame_offset(raw_offset)
+          pfoffset = 0
+          pbtop = @body.previous_frame.parent
+          if pbtop.is_a?(BlockTopInlineNode) then
+            pfoffset = pbtop.frame_offset
+          end
+          @frame_offset = raw_offset - @body.local_area_size - pfoffset
+        end
 
         def system_num
-          0
+          3
         end
 
         def construct_system_frame(frame_layout, curpos, finfo)
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :EXPTAG, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :TMPHEAP, curpos)
+          curpos -= 1
+          frame_layout[curpos] = SystemValueNode.new(finfo, 
+                                                     :OLD_BPSTACK, curpos)
         end
 
         def gen_method_prologue(context)
           asm = context.assembler
 
-          frame = OpIndirect.new(SPR, @frame_offset)
+          frame = OpIndirect.new(BPR, @frame_offset)
           asm.with_retry do
             # Make linkage of frame pointer
             asm.push(BPR)
-            asm.mov(BPR, frame)
+            asm.lea(BPR, frame)
           end
           context.cpustack_push(BPR)
           context.set_reg_content(BPR, :frame_ptr)
@@ -1944,6 +2030,7 @@ LocalVarNode
         attr_accessor :argument_num
         attr_accessor :system_num
         attr          :previous_frame
+        attr          :local_area_size
 
         attr_accessor :argc
         attr_accessor :opt_label
@@ -2024,7 +2111,9 @@ LocalVarNode
         def compile(context)
           context = super(context)
           siz = @local_area_size + @alloca_area_size
-          if siz != 0 and !(@parent.is_a?(ExceptionTopNode)) then
+          if siz != 0 and 
+              !(@parent.is_a?(ExceptionTopNode)) and
+              !(@parent.is_a?(BlockTopInlineNode)) then
             asm = context.assembler
             asm.with_retry do
               asm.sub(SPR, siz)

@@ -12,6 +12,7 @@ module YTLJit
         @top_nodes = [@the_top]
         @current_file_name = nil
         @current_class_node = @the_top
+        @current_method_name = nil
         @current_method_node = nil
         
         @send_nodes_with_block = []
@@ -44,6 +45,7 @@ module YTLJit
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
+      attr_accessor :current_method_name
       attr_accessor :current_method_node
 
       attr          :send_nodes_with_block
@@ -92,8 +94,8 @@ module YTLJit
 
       def debug_info
         mname = nil
-        if @current_method_node then
-          mname = @current_method_node.get_constant_value
+        if @current_method_name then
+          mname = @current_method_name.get_constant_value
         end
         if mname then
           mname = mname[0]
@@ -137,7 +139,7 @@ module YTLJit
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
             lstr = context.enc_label + "+blk+" + 
-                   context.current_method_node.to_s
+                   context.current_method_name.to_s
             context.enc_label = lstr
           end
           translate_block(code, context)
@@ -262,6 +264,7 @@ module YTLJit
               ncontext.top_nodes.push nbody
               ncontext.current_file_name = context.current_file_name
               ncontext.current_class_node = context.current_class_node
+              ncontext.current_method_name = context.current_method_name
               ncontext.current_method_node = context.current_method_node
               ncontext.options = context.options
               tr = self.class.new([VMLib::InstSeqTree.new(code, body)])
@@ -492,12 +495,14 @@ module YTLJit
         body = VMLib::InstSeqTree.new(code, ins[1])
         curnode = context.current_node
         ncontext = YARVContext.new(context)
+        ncontext.current_method_node = context.current_method_node
 
         case body.header['type']
         when :block
           mtopnode = BlockTopNode.new(curnode)
         when :method
           mtopnode = MethodTopNode.new(curnode, body.header['name'].to_sym)
+          ncontext.current_method_node = mtopnode
         when :class
           mtopnode = ClassTopNode.new(curnode, Object, body.header['name'].to_sym)
         when :top
@@ -510,7 +515,7 @@ module YTLJit
         ncontext.current_file_name = context.current_file_name
         ncontext.current_class_node = context.current_class_node
         mname = context.expstack.last
-        ncontext.current_method_node = mname
+        ncontext.current_method_name = mname
         ncontext.options = context.options
 
         tr = self.class.new([body])
@@ -814,10 +819,11 @@ module YTLJit
           ncontext = YARVContext.new(context)
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = context.current_class_node
+          ncontext.current_method_name = context.current_method_name
           ncontext.current_method_node = context.current_method_node
           ncontext.options = context.options
           btn = nil
-          if context.options[:inline_block] then
+          if context.options[:inline_block] and context.current_method_node then
             btn = ncontext.current_node = BlockTopInlineNode.new(curnode)
             context.current_method_node.inline_block.push btn
           else
@@ -959,7 +965,7 @@ module YTLJit
           nnode = MethodEndNode.new(srnode)
         when :block
           nnode = nil
-          if context.options[:inline_block] then
+          if context.top_nodes.last.is_a?(BlockTopInlineNode) then
             nnode = BlockEndInlineNode.new(srnode)
           else
             nnode = BlockEndNode.new(srnode)
