@@ -353,6 +353,9 @@ module YTLJit
           end
 
           mt.yield_node.map do |ynode|
+            if !ynode.func.block_nodes.include?(blknode)
+              ynode.func.block_nodes.push blknode
+            end
             yargs = ynode.arguments.dup
             yargs[2.. -1].each do |arg|
               context = arg.collect_candidate_type(context)
@@ -497,6 +500,9 @@ module YTLJit
             rectype = @arguments[2].decide_type_once(cursig)
             context = inode.compile_main_aux(context, context.ret_reg, rectype, 
                                              @arguments[3], nil)
+
+          when :ytl_inline
+            context = compile_ytl_inline(context)
 
           when nil
 
@@ -812,7 +818,7 @@ module YTLJit
           context.start_using_reg(TMPR2)
           context.start_using_reg(PTMPR)
           callconv = @func.calling_convention(context)
-          
+
           case callconv
           when :c_vararg
             context = compile_c_vararg(context)

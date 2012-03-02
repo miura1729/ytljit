@@ -964,9 +964,11 @@ LocalVarNode
           fnc = nil
           numarg = @arguments.size
           cursig = context.to_signature
-          bprbase = @frame_info.parent.frame_offset
+          blknode = @func.block_nodes[0]
+          blk_finfo = blknode.body
+          bprbase = blknode.frame_offset
           # 3 * 8 means hidden args set in top of method
-          argbase = bprbase + @frame_info.system_num + 3 * 8
+          argbase = bprbase + blk_finfo.offset_by_byte(3)
           
           casm = context.assembler
           # construct and set exception handler in current frame
@@ -1000,16 +1002,17 @@ LocalVarNode
           # yield is no block
           # self is set in toplevel
           
+          context = gen_save_thepr(context)
           # other arguments
           @arguments[3..-1].each_with_index do |arg, i|
             context = arg.compile(context)
-            argpos = OpIndirect.new(BPR, argbase + 8 * i)
             casm.with_retry do 
-              casm.mov(argpos, context.ret_reg)
+              casm.mov(TMPR, context.ret_reg)
             end
-            context.set_reg_content(argpos.dst_opecode, 
-                                    context.ret_node)
+#            context.set_reg_content(argpos, context.ret_node)
           end
+          fnc = @frame_info.offset_arg(1, BPR)
+
           context = gen_call(context, fnc, 0)
           context
         end
@@ -1310,6 +1313,14 @@ LocalVarNode
 
         def collect_info(context)
           collect_info_top(context)
+          @inline_block.each do |btop|
+            if btop.frame_offset == nil then
+              finfo = btop.body
+              fsize = finfo.frame_size + finfo.alloca_area_size
+              btop.set_frame_offset(@body.static_alloca(fsize))
+            end
+          end
+          context
         end
 
         def collect_candidate_type_common(context, signode, sig)
@@ -1378,21 +1389,39 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
+            context.start_using_reg(TMPR2)
             @inline_block.each do |btop|
-              fsize = btop.body.frame_size
-              bfoff = btop.set_frame_offset(@body.static_alloca(fsize))
-
+              bfinfo = btop.body
+              bfoff = btop.frame_offset
               # copy prev env, block, self of this method
+              asm = context.assembler
+              src = BPR
+              pbtop = btop.body.previous_frame.parent
+              pboff = 0
+              if pbtop.is_a?(BlockTopInlineNode)
+                pboff = pbtop.frame_offset
+                asm.with_retry do
+                  asm.mov(TMPR, src)
+                  asm.add(TMPR, pboff)
+                end
+                src = TMPR
+              end
+                
+              asm.with_retry do
+                asm.mov(TMPR2, BPR)
+                asm.add(TMPR2, bfoff)
+              end
+
               [0, 1, 2].each do |i|
-                src = @body.offset_arg(i, BPR)
-                dst = btop.body.offset_arg(i + bfoff, BPR)
-                asm = context.assembler
+                dst = bfinfo.offset_arg(i, TMPR2)
                 asm.with_retry do
                   asm.mov(TMPR, src)
                   asm.mov(dst, TMPR)
                 end
+                src = @body.offset_arg(i + 1, BPR)
               end
             end
+            context.end_using_reg(TMPR2)
             context = compile_init(context)
             context = @body.compile(context)
 
@@ -1500,12 +1529,8 @@ LocalVarNode
         attr :frame_offset
 
         def set_frame_offset(raw_offset)
-          pfoffset = 0
-          pbtop = @body.previous_frame.parent
-          if pbtop.is_a?(BlockTopInlineNode) then
-            pfoffset = pbtop.frame_offset
-          end
-          @frame_offset = raw_offset - @body.local_area_size - pfoffset
+          @frame_offset = raw_offset + 
+            (@body.local_area_size + @body.alloca_area_size)
         end
 
         def system_num
@@ -1526,11 +1551,20 @@ LocalVarNode
         def gen_method_prologue(context)
           asm = context.assembler
 
-          frame = OpIndirect.new(BPR, @frame_offset)
+          # Make linkage of frame pointer
+          # One argument pass by TMPR
+          arg0 = @body.offset_arg(3, BPR)
+          foff = @frame_offset
+          if @body.previous_frame.parent.is_a?(BlockTopInlineNode) then
+            foff = foff - @body.previous_frame.parent.frame_offset
+          end
+
           asm.with_retry do
-            # Make linkage of frame pointer
             asm.push(BPR)
-            asm.lea(BPR, frame)
+            asm.mov(BPR, INDIRECT_BPR)
+            asm.mov(BPR, INDIRECT_BPR)
+            asm.add(BPR, foff)
+            asm.mov(arg0, TMPR)
           end
           context.cpustack_push(BPR)
           context.set_reg_content(BPR, :frame_ptr)
@@ -2031,6 +2065,7 @@ LocalVarNode
         attr_accessor :system_num
         attr          :previous_frame
         attr          :local_area_size
+        attr          :alloca_area_size
 
         attr_accessor :argc
         attr_accessor :opt_label
@@ -3050,11 +3085,13 @@ LocalVarNode
           @name = "block yield"
           @frame_info = search_frame_info
           @depth = 0
+          @block_nodes = []
         end
 
         attr :name
         attr :frame_info
         attr_accessor :depth
+        attr :block_nodes
 
         def collect_info(context)
           context.yield_node.last.push @parent
@@ -3066,7 +3103,11 @@ LocalVarNode
         end
 
         def calling_convention(context)
-          :ytl
+          if block_nodes[0].is_a?(BlockTopInlineNode) then
+            :ytl_inline
+          else
+            :ytl
+          end
         end
 
         def method_top_node(ctop, slf)
