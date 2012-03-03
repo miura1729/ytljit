@@ -855,15 +855,8 @@ LocalVarNode
           context
         end
 
-        def compile_ytl(context)
-          fnc = nil
-          numarg = @arguments.size
+        def set_ensure_proc(context)
           cursig = context.to_signature
-          
-          context.start_arg_reg
-          context.start_arg_reg(FUNC_ARG_YTL)
-          context.cpustack_pushn(numarg * 8)
-
           casm = context.assembler
           # construct and set exception handler in current frame
           fstentry = nil
@@ -888,6 +881,18 @@ LocalVarNode
             end
             context.set_reg_content(handoff, :first_exception_entry)
           end
+        end
+
+        def compile_ytl(context)
+          fnc = nil
+          numarg = @arguments.size
+          cursig = context.to_signature
+          
+          context.start_arg_reg
+          context.start_arg_reg(FUNC_ARG_YTL)
+          context.cpustack_pushn(numarg * 8)
+          casm = context.assembler
+          set_ensure_proc(context)
 
           # push prev env
           if @func.is_a?(YieldNode) then
@@ -963,39 +968,11 @@ LocalVarNode
         def compile_ytl_inline(context)
           fnc = nil
           numarg = @arguments.size
-          cursig = context.to_signature
           blknode = @func.block_nodes[0]
           blk_finfo = blknode.body
-          bprbase = blknode.frame_offset
-          # 3 * 8 means hidden args set in top of method
-          argbase = bprbase + blk_finfo.offset_by_byte(3)
           
           casm = context.assembler
-          # construct and set exception handler in current frame
-          fstentry = nil
-          if @current_exception_table then
-            [:ensure].each do |kind|
-              ent = nil
-              if entbase = @current_exception_table[kind] then
-                ent = entbase[3]
-              end
-              if ent then
-                csadd = ent.get_code_space(cursig).var_base_immidiate_address
-              else
-                csadd = TopTopNode.get_nothing_proc.var_base_immidiate_address
-              end
-              entry = casm.add_value_entry(csadd)
-              fstentry ||= entry.to_immidiate
-            end
-            
-            handoff = bprbase + AsmType::MACHINE_WORD.size * 2
-            handpos = OpIndirect.new(BPR, handoff)
-            casm.with_retry do
-              casm.mov(TMPR, fstentry)
-              casm.mov(handpos, TMPR)
-            end
-            context.set_reg_content(handoff, :first_exception_entry)
-          end
+          set_ensure_proc(context)
 
           # push prev env
           # Prev env is set in toplevel
@@ -1545,7 +1522,7 @@ LocalVarNode
                                                      :TMPHEAP, curpos)
           curpos -= 1
           frame_layout[curpos] = SystemValueNode.new(finfo, 
-                                                     :OLD_BPSTACK, curpos)
+                                                     :OLD_SP, curpos)
         end
 
         def gen_method_prologue(context)
@@ -1564,6 +1541,7 @@ LocalVarNode
             asm.mov(BPR, INDIRECT_BPR)
             asm.mov(BPR, INDIRECT_BPR)
             asm.add(BPR, foff)
+            asm.mov(INDIRECT_BPR, SPR)
             asm.mov(arg0, TMPR)
           end
           context.cpustack_push(BPR)
@@ -2317,14 +2295,26 @@ LocalVarNode
       class BlockEndInlineNode<BlockEndNode
         include MethodEndCodeGen
 
-        def compile_main(context)
+        def gen_method_epilogue(context)
           asm = context.assembler
           asm.with_retry do
+            # it can't keep stack consistency
+            asm.mov(SPR, INDIRECT_BPR)
             asm.pop(BPR)
-            asm.ret
           end
           context.stack_content = []
 
+          context
+        end
+
+        def compile_main(context)
+          asm = context.assembler
+          asm.with_retry do
+            # not need adjust SPR because it keeps stack consistency
+            # when this code executes
+            asm.pop(BPR)
+            asm.ret
+          end
           context
         end
       end
@@ -2704,6 +2694,7 @@ LocalVarNode
 
         def initialize(parent, state, exceptobj)
           super(parent)
+          @curtop = search_top
           @state = state
           @exception_object = exceptobj
         end
@@ -2718,9 +2709,6 @@ LocalVarNode
 
         def collect_candidate_type(context)
           @exception_object.collect_candidate_type(context)
-        end
-
-        def gen_unwind(context)
         end
 
         def compile_unwind(context)
@@ -2750,7 +2738,7 @@ LocalVarNode
             end
             context.set_reg_content(RETR, context.ret_node)
             # two epilogue means block and method which is called with block
-            context = gen_method_epilogue(context)
+            context = @curtop.end_nodes[0].gen_method_epilogue(context)
             # compile_unwind is basically same as gen_method_epilogue
             # instead of gen_method_epilogue because may need to ensure proc.
             context = compile_unwind(context)
@@ -2769,11 +2757,11 @@ LocalVarNode
             tnode = search_frame_info
             finfo = tnode
             while finfo.parent.is_a?(BlockTopNode)
-              finfo = finfo.previous_frame
               # two epilogue means block and method which is called with block
               # compile_unwind is basically same as gen_method_epilogue
-              context = gen_method_epilogue(context)
+              context = finfo.parent.end_nodes[0].gen_method_epilogue(context)
               context = compile_unwind(context)
+              finfo = finfo.previous_frame
             end
             context = compile_unwind(context)
             asm.with_retry do
