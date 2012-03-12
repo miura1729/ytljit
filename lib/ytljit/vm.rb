@@ -1285,11 +1285,7 @@ LocalVarNode
               end
             end
           end
-          context
-        end
 
-        def collect_info(context)
-          collect_info_top(context)
           @inline_block.each do |btop|
             if btop.frame_offset == nil then
               finfo = btop.body
@@ -1297,6 +1293,12 @@ LocalVarNode
               btop.set_frame_offset(@body.static_alloca(fsize))
             end
           end
+
+          context
+        end
+
+        def collect_info(context)
+          collect_info_top(context)
           context
         end
 
@@ -1366,39 +1368,41 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
-            context.start_using_reg(TMPR2)
-            @inline_block.each do |btop|
-              bfinfo = btop.body
-              bfoff = btop.frame_offset
-              # copy prev env, block, self of this method
+            if @inline_block != [] then
+              context.start_using_reg(TMPR2)
               asm = context.assembler
-              src = BPR
-              pbtop = btop.body.previous_frame.parent
-              pboff = 0
-              if pbtop.is_a?(BlockTopInlineNode)
-                pboff = pbtop.frame_offset
-                asm.with_retry do
-                  asm.mov(TMPR, src)
-                  asm.add(TMPR, pboff)
+              @inline_block.each do |btop|
+                bfinfo = btop.body
+                bfoff = btop.frame_offset
+                # copy prev env, block, self of this method
+                src = BPR
+                pbtop = btop.body.previous_frame.parent
+                pboff = 0
+                if pbtop.is_a?(BlockTopInlineNode)
+                  pboff = pbtop.frame_offset
+                  asm.with_retry do
+                    asm.mov(TMPR, src)
+                    asm.add(TMPR, pboff)
+                  end
+                  src = TMPR
                 end
-                src = TMPR
-              end
                 
-              asm.with_retry do
-                asm.mov(TMPR2, BPR)
-                asm.add(TMPR2, bfoff)
-              end
-
-              [0, 1, 2].each do |i|
-                dst = bfinfo.offset_arg(i, TMPR2)
                 asm.with_retry do
-                  asm.mov(TMPR, src)
-                  asm.mov(dst, TMPR)
+                  asm.mov(TMPR2, BPR)
+                  asm.add(TMPR2, bfoff)
                 end
-                src = @body.offset_arg(i + 1, BPR)
+                
+                [0, 1, 2].each do |i|
+                  dst = bfinfo.offset_arg(i, TMPR2)
+                  asm.with_retry do
+                    asm.mov(TMPR, src)
+                    asm.mov(dst, TMPR)
+                  end
+                  src = @body.offset_arg(i + 1, BPR)
+                end
               end
+              context.end_using_reg(TMPR2)
             end
-            context.end_using_reg(TMPR2)
             context = compile_init(context)
             context = @body.compile(context)
 
@@ -1874,7 +1878,7 @@ LocalVarNode
             init_unwind_proc
             add_code_space(nil, @@unwind_proc)
           end
-          context = super(context)
+          context = super
           @modified_global_var = context.modified_global_var
           context
         end
@@ -3091,7 +3095,7 @@ LocalVarNode
         end
 
         def calling_convention(context)
-          if block_nodes[0].is_a?(BlockTopInlineNode) then
+          if @block_nodes[0].is_a?(BlockTopInlineNode) then
             :ytl_inline
           else
             :ytl

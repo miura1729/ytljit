@@ -353,7 +353,7 @@ module YTLJit
           end
 
           mt.yield_node.map do |ynode|
-            if !ynode.func.block_nodes.include?(blknode)
+            if !ynode.func.block_nodes.include?(blknode) then
               ynode.func.block_nodes.push blknode
             end
             yargs = ynode.arguments.dup
