@@ -609,11 +609,12 @@ LO        |                       |   |  |
           if depth != 0 then
             context.start_using_reg(TMPR2)
             cframe = frame_info
+            creg = BPR
             asm.with_retry do
-              asm.mov(TMPR2, BPR)
               depth.times do 
-                asm.mov(TMPR2, cframe.offset_arg(0, TMPR2))
+                asm.mov(TMPR2, cframe.offset_arg(0, creg))
                 cframe = cframe.previous_frame
+                creg = TMPR2
               end
             end
             context.set_reg_content(TMPR2, cframe)
