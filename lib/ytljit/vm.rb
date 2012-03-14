@@ -2974,11 +2974,15 @@ LocalVarNode
               val = val.boxing
               context.ret_reg = OpImmidiateMachineWord.new(val)
             else
-              offm4 = OpIndirect.new(SPR, -AsmType::DOUBLE.size)
               asm = context.assembler
+              valproc = lambda { 
+                val.unboxing
+              }
+              litval = OpVarImmidiate64.new(valproc)
+              litent = asm.add_value_entry(litval)
               asm.with_retry do
-                asm.mov64(offm4, val.unboxing)
-                asm.movsd(XMM0, offm4)
+                asm.mov(TMPR, litent.to_immidiate)
+                asm.movsd(XMM0, INDIRECT_TMPR)
               end
               context.ret_reg = XMM0
             end
