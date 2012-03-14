@@ -1544,7 +1544,8 @@ LocalVarNode
             asm.push(BPR)
             asm.mov(BPR, INDIRECT_BPR)
             asm.mov(BPR, INDIRECT_BPR)
-            asm.add(BPR, foff)
+            # foff is negative number maybe.
+            asm.sub(BPR, -foff)
             asm.mov(INDIRECT_BPR, SPR)
             asm.mov(arg0, TMPR)
           end
