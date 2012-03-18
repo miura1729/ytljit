@@ -12,7 +12,7 @@ module YTLJit
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          slfoff = @current_frame_info.offset_arg(2, BPR, true)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2])
         end
@@ -81,7 +81,7 @@ module YTLJit
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          slfoff = @current_frame_info.offset_arg(2, BPR, true)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2], @val, @body)
         end

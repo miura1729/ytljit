@@ -606,19 +606,26 @@ LO        |                       |   |  |
 
         def gen_pursue_parent_function(context, depth)
           asm = context.assembler
+          save_tmpr2 = false
           if depth != 0 then
-            context.start_using_reg(TMPR2)
             cframe = frame_info
             creg = BPR
             asm.with_retry do
               depth.times do 
-                asm.mov(TMPR2, cframe.offset_arg(0, creg))
+                if !cframe.parent.is_a?(BlockTopInlineNode) then
+                  if !save_tmpr2 then
+                    context.start_using_reg(TMPR2)
+                    save_tmpr2 = true
+                  end
+
+                  asm.mov(TMPR2, cframe.offset_arg(0, creg))
+                  creg = TMPR2
+                end
                 cframe = cframe.previous_frame
-                creg = TMPR2
               end
             end
-            context.set_reg_content(TMPR2, cframe)
-            context.ret_reg = TMPR2
+            context.set_reg_content(creg, cframe)
+            context.ret_reg = creg
           else
             context.ret_reg = BPR
           end

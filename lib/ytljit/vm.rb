@@ -874,10 +874,12 @@ LocalVarNode
               entry = casm.add_value_entry(csadd)
               fstentry ||= entry.to_immidiate
             end
-            handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
+            foff = @frame_info.parent.frame_offset
+            handoff = AsmType::MACHINE_WORD.size * 2 + foff
+            handop = OpIndirect.new(BPR, handoff)
             casm.with_retry do
               casm.mov(TMPR, fstentry)
-              casm.mov(handoff, TMPR)
+              casm.mov(handop, TMPR)
             end
             context.set_reg_content(handoff, :first_exception_entry)
           end
@@ -1535,18 +1537,13 @@ LocalVarNode
           # Make linkage of frame pointer
           # One argument pass by TMPR
           arg0 = @body.offset_arg(3, BPR)
-          foff = @frame_offset
-          if @body.previous_frame.parent.is_a?(BlockTopInlineNode) then
-            foff = foff - @body.previous_frame.parent.frame_offset
-          end
-
+          savesp = OpIndirect.new(BPR, @frame_offset)
+ 
           asm.with_retry do
             asm.push(BPR)
             asm.mov(BPR, INDIRECT_BPR)
             asm.mov(BPR, INDIRECT_BPR)
-            # foff is negative number maybe.
-            asm.sub(BPR, -foff)
-            asm.mov(INDIRECT_BPR, SPR)
+            asm.mov(savesp, SPR)
             asm.mov(arg0, TMPR)
           end
           context.cpustack_push(BPR)
@@ -2087,27 +2084,31 @@ LocalVarNode
           off
         end
 
-        def offset_by_byte(off)
+        def offset_by_byte(off, rootf)
           off = real_offset(off)
 
           obyte = 0
           off.times do |i|
             obyte += @frame_layout[i].size
           end
-          
+ 
           obyte - @local_area_size
+          if rootf == false then
+            obyte += @parent.frame_offset
+          end
+          obyte
         end
 
-        def offset_arg(n, basereg)
+        def offset_arg(n, basereg, rootf = false)
           rc = nil
-          if basereg == BPR then
+          if basereg == BPR and rootf == false then
             rc = @offset_cache[n]
             unless rc
-              off = offset_by_byte(n)
+              off = offset_by_byte(n, rootf)
               rc = @offset_cache[n] = OpIndirect.new(basereg, off)
             end
           else
-            off = offset_by_byte(n)
+            off = offset_by_byte(n, rootf)
             rc = OpIndirect.new(basereg, off)
           end
 
@@ -2299,12 +2300,19 @@ LocalVarNode
 
       class BlockEndInlineNode<BlockEndNode
         include MethodEndCodeGen
+        include NodeUtil
+
+        def initialize(parent)
+          super
+          @top_node = search_top
+        end
 
         def gen_method_epilogue(context)
           asm = context.assembler
+          savesp = OpIndirect.new(BPR, @top_node.frame_offset)
           asm.with_retry do
             # it can't keep stack consistency
-            asm.mov(SPR, INDIRECT_BPR)
+            asm.mov(SPR, savesp)
             asm.pop(BPR)
           end
           context.stack_content = []
@@ -2448,6 +2456,7 @@ LocalVarNode
           @code_spaces = []
           @value_node = nil
           @modified_local_var_list = []
+          @raw_offset = nil
           @res_area = nil
         end
 
@@ -2495,9 +2504,8 @@ LocalVarNode
           modlocvar = context.modified_local_var.last.map {|ele| ele.dup}
           @modified_local_var_list.push modlocvar
           if @modified_local_var_list.size == 1 then
-            tnode = search_frame_info
-            offset = tnode.static_alloca(8)
-            @res_area = OpIndirect.new(BPR, offset)
+            frame_node = search_frame_info
+            @raw_offset = frame_node.static_alloca(8)
             @body.collect_info(context)
           elsif @modified_local_var_list.size == @come_from.size then
             context.marge_local_var(@modified_local_var_list)
@@ -2535,7 +2543,11 @@ LocalVarNode
         end
 
         def collect_candidate_type(context, sender = nil)
-           if @come_from.keys[0] == sender then
+          if @res_area == nil then
+            tnode = search_top
+            @res_area = OpIndirect.new(BPR, @raw_offset + tnode.frame_offset)
+          end
+          if @come_from.keys[0] == sender then
              @body.collect_candidate_type(context)
           else
             context
@@ -2718,12 +2730,13 @@ LocalVarNode
 
         def compile_unwind(context)
           asm = context.assembler
-          handoff = OpIndirect.new(BPR, AsmType::MACHINE_WORD.size * 2)
-          ensureoff = OpIndirect.new(TMPR, 0)
+          handoff = AsmType::MACHINE_WORD.size * 2 + @curtop.frame_offset
+          handop = OpIndirect.new(BPR, handoff)
+          ensureop = OpIndirect.new(TMPR, 0)
           asm.with_retry do
             asm.push(TMPR)
-            asm.mov(TMPR, handoff)
-            asm.call(ensureoff)
+            asm.mov(TMPR, handop)
+            asm.call(ensureop)
             asm.pop(TMPR)
           end
           gen_method_epilogue(context)
@@ -2759,8 +2772,7 @@ LocalVarNode
               end
             end
             context.set_reg_content(RETR, context.ret_node)
-            tnode = search_frame_info
-            finfo = tnode
+            finfo = search_frame_info
             while finfo.parent.is_a?(BlockTopNode)
               # two epilogue means block and method which is called with block
               # compile_unwind is basically same as gen_method_epilogue
@@ -2820,6 +2832,7 @@ LocalVarNode
           super(parent)
           @node = node
           @compiled_by_signature = []
+          @raw_offset = nil
           @res_area = nil
         end
 
@@ -2830,13 +2843,16 @@ LocalVarNode
         end
 
         def collect_info(context)
-          tnode = search_frame_info
-          offset = tnode.static_alloca(8)
-          @res_area = OpIndirect.new(BPR, offset)
+          frame_node = search_frame_info
+          @raw_offset = frame_node.static_alloca(8)
           @node.collect_info(context)
         end
 
         def collect_candidate_type(context)
+          if @res_area == nil then
+            tnode = search_top
+            @res_area = OpIndirect.new(BPR, @raw_offset + tnode.frame_offset)
+          end
           sig = context.to_signature          
           same_type(self, @node, sig, sig, context)
           same_type(@node, self, sig, sig, context)
@@ -3135,7 +3151,8 @@ LocalVarNode
           context.set_reg_content(PTMPR, :self_of_block)
           context.ret_reg2 = PTMPR
 
-          if @depth == 0 then
+          if @depth == 0 or
+              @frame_info.parent.is_a?(BlockTopInlineNode) then
             context.ret_reg = @frame_info.offset_arg(1, BPR)
           else
             context.start_using_reg(TMPR2)
@@ -3669,12 +3686,12 @@ LocalVarNode
           @offset = offset
           @depth = depth
 
-          tnode = search_frame_info
-          @frame_info = tnode
+          frame_node = search_frame_info
+          @frame_info = frame_node
           depth.times do |i|
-            tnode = tnode.previous_frame
+            frame_node = frame_node.previous_frame
           end
-          @current_frame_info = tnode
+          @current_frame_info = frame_node
         end
         
         attr :offset
@@ -3759,7 +3776,7 @@ LocalVarNode
         end
 
         def compile_main(context)
-          offarg = @current_frame_info.offset_arg(@offset, BPR)
+          offarg = @current_frame_info.offset_arg(@offset, BPR, true)
           context.ret_node = self
           context.ret_reg = offarg
           context
