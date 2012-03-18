@@ -1153,6 +1153,7 @@ LocalVarNode
 
           @escape_info_tab = {}
           @escape_info = nil
+          @frame_offset = 0
         end
 
         attr_accessor :name
@@ -1169,6 +1170,7 @@ LocalVarNode
 
         attr_accessor :send_nodes_with_block
         attr          :escape_info
+        attr :frame_offset
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -1506,10 +1508,8 @@ LocalVarNode
 
         def initialize(parent, name = nil)
           super(parent, name)
-          @frame_offset = nil
+          @frame_offset = nil # reset nil for check set
         end
-
-        attr :frame_offset
 
         def set_frame_offset(raw_offset)
           @frame_offset = raw_offset + 
