@@ -1213,6 +1213,11 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
+
+          when [String]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+
           end
 
           context
@@ -1223,6 +1228,7 @@ module YTLJit
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
+              rrtype == String or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
