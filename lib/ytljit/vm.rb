@@ -2092,7 +2092,7 @@ LocalVarNode
             obyte += @frame_layout[i].size
           end
  
-          obyte - @local_area_size
+          obyte -= @local_area_size
           if rootf == false then
             obyte += @parent.frame_offset
           end
