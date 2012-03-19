@@ -122,7 +122,7 @@ module YTLJit
                 end
 
                 # call eval included method
-                return mproc.call(*args, nil)
+                return mproc.call(*args)
               end
             end
           end
