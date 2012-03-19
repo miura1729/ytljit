@@ -12,7 +12,7 @@ module YTLJit
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          slfoff = @current_frame_info.offset_arg(2, BPR, true)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2])
         end
@@ -81,7 +81,7 @@ module YTLJit
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR)
+          slfoff = @current_frame_info.offset_arg(2, BPR, true)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2], @val, @body)
         end
@@ -150,7 +150,7 @@ module YTLJit
       def visit_getinstancevariable(code, ins, context)
         context.macro_method = false
         curnode = context.current_node
-        mnode = context.current_method_node
+        mnode = context.current_method_name
         node = CRubyInstanceVarRefNode.new(curnode, ins[1], mnode)
         node.debug_info = context.debug_info
         context.expstack.push node
@@ -160,7 +160,7 @@ module YTLJit
         context.macro_method = false
         val = context.expstack.pop
         curnode = context.current_node
-        mnode = context.current_method_node
+        mnode = context.current_method_name
         node = CRubyInstanceVarAssignNode.new(curnode, ins[1], mnode, val)
         node.debug_info = context.debug_info
         curnode.body = node

@@ -85,7 +85,7 @@ module YTLJit
           if @@macro_tab[func.name] and 
               (op_flag & (0b11 << 3)) != 0 then
             cclsnode = context.current_class_node
-            if context.current_method_node == nil then
+            if context.current_method_name == nil then
               cclsnode = cclsnode.make_klassclass_node
             end
 
@@ -353,6 +353,9 @@ module YTLJit
           end
 
           mt.yield_node.map do |ynode|
+            if !ynode.func.block_nodes.include?(blknode) then
+              ynode.func.block_nodes.push blknode
+            end
             yargs = ynode.arguments.dup
             yargs[2.. -1].each do |arg|
               context = arg.collect_candidate_type(context)
@@ -497,6 +500,9 @@ module YTLJit
             rectype = @arguments[2].decide_type_once(cursig)
             context = inode.compile_main_aux(context, context.ret_reg, rectype, 
                                              @arguments[3], nil)
+
+          when :ytl_inline
+            context = compile_ytl_inline(context)
 
           when nil
 
@@ -812,7 +818,7 @@ module YTLJit
           context.start_using_reg(TMPR2)
           context.start_using_reg(PTMPR)
           callconv = @func.calling_convention(context)
-          
+
           case callconv
           when :c_vararg
             context = compile_c_vararg(context)
@@ -1207,6 +1213,11 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
+
+          when [String]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+
           end
 
           context
@@ -1217,6 +1228,7 @@ module YTLJit
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
+              rrtype == String or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -2239,6 +2251,16 @@ module YTLJit
         add_special_send_node :reverse
       end
  
+      class SendScanNode<SendNode
+        add_special_send_node :scan
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          type = RubyType::BaseType.from_ruby_class(Array)
+          add_type(sig, type)
+          context
+        end
+      end
+
       class SendMathFuncNode<SendNode
         include SendUtil
         def collect_candidate_type_regident(context, slf)
@@ -2373,6 +2395,16 @@ module YTLJit
         end
       end
 
+      class RetToregexpSendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(Regexp)
+          add_type(sig, tt)
+
+          context
+        end
+      end
+
       class RetArraySendNode<RawSendNode
         include AbsArch
         include UnboxedArrayUtil
@@ -2407,14 +2439,14 @@ module YTLJit
               !rtype.boxed and 
               @is_escape != :global_export then
             sizent = @element_node_list[1..-1].max_by {|a| a[3] ? a[3][0] : -1}
-            siz = sizent[3][0] + 1
+            siz = sizent[3][0] + 2
             context = gen_alloca(context, siz)
 
             context.start_using_reg(TMPR2)
             asm = context.assembler
             asm.with_retry do
               asm.mov(TMPR2, THEPR)
-              asm.mov(INDIRECT_TMPR2, siz)
+              asm.mov(INDIRECT_TMPR2, siz - 1)
               asm.add(TMPR2, 8)
             end
             context.set_reg_content(TMPR2, THEPR)

@@ -301,12 +301,12 @@ module YTLJit
 
         valreg = context.ret_reg
         asm.with_retry do
-          asm.pop(TMPR2)
-          if !valreg.is_a?(OpRegistor) then
+          if !valreg.is_a?(OpRegistor) or valreg == TMPR2 then
             asm.mov(RETR, valreg)
             valreg = RETR
           end
 
+          asm.pop(TMPR2)
           asm.mov(INDIRECT_TMPR2, valreg)
         end
 

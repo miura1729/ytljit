@@ -343,6 +343,7 @@ module YTLJit
     define_wraped_class(String, RubyTypeBoxed)
     define_wraped_class(Array, RubyTypeBoxed)
     define_wraped_class(Hash, RubyTypeBoxed)
+    define_wraped_class(Regexp, RubyTypeBoxed)
     define_wraped_class(IO, RubyTypeBoxed)
     define_wraped_class(File, RubyTypeBoxed)
     define_wraped_class(Module, RubyTypeBoxed)

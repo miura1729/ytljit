@@ -635,6 +635,32 @@ ytl_ivar_set_boxing(VALUE slf, int off, VALUE val)
   return val;
 }
 
+#include <stdarg.h>
+VALUE rb_reg_new_ary(VALUE, int);
+
+VALUE
+ytl_toregexp(int opt, int n, ...)
+{
+  va_list ar;
+  VALUE ary;
+  VALUE reg;
+  VALUE val;
+  int i;
+
+  ary = rb_ary_tmp_new(n);
+  va_start(ar, n);
+  for (i = 0; i < n; i++) {
+    val =va_arg(ar, VALUE); 
+    rb_ary_store(ary, i, val);
+  }
+  va_end(ar);
+
+  reg = rb_reg_new_ary(ary, opt);
+  rb_ary_clear(ary);
+
+  return reg;
+}
+
 void 
 Init_ytljit_ext() 
 {

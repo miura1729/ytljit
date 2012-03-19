@@ -12,7 +12,7 @@ module YTLJit
         @top_nodes = [@the_top]
         @current_file_name = nil
         @current_class_node = @the_top
-        @current_method_node = nil
+        @current_method_name = nil
         
         @send_nodes_with_block = []
 
@@ -35,6 +35,8 @@ module YTLJit
         @not_reached_pos = false
 
         @macro_method = nil
+
+        @options = nil
       end
 
       attr_accessor :the_top
@@ -42,7 +44,7 @@ module YTLJit
 
       attr_accessor :current_file_name
       attr_accessor :current_class_node
-      attr_accessor :current_method_node
+      attr_accessor :current_method_name
 
       attr          :send_nodes_with_block
       
@@ -64,6 +66,8 @@ module YTLJit
       attr_accessor :not_reached_pos
 
       attr_accessor :macro_method
+
+      attr_accessor :options
 
       def import_object(klass, name, value)
         ctn = ClassTopNode.get_class_top_node(klass)
@@ -88,8 +92,8 @@ module YTLJit
 
       def debug_info
         mname = nil
-        if @current_method_node then
-          mname = @current_method_node.get_constant_value
+        if @current_method_name then
+          mname = @current_method_name.get_constant_value
         end
         if mname then
           mname = mname[0]
@@ -133,7 +137,7 @@ module YTLJit
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
             lstr = context.enc_label + "+blk+" + 
-                   context.current_method_node.to_s
+                   context.current_method_name.to_s
             context.enc_label = lstr
           end
           translate_block(code, context)
@@ -227,6 +231,7 @@ module YTLJit
           context.the_top = mtopnode
           oldtop.parent = mtopnode
           mtopnode.init_node = oldtop
+          context.top_nodes[0] = mtopnode
         end
 
         context.macro_method = nil
@@ -255,10 +260,14 @@ module YTLJit
               nbody = ExceptionTopNode.new(mtopnode)
               nbody.debug_info = context.debug_info
               ncontext.current_node = nbody
+              context.top_nodes.each do |ele|
+                ncontext.top_nodes.push ele
+              end
               ncontext.top_nodes.push nbody
               ncontext.current_file_name = context.current_file_name
               ncontext.current_class_node = context.current_class_node
-              ncontext.current_method_node = context.current_method_node
+              ncontext.current_method_name = context.current_method_name
+              ncontext.options = context.options
               tr = self.class.new([VMLib::InstSeqTree.new(code, body)])
               tr.translate(ncontext)
             end
@@ -500,12 +509,16 @@ module YTLJit
         end
         mtopnode.debug_info = context.debug_info
         ncontext.current_node = mtopnode
+        context.top_nodes.each do |ele|
+          ncontext.top_nodes.push ele
+        end
         ncontext.top_nodes.push mtopnode
 
         ncontext.current_file_name = context.current_file_name
         ncontext.current_class_node = context.current_class_node
         mname = context.expstack.last
-        ncontext.current_method_node = mname
+        ncontext.current_method_name = mname
+        ncontext.options = context.options
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -545,7 +558,24 @@ module YTLJit
         context.expstack.push nnode
       end
 
-      # toregexp
+      def visit_toregexp(code, ins, context)
+        curnode = context.current_node
+        opt = ins[1]
+        argnum = ins[2]
+        args = []
+        func = FixArgCApiNode.new(curnode, "ytl_toregexp",
+                                  [:int, :int, :VALUE, :"..."])
+        
+        argnum.times do
+          argele = context.expstack.pop
+          args.push argele
+        end
+        args.push LiteralNode.new(nil, argnum)
+        args.push LiteralNode.new(nil, opt)
+        args = args.reverse
+        toregexpnode = gen_arg_node(context, RetToregexpSendNode, func, args)
+        context.expstack.push toregexpnode
+      end
 
       def newinst_to_sendnode(argnum, klass, code, ins, context)
         arg = []
@@ -746,7 +776,11 @@ module YTLJit
         ncontext.current_file_name = context.current_file_name
         ncontext.current_node = cnode
         ncontext.current_class_node = cnode
+        context.top_nodes.each do |ele|
+          ncontext.top_nodes.push ele
+        end
         ncontext.top_nodes.push cnode
+        ncontext.options = context.options
 
         tr = self.class.new([body])
         tr.translate(ncontext)
@@ -790,8 +824,23 @@ module YTLJit
           ncontext = YARVContext.new(context)
           ncontext.current_file_name = context.current_file_name
           ncontext.current_class_node = context.current_class_node
-          ncontext.current_method_node = context.current_method_node
-          btn = ncontext.current_node = BlockTopNode.new(curnode)
+          ncontext.current_method_name = context.current_method_name
+          ncontext.options = context.options
+          context.top_nodes.each do |ele|
+            ncontext.top_nodes.push ele
+          end
+          btn = nil
+
+          i = -1
+          while context.top_nodes[i].is_a?(BlockTopInlineNode)
+            i = i - 1
+          end
+          if context.options[:inline_block] then
+            btn = ncontext.current_node = BlockTopInlineNode.new(curnode)
+            context.top_nodes[i].inline_block.push btn
+          else
+            btn = ncontext.current_node = BlockTopNode.new(curnode)
+          end
           ncontext.top_nodes.push btn
 
           tr = self.class.new([body])
@@ -927,7 +976,12 @@ module YTLJit
         when :method
           nnode = MethodEndNode.new(srnode)
         when :block
-          nnode = BlockEndNode.new(srnode)
+          nnode = nil
+          if context.top_nodes.last.is_a?(BlockTopInlineNode) then
+            nnode = BlockEndInlineNode.new(srnode)
+          else
+            nnode = BlockEndNode.new(srnode)
+          end
         when :class
           nnode = ClassEndNode.new(srnode)
         when :top
