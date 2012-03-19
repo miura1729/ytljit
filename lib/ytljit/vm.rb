@@ -2730,7 +2730,7 @@ LocalVarNode
 
         def compile_unwind(context)
           asm = context.assembler
-          handoff = AsmType::MACHINE_WORD.size * 2 + @curtop.frame_offset
+          handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
           ensureop = OpIndirect.new(TMPR, 0)
           asm.with_retry do
