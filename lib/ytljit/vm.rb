@@ -692,6 +692,14 @@ LocalVarNode
 
           cnode
         end
+
+        def search_frame_info_without_inline
+          fnode = search_frame_info
+          while fnode.parent.is_a?(BlockTopInlineNode)
+            fnode = fnode.previous_frame
+          end
+          fnode
+        end
       end
 
       module SendUtil
@@ -2084,7 +2092,7 @@ LocalVarNode
           off
         end
 
-        def offset_by_byte(off, rootf)
+        def offset_by_byte(off)
           off = real_offset(off)
 
           obyte = 0
@@ -2092,23 +2100,19 @@ LocalVarNode
             obyte += @frame_layout[i].size
           end
  
-          obyte -= @local_area_size
-          if rootf == false then
-            obyte += @parent.frame_offset
-          end
-          obyte
+          obyte - @local_area_size + @parent.frame_offset
         end
 
-        def offset_arg(n, basereg, rootf = false)
+        def offset_arg(n, basereg)
           rc = nil
-          if basereg == BPR and rootf == false then
+          if basereg == BPR then
             rc = @offset_cache[n]
             unless rc
-              off = offset_by_byte(n, rootf)
+              off = offset_by_byte(n)
               rc = @offset_cache[n] = OpIndirect.new(basereg, off)
             end
           else
-            off = offset_by_byte(n, rootf)
+            off = offset_by_byte(n)
             rc = OpIndirect.new(basereg, off)
           end
 
@@ -3096,7 +3100,7 @@ LocalVarNode
         def initialize(parent)
           super(parent)
           @name = "block yield"
-          @frame_info = search_frame_info
+          @frame_info = search_frame_info_without_inline
           @depth = 0
           @block_nodes = []
         end
@@ -3277,6 +3281,7 @@ LocalVarNode
       # Method name
       class MethodSelectNode<BaseNode
         include SendNodeCodeGen
+        include NodeUtil
 
         def initialize(parent, name)
           super(parent)
@@ -3286,6 +3291,7 @@ LocalVarNode
           @send_node = nil
           @ruby_reciever = nil
           @inline_node = nil
+          @frame_info = search_frame_info_without_inline
         end
 
         def set_reciever(sendnode)
@@ -3485,7 +3491,7 @@ LocalVarNode
         def compile(context)
           context = super(context)
           if @send_node.is_fcall or @send_node.is_vcall then
-            slfop = @parent.frame_info.offset_arg(2, BPR)
+            slfop = @frame_info.offset_arg(2, BPR)
             asm = context.assembler
             asm.with_retry do
               asm.mov(PTMPR, slfop)
@@ -3681,17 +3687,21 @@ LocalVarNode
         include LocalVarNodeCodeGen
         include NodeUtil
 
+        def set_current_frame_info
+          frame_node = search_frame_info
+          @frame_info = frame_node
+          @depth.times do |i|
+            frame_node = frame_node.previous_frame
+          end
+          @current_frame_info = frame_node
+        end
+
         def initialize(parent, offset, depth)
           super(parent)
           @offset = offset
           @depth = depth
 
-          frame_node = search_frame_info
-          @frame_info = frame_node
-          depth.times do |i|
-            frame_node = frame_node.previous_frame
-          end
-          @current_frame_info = frame_node
+          set_current_frame_info
         end
         
         attr :offset
@@ -3769,6 +3779,11 @@ LocalVarNode
       end
 
       class SelfRefNode<LocalVarRefNode
+        def set_current_frame_info
+          @frame_info = search_frame_info_without_inline
+          @current_frame_info = @frame_info
+        end
+
         def initialize(parent)
           super(parent, 2, 0)
           @classtop = search_class_top
@@ -3776,7 +3791,7 @@ LocalVarNode
         end
 
         def compile_main(context)
-          offarg = @current_frame_info.offset_arg(@offset, BPR, true)
+          offarg = @current_frame_info.offset_arg(@offset, BPR)
           context.ret_node = self
           context.ret_reg = offarg
           context

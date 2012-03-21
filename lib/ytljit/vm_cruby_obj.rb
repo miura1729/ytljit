@@ -8,11 +8,11 @@ module YTLJit
 
         def initialize(parent, name, mnode)
           super
-          @current_frame_info = search_frame_info
+          @current_frame_info = search_frame_info_without_inline
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR, true)
+          slfoff = @current_frame_info.offset_arg(2, BPR)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2])
         end
@@ -77,11 +77,11 @@ module YTLJit
 
         def initialize(parent, name, mnode, val)
           super
-          @current_frame_info = search_frame_info
+          @current_frame_info = search_frame_info_without_inline
         end
 
         def compile_main(context)
-          slfoff = @current_frame_info.offset_arg(2, BPR, true)
+          slfoff = @current_frame_info.offset_arg(2, BPR)
           cursig = context.to_signature
           compile_main_aux(context, slfoff, cursig[2], @val, @body)
         end
