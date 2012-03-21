@@ -1380,41 +1380,7 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context = gen_method_prologue(context)
-            if @inline_block != [] then
-              context.start_using_reg(TMPR2)
-              asm = context.assembler
-              @inline_block.each do |btop|
-                bfinfo = btop.body
-                bfoff = btop.frame_offset
-                # copy prev env, block, self of this method
-                src = BPR
-                pbtop = btop.body.previous_frame.parent
-                pboff = 0
-                if pbtop.is_a?(BlockTopInlineNode)
-                  pboff = pbtop.frame_offset
-                  asm.with_retry do
-                    asm.mov(TMPR, src)
-                    asm.add(TMPR, pboff)
-                  end
-                  src = TMPR
-                end
-                
-                asm.with_retry do
-                  asm.mov(TMPR2, BPR)
-                  asm.add(TMPR2, bfoff)
-                end
-                
-                [0, 1, 2].each do |i|
-                  dst = bfinfo.offset_arg(i, TMPR2)
-                  asm.with_retry do
-                    asm.mov(TMPR, src)
-                    asm.mov(dst, TMPR)
-                  end
-                  src = @body.offset_arg(i + 1, BPR)
-                end
-              end
-              context.end_using_reg(TMPR2)
-            end
+
             context = compile_init(context)
             context = @body.compile(context)
 
