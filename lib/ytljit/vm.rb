@@ -991,12 +991,14 @@ LocalVarNode
           
           context = gen_save_thepr(context)
           # other arguments
-          @arguments[3..-1].each_with_index do |arg, i|
-            context = arg.compile(context)
+          if @arguments[4] == nil then
+            context = @arguments[3].compile(context)
             casm.with_retry do 
               casm.mov(TMPR, context.ret_reg)
             end
 #            context.set_reg_content(argpos, context.ret_node)
+          else 
+            raise "Unsupport more 2 arguments in yield"
           end
           fnc = @frame_info.offset_arg(1, BPR)
 
