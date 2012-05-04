@@ -4272,7 +4272,12 @@ LocalVarNode
         def collect_candidate_type(context)
           if @value_node.is_a?(ClassTopNode) or 
               @value_node.is_a?(LiteralNode) then
-            add_type(context.to_signature, @value_node.type)
+            if @value_node.type then
+              add_type(context.to_signature, @value_node.type)
+            else
+              # this inference not complete so repeat type inference
+              context.convergent = false
+            end
           else
             cursig = context.to_signature
             same_type(self, @value_node, cursig, cursig, context)
