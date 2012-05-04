@@ -738,6 +738,7 @@ module YTLJit
         defat = context.expstack.pop
         clsobj = context.current_class_node.klass_object
         klassobj = nil
+        cnode = nil
         begin
           klassobj = clsobj.const_get(name, true)
         rescue NameError
@@ -779,10 +780,13 @@ module YTLJit
           end
           clsobj.const_set(name, klassobj)
         end
-        RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
-        cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
-        cnode.debug_info = context.debug_info
-        context.current_class_node.constant_tab[name] = cnode
+
+        if (cnode = ClassTopNode.get_class_top_node(klassobj)) == nil then
+          cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
+          RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
+          cnode.debug_info = context.debug_info
+          context.current_class_node.constant_tab[name] = cnode
+        end
         
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new(context)
