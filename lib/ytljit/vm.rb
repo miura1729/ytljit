@@ -672,9 +672,9 @@ LocalVarNode
         end
 
         def search_end
-          cnode = @parent
+          cnode = self
 
-          # ClassTopNode include TopTopNode
+          # MethodEndNode include ClassEndNode
           while !cnode.is_a?(MethodEndNode)
             cnode = cnode.body
           end
