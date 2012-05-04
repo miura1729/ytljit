@@ -616,7 +616,17 @@ module YTLJit
         context.expstack.push nnode
       end
 
-      # expandarray
+      def visit_expandarray(code, ins, context)
+        num = ins[1]
+        flag = ins[2]
+        curnode = context.current_node
+        num.times do |i|
+          visit_dup(code, ins, context)
+          context.expstack.push LiteralNode.new(nil, i)
+          visit_send(code, [:send, :[], 1, nil, 0, nil], context)
+        end
+      end
+
       # concatarray
       # splatarray
       # checkincludearray
