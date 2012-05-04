@@ -483,7 +483,8 @@ module YTLJit
       end
       
       def visit_putobject(code, ins, context)
-        nnode = LiteralNode.new(nil, ins[1])
+        curnode = context.current_node
+        nnode = LiteralNode.new(curnode, ins[1])
         nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
