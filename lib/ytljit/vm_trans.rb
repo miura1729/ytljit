@@ -711,9 +711,11 @@ module YTLJit
       # reput
       
       def visit_topn(code, ins, context)
-        raise
         n = ins[1] + 1
-        context.expstack.push context.expstack[-n]
+        tnode = context.expstack[-n]
+        nnode = MultiplexNode.new(tnode.parent, tnode)
+        context.expstack[-n] = nnode
+        context.expstack.push nnode
       end
 
       def visit_setn(code, ins, context)
