@@ -1672,7 +1672,11 @@ LocalVarNode
               return [val, clsnode]
             end
 
-            return search_constant_with_super(name, klassobj.superclass)
+            if klassobj.is_a?(Class) then
+              return search_constant_with_super(name, klassobj.superclass)
+            else
+              return [nil, nil]
+            end
           end
 
           [nil, nil]
