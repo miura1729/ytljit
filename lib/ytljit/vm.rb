@@ -1659,7 +1659,8 @@ LocalVarNode
 
         def search_constant_with_super(name, klassobj = @klass_object)
           clsnode = @@class_top_tab[klassobj]
-          if clsnode then
+          while clsnode
+            klassobj = clsnode.klass_object
             clsnode.before_search_module.each do |scope, mod|
               ctab = mod.get_constant_tab
               if val = ctab[name] then
@@ -1673,10 +1674,15 @@ LocalVarNode
             end
 
             if klassobj.is_a?(Class) then
-              return search_constant_with_super(name, klassobj.superclass)
-            else
-              return [nil, nil]
+              res = search_constant_with_super(name, klassobj.superclass)
+              if res[1] then
+                return res
+              end
             end
+
+            begin
+              clsnode = clsnode.parent
+            end while clsnode and !clsnode.is_a?(ClassTopNode)
           end
 
           [nil, nil]
