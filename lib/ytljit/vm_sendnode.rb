@@ -2263,6 +2263,10 @@ module YTLJit
       class SendReverseNode<SendSameSelfTypeNode
         add_special_send_node :reverse
       end
+
+      class SendReverseNode<SendSameSelfTypeNode
+        add_special_send_node :reverse!
+      end
  
       class SendScanNode<SendNode
         add_special_send_node :scan
