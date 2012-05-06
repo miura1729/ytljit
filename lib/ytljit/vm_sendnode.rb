@@ -1422,6 +1422,19 @@ module YTLJit
         end
       end
 
+      class SendJoinNode<SendNode
+        include SendUtil
+        add_special_send_node :join
+
+        def collect_candidate_type_regident(context, slf)
+          cursig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(String)
+          add_type(cursig, tt)
+
+          context
+        end
+      end
+
       class SendTrExNode<SendNode
         include SendUtil
         add_special_send_node :tr!
