@@ -759,7 +759,6 @@ module YTLJit
         defat = context.expstack.pop
         clsobj = context.current_class_node.klass_object
         klassobj = nil
-        cnode = nil
         begin
           klassobj = clsobj.const_get(name, true)
         rescue NameError
