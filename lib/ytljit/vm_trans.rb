@@ -1021,7 +1021,7 @@ module YTLJit
         context.current_node = srnode
 
         case code.header['type']
-        when :method
+        when :method, :rescue
           nnode = MethodEndNode.new(srnode)
         when :block
           nnode = nil
@@ -1034,6 +1034,7 @@ module YTLJit
           nnode = ClassEndNode.new(srnode)
         when :top
           nnode = ClassEndNode.new(srnode)
+
         else
           raise "unkown type #{code.header['type']}"
         end
