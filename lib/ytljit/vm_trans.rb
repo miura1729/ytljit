@@ -746,7 +746,9 @@ module YTLJit
       end
 
       # adjuststack
-      # defined
+      def visit_defined(code, ins, context)
+        context.expstack.push LiteralNode.new(nil, true)
+      end
 
       def visit_trace(code, ins, context)
       end
