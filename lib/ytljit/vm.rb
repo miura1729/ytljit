@@ -4053,10 +4053,13 @@ LocalVarNode
       # Global Variable
       class GlobalVarRefNode<VariableRefCommonNode
         def self.instance(parent, name)
-          if /^\$[a-zA-Z_]/ =~ name.to_s then
-            GlobalVarNormalRefNode.new(parent, name)
-          else
+          case name.to_s
+          when /^\$[^a-zA-Z_]/,
+            /^\$_$/, /^\$FILENAME$/, /^\$DEBUG$/,  /^\$KCODE$/,
+            /^\$stdin$/, /^\$stdout$/,  /^\$stderr$/
             GlobalVarSpecialRefNode.new(parent, name)
+          else
+            GlobalVarNormalRefNode.new(parent, name)
           end
         end
 
