@@ -198,6 +198,9 @@ module YTLJit
         unboxslf = RubyTypeUnboxed.new(klass)
 
         klass.ancestors.reverse.each do |curcls|
+          if curcls.name == nil then
+            break               # Maybe superclass of BasicObject
+          end
           box_unbox = base.name.gsub(/.*::Ruby/, "")
           curclsn = curcls.name.gsub(/:/, '')
           mixinname = curclsn + box_unbox + "CodeGen"
@@ -350,5 +353,6 @@ module YTLJit
     define_wraped_class(Module, RubyTypeBoxed)
     define_wraped_class(Class, RubyTypeBoxed)
     define_wraped_class(Object, RubyTypeBoxed)
+    define_wraped_class(BasicObject, RubyTypeBoxed)
   end
 end
