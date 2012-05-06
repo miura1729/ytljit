@@ -4133,7 +4133,12 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
-          tt = RubyType::BaseType.from_object(eval(@name.to_s))
+          case @name
+          when :$_
+            tt = RubyType::BaseType.from_ruby_class(String)
+          else
+            tt = RubyType::BaseType.from_object(eval(@name.to_s))
+          end
           sig = context.to_signature
           add_type(sig, tt)
           
