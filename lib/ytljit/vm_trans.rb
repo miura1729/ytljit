@@ -524,7 +524,7 @@ module YTLJit
           mtopnode = MethodTopNode.new(curnode, body.header['name'].to_sym)
         when :class
           mtopnode = ClassTopNode.new(curnode, Object, body.header['name'].to_sym)
-        when :top
+        else
           raise "Maybe bug not appear top block."
         end
         mtopnode.debug_info = context.debug_info
