@@ -2422,6 +2422,26 @@ module YTLJit
         end
       end
 
+      class RetBackrefSendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(Object)
+          add_type(sig, tt)
+
+          context
+        end
+      end
+
+      class RetNthMatchSendNode<RawSendNode
+        def collect_candidate_type_body(context)
+          sig = context.to_signature
+          tt = RubyType::BaseType.from_ruby_class(String)
+          add_type(sig, tt)
+
+          context
+        end
+      end
+
       class RetArraySendNode<RawSendNode
         include AbsArch
         include UnboxedArrayUtil

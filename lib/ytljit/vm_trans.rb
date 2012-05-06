@@ -328,7 +328,26 @@ module YTLJit
         visit_setdynamic(code, [:setlocal, ins[1], dep], context)
       end
 
-      # getspecial
+      def visit_getspecial(code, ins, context)
+        key = ins[1]
+        type = ins[2]
+        curnode = context.current_node
+        if type & 1 == 0 then
+          # nth match
+          funcback = FixArgCApiNode.new(curnode, "rb_backref_get", [])
+          backrefnode = gen_arg_node(context, RetBackrefSendNode, funcback, [])
+          funcnth = FixArgCApiNode.new(curnode, "rb_reg_nth_match", 
+                                    [:VALUE, :VALUE])
+          args = []
+          args.push LiteralNode.new(curnode, type >> 1)
+          args.push backrefnode
+          nnode = gen_arg_node(context, RetNthMatchSendNode, funcnth, args)
+          context.expstack.push nnode
+        else
+          # other special variables
+        end
+      end
+
       # setspecial
 
       def visit_getdynamic(code, ins, context)
