@@ -796,12 +796,23 @@ module YTLJit
               
             when 2, 5
               klassobj = Module.new
+
+            when 1
+              if defat.is_a?(SelfRefNode) then
+                klassobj = context.current_class_node.klass_object
+              else
+                raise "Unsupport pattern in singleton class"
+              end
             end
           end
-          clsobj.const_set(name, klassobj)
+
+          if name != :singletonclass then # class << self pattern check
+            clsobj.const_set(name, klassobj)
+          end
         end
 
-        if (cnode = ClassTopNode.get_class_top_node(klassobj)) == nil then
+        cnode = ClassTopNode.get_class_top_node(klassobj)
+        if cnode == nil or cnode.is_a?(TopTopNode) then
           cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
           RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
           cnode.debug_info = context.debug_info
