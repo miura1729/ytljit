@@ -1099,6 +1099,10 @@ module YTLJit
         context.current_node = node
       end
 
+      def visit_opt_case_dispatch(code, ins, context)
+        # do nothing
+      end
+
       # getinlinecache
       # onceinlinecache
       # setinlinecache
