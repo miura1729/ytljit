@@ -649,7 +649,7 @@ module YTLJit
         add_special_send_node :eval
       end
 
-      class SendEvalNode<SendNode
+      class SendUnpackNode<SendNode
         add_special_send_node :unpack
 
         def collect_candidate_type_regident(context, slf)
