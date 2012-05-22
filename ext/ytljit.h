@@ -92,13 +92,23 @@ typedef struct RNode {
 
 
 /* Copy from vm_core.h */
-
 struct rb_iseq_struct {
     /***************/
     /* static data */
     /***************/
 
-    VALUE type;          /* instruction sequence type */
+    enum iseq_type {
+	ISEQ_TYPE_TOP,
+	ISEQ_TYPE_METHOD,
+	ISEQ_TYPE_BLOCK,
+	ISEQ_TYPE_CLASS,
+	ISEQ_TYPE_RESCUE,
+	ISEQ_TYPE_ENSURE,
+	ISEQ_TYPE_EVAL,
+	ISEQ_TYPE_MAIN,
+	ISEQ_TYPE_DEFINED_GUARD
+    } type;              /* instruction sequence type */
+
     VALUE name;	         /* String: iseq name */
     VALUE filename;      /* file information where this sequence from */
     VALUE filepath;      /* real file path or nil */
@@ -110,8 +120,8 @@ struct rb_iseq_struct {
     unsigned short line_no;
 
     /* insn info, must be freed */
-    struct iseq_insn_info_entry *insn_info_table;
-    size_t insn_info_size;
+    struct iseq_line_info_entry *line_info_table;
+    size_t line_info_size;
 
     ID *local_table;		/* must free */
     int local_table_size;
@@ -134,14 +144,14 @@ struct rb_iseq_struct {
      *
      *  argc           = M
      *  arg_rest       = M+N+1 // or -1 if no rest arg
-     *  arg_opts       = N
-     *  arg_opts_tbl   = [ (N entries) ]
+     *  arg_opts       = N+1   // or 0  if no optional arg
+     *  arg_opt_table  = [ (arg_opts entries) ]
      *  arg_post_len   = O // 0 if no post arguments
      *  arg_post_start = M+N+2
      *  arg_block      = M+N + 1 + O + 1 // -1 if no block arg
      *  arg_simple     = 0 if not simple arguments.
      *                 = 1 if no opt, rest, post, block.
-     *                 = 2 if ambiguos block parameter ({|a|}).
+     *                 = 2 if ambiguous block parameter ({|a|}).
      *  arg_size       = argument size.
      */
 
@@ -154,6 +164,10 @@ struct rb_iseq_struct {
     int arg_post_start;
     int arg_size;
     VALUE *arg_opt_table;
+    int arg_keyword;
+    int arg_keyword_check; /* if this is true, raise an ArgumentError when unknown keyword argument is passed */
+    int arg_keywords;
+    ID *arg_keyword_table;
 
     size_t stack_max; /* for stack overflow check */
 
@@ -190,6 +204,7 @@ struct rb_iseq_struct {
     /* used at compile time */
     struct iseq_compile_data *compile_data;
 };
+
 
 /* Copy from method.h */
 typedef enum {

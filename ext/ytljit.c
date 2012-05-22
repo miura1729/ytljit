@@ -175,16 +175,10 @@ ytl_binding_variables(VALUE self)
 VALUE
 ytl_proc_to_iseq(VALUE self)
 {
-  rb_proc_t *proc;
   rb_iseq_t *iseq;
-
-  GetProcPtr(self, proc);
-  iseq = proc->block.iseq;
-  if (proc->is_from_method) {
-    NODE *node = (NODE *)iseq;
-    /* method(:foo).to_proc */
-    iseq = rb_method_get_iseq(node->u2.value);
-  }
+  int is_proc = 1;
+  
+  iseq = rb_proc_get_iseq(self, &is_proc);
   if (iseq) {
     return iseq->self;
   }
