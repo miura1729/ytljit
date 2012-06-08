@@ -153,6 +153,14 @@ module YTLJit
           if ins == nil then
             # do nothing
           elsif ins.is_a?(Fixnum) then
+            if context.options[:profile_mode] then
+              curnode = context.current_node
+              trnode = Node::TraceNode.new(curnode, 0)
+              curnode.body = trnode
+              trnode.debug_info = context.debug_info
+              context.current_node = trnode
+            end
+            
             # line no
             context.current_line_no = ins
           elsif ins.is_a?(Symbol) then
@@ -751,6 +759,12 @@ module YTLJit
       end
 
       def visit_trace(code, ins, context)
+        curnode = context.current_node
+        trnode = TraceNode.new(curnode, ins[1])
+        curnode.body = trnode
+        trnode.debug_info = context.debug_info
+        context.current_node = trnode
+        context
       end
 
       def visit_defineclass(code, ins, context)
