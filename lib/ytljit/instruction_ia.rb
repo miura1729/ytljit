@@ -1034,6 +1034,19 @@ module YTLJit
       end
     end
 
+    def xchg(op1, op2)
+      rexseq, rexfmt = rex(op1, op2)
+      case op1
+        when OpEAX, OpRAX
+        case op2
+        when OpReg32, OpReg64
+          return [*rexseq, 0x90 + (op2.reg_no & 7)].pack("#{rexfmt}C")
+        end
+      end
+        
+      return nosupported_addressing_mode(:xchg, op1, op2)
+    end
+
     def ja(addr)
       common_jcc(addr, 0x77, 0x87, :ja)
     end
