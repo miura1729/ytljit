@@ -1882,6 +1882,10 @@ LocalVarNode
           super(context, signode, sig)
         end
 
+        def get_global_object_area
+          @@global_object_area
+        end
+        
         def get_global_arena_address
           ar = @@global_object_area
           addr = lambda {
