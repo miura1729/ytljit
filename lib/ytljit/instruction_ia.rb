@@ -661,13 +661,18 @@ module YTLJit
         case src
         when OpImmidiate8
           rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(inst, optc, src, dst, src)
+          modseq, modfmt = modrm(inst, optc, dst, dst, src)
           (rexseq + [0x83] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}")
 
-        when OpImmidiate32, Integer
+        when OpImmidiate32
           rexseq, rexfmt = rex(dst, src)
-          modseq, modfmt = modrm(inst, optc, src, dst, src)
+          modseq, modfmt = modrm(inst, optc, dst, dst, src)
           (rexseq + [0x81] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
+
+        when Integer
+          rexseq, rexfmt = rex(dst, src)
+          modseq, modfmt = modrm(inst, optc, dst, dst, src)
+          (rexseq + [0x81] + modseq + [src]).pack("#{rexfmt}C#{modfmt}L")
 
         when OpReg32, OpReg64
           rexseq, rexfmt = rex(dst, src)
