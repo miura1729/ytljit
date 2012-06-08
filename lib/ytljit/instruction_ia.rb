@@ -1448,6 +1448,18 @@ module YTLJit
       [0xcc].pack("C")
     end
 
+    def rdpmc
+      [0x0f, 0x33].pack("CC")
+    end
+
+    def rdtsc
+      [0x0f, 0x31].pack("CC")
+    end
+
+    def cpuid
+      [0x0f, 0xa2].pack("CC")
+    end
+
     def ud2
       [0x0f, 0x0b].pack("CC")
     end
