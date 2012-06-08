@@ -3011,6 +3011,118 @@ LocalVarNode
         end
       end
 
+      class TraceNode<BaseNode
+        include HaveChildlenMixin
+        include X86
+        include AbsArch
+        @@max_trace_no = 0
+        @@trace_node_tab = []
+
+        def self.prof_disp(fn, pa)
+          tot = {}
+          @@trace_node_tab.each do |tobj|
+            a = tobj.inspect_profile_info
+            a[4] = 0 if a[4] == nil
+            a[5] = 0 if a[5] == nil
+            if a[0] == fn then
+              ln = a[3] - 1
+              if tot[ln] then
+                tot[ln][0] += a[4]
+                tot[ln][1] += a[5]
+              else
+                tot[ln] = [a[4], a[5]]
+              end
+            end
+          end
+
+          pa.each_with_index do |l, i|
+            if tot[i] then
+              printf "%7d %10d ", tot[i][0], tot[i][1]
+            else
+              print " " * 19
+            end
+            print l
+            print "\n"
+          end
+        end
+
+        def initialize(parent, kind)
+          super(parent)
+          @trace_no = @@max_trace_no
+          @@trace_node_tab[@trace_no] = self
+          @@max_trace_no += 1
+          @kind = kind
+          @cnt_offset = nil
+          @time_offset = nil
+          @top_node = nil
+        end
+
+        def inspect_profile_info
+          if @top_node then
+            oarea = @top_node.get_global_object_area
+            res = debug_info.dup
+            res << oarea[@cnt_offset]
+            res << oarea[@time_offset]
+          else
+            debug_info.dup
+          end
+        end
+
+        def traverse_childlen
+          yield @body
+        end
+
+        def collect_info(context)
+          if context.options[:profile_mode] then
+            tv = "_trace_cnt#{@trace_no}".to_sym
+            context.modified_global_var[tv] ||= []
+            tv = "_trace_time#{@trace_no}".to_sym
+            context.modified_global_var[tv] ||= []
+            if @cnt_offset == nil then
+              @cnt_offset = context.modified_global_var.keys.size - 1
+              @time_offset = @cnt_offset + 1
+            end
+          end
+          @body.collect_info(context)
+        end
+        
+        def collect_candidate_type(context)
+          @body.collect_candidate_type(context)
+        end
+
+        def compile(context)
+          context = super(context)
+          asm = context.assembler
+          case @kind 
+          when 0
+            @top_node = context.top_node
+            oarea = @top_node.get_global_object_area
+            oarea[@cnt_offset] = 0
+            oarea[@time_offset] = 0
+            context.start_using_reg(TMPR2)
+            cntadd = @top_node.get_global_arena_end_address.value
+            cntadd -= @cnt_offset * 8
+            asm.with_retry do
+              asm.push(EAX)
+              asm.push(EDX)
+              asm.cpuid
+              asm.rdtsc
+              asm.sub(EAX, PROFR)
+              asm.add(PROFR, EAX)
+              asm.mov(TMPR2, cntadd)
+              asm.add(INDIRECT_TMPR2, 1)
+              asm.sub(TMPR2, 8)
+              asm.add(INDIRECT_TMPR2, EAX)
+              asm.pop(EDX)
+              asm.pop(EAX)
+            end
+            context.end_using_reg(TMPR2)
+          end
+            
+          @body.compile(context)
+        end
+      end
+
       class ClassValueNode<BaseNode
         include HaveChildlenMixin
 

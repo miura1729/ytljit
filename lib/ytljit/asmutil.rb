@@ -94,6 +94,7 @@ module YTLJit
       TMPR3 = OpECX.instance
       PTMPR = OpEBX.instance
       THEPR = OpEDI.instance    # Temporary Heap pointer
+      PROFR = OpESI.instance    # Counter for profiler
       DBLLOR = OpEAX.instance
       DBLHIR = OpEDX.instance
       RETR = OpEAX.instance
@@ -108,6 +109,7 @@ module YTLJit
       TMPR3 = OpR11.instance
       PTMPR = OpRBX.instance
       THEPR = OpR14.instance    # Temporary Heap pointer
+      PROFR = OpR15.instance    # Counter for profiler
       DBLLOR = OpRAX.instance
       DBLHIR = OpRDX.instance
       RETR = OpRAX.instance
