@@ -172,6 +172,8 @@ ytl_binding_variables(VALUE self)
 }
   
 
+rb_iseq_t *rb_proc_get_iseq(VALUE, int *);
+
 VALUE
 ytl_proc_to_iseq(VALUE self)
 {

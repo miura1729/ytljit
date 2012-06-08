@@ -20,7 +20,7 @@ struct CodeSpace {
 };
 
 struct ArenaHeader {
-  VALUE *lastptr;
+  long long *lastptr;
   struct ArenaBody *body;
 };
 
@@ -28,7 +28,7 @@ struct ArenaBody {
   size_t size;
   struct ArenaBody *next;
   struct ArenaHeader *header;
-  VALUE body[1];
+  long long body[1];
 };
 
 VALUE ytl_address_of(VALUE, VALUE);

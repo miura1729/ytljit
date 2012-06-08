@@ -10,12 +10,12 @@ VALUE ytl_cArena;
 void
 ytl_arena_mark(struct ArenaHeader *arenah)
 {
-  VALUE *start;
-  VALUE *end;
+  long long *start;
+  long long *end;
   struct ArenaBody *bodyptr;
   struct ArenaBody *next_bodyptr;
   struct ArenaBody *lastbodyptr;
-  VALUE *bodyeleptr;
+  long long *bodyeleptr;
   int appear;
 
   lastbodyptr = (struct ArenaBody *)(((uintptr_t)arenah->lastptr) & (~(ARENA_SIZE - 1)));
@@ -36,7 +36,7 @@ ytl_arena_mark(struct ArenaHeader *arenah)
       continue;
     }
 
-    end = bodyptr->body + (bodyptr->size / sizeof(VALUE));
+    end = bodyptr->body + (bodyptr->size / sizeof(long long));
     for (bodyeleptr = start; bodyeleptr <= end; bodyeleptr++) {
       rb_gc_mark_maybe(*bodyeleptr);
     }
@@ -106,7 +106,7 @@ ytl_arena_allocate(VALUE klass)
   arenah->body = ytl_arena_allocate_body();
   arenab = arenah->body;
   arenab->header = arenah;
-  arenah->lastptr = arenab->body + (arenab->size / sizeof(VALUE));
+  arenah->lastptr = arenab->body + (arenab->size / sizeof(long long));
 
   return Data_Wrap_Struct(klass, ytl_arena_mark, ytl_arena_free, 
 			  (void *)arenah);
@@ -141,7 +141,7 @@ ytl_arena_alloca(char *stptr, int size)
       arenab->next = oldbody;
     }
     arenab->header = arenah;
-    arenah->lastptr = arenab->body + (arenab->size / sizeof(VALUE));
+    arenah->lastptr = arenab->body + (arenab->size / sizeof(long long));
     stptr = (char *)arenah->lastptr;
   }
   stptr -= size;
@@ -156,9 +156,9 @@ ytl_arena_ref(VALUE self, VALUE offset)
   int raw_offset;
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
-  raw_offset = (arenah->body->size / sizeof(VALUE)) - FIX2INT(offset);
+  raw_offset = (arenah->body->size / sizeof(long long)) - FIX2INT(offset);
 
-  return ULONG2NUM(arenah->body->body[raw_offset]);
+  return ULONG2NUM((VALUE)arenah->body->body[raw_offset]);
 }
 
 VALUE
@@ -167,12 +167,12 @@ ytl_arena_emit(VALUE self, VALUE offset, VALUE src)
   struct ArenaHeader *arenah;
 
   int raw_offset;
-  VALUE *newlastptr;
+  long long *newlastptr;
 
   Data_Get_Struct(self, struct ArenaHeader, arenah);
-  raw_offset = (arenah->body->size / sizeof(VALUE)) - NUM2ULONG(offset);
+  raw_offset = (arenah->body->size / sizeof(long long)) - NUM2ULONG(offset);
 
-  arenah->body->body[raw_offset] = FIX2INT(src);
+  arenah->body->body[raw_offset] = (long long)FIX2INT(src);
   newlastptr = arenah->body->body + raw_offset;
   if (newlastptr < arenah->lastptr) {
     arenah->lastptr = newlastptr;
