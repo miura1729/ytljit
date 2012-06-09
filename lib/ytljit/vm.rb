@@ -3116,6 +3116,7 @@ LocalVarNode
               asm.mov(TMPR2, cntadd)
               asm.add(INDIRECT_TMPR2, 1)
               asm.sub(TMPR2, 8)
+              asm.shr(EAX, 8)
               asm.add(INDIRECT_TMPR2, EAX)
               asm.pop(EDX)
               asm.pop(EAX)
