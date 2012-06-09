@@ -1071,6 +1071,14 @@ module YTLJit
 
       def visit_jump(code, ins, context)
         curnode = context.current_node
+        if context.options[:profile_mode] then
+          trnode = Node::TraceNode.new(curnode, 0)
+          curnode.body = trnode
+          trnode.debug_info = context.debug_info
+          context.current_node = trnode
+          curnode = trnode
+        end
+
         nllab = get_vmnode_from_label(context, ins[1])
 
         jpnode = JumpNode.new(curnode, nllab) 
