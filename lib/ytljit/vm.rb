@@ -1164,6 +1164,7 @@ LocalVarNode
           @escape_info_tab = {}
           @escape_info = nil
           @frame_offset = 0
+          @compiled = false
         end
 
         attr_accessor :name
@@ -1375,6 +1376,11 @@ LocalVarNode
         end
 
         def compile(context)
+          if @compiled then
+            return context
+          end
+
+          @compiled = true
           oldcs = context.code_space
           @code_spaces.each do |sig, cs|
             context.current_method_signature.push sig
