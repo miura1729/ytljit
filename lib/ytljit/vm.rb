@@ -3115,21 +3115,21 @@ LocalVarNode
             asm.with_retry do
               asm.push(EAX)
               asm.push(EDX)
-              asm.cpuid
+#              asm.cpuid
               asm.rdtsc
               asm.sub(EAX, PROFR)
               asm.add(PROFR, EAX)
               asm.mov(TMPR2, cntadd)
               asm.add(INDIRECT_TMPR2, 1)
               asm.sub(TMPR2, 8)
-              asm.shr(EAX, 8)
+              asm.shr(EAX, 5)
               asm.add(INDIRECT_TMPR2, EAX)
               asm.pop(EDX)
               asm.pop(EAX)
             end
             context.end_using_reg(TMPR2)
           end
-            
+
           @body.compile(context)
         end
       end
