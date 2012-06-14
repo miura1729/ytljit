@@ -3095,6 +3095,8 @@ LocalVarNode
         end
         
         def collect_candidate_type(context)
+          cursig = context.to_signature
+          same_type(self, @parent, cursig, cursig, context)
           @body.collect_candidate_type(context)
         end
 
