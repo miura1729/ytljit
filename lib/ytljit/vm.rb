@@ -3041,7 +3041,11 @@ LocalVarNode
 
           pa.each_with_index do |l, i|
             if tot[i] then
-              STDERR.printf "%7d %10d ", tot[i][0], tot[i][1]
+              if tot[i][0] != 0 then
+                STDERR.printf "%7d %10d ", tot[i][0], tot[i][1] / tot[i][0]
+              else
+                STDERR.printf "%7d %10d ", tot[i][0], tot[i][1]
+              end
             else
               STDERR.print " " * 19
             end

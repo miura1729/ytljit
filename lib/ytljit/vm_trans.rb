@@ -154,11 +154,7 @@ module YTLJit
             # do nothing
           elsif ins.is_a?(Fixnum) then
             if context.options[:profile_mode] then
-              curnode = context.current_node
-              trnode = Node::TraceNode.new(curnode, 0)
-              curnode.body = trnode
-              trnode.debug_info = context.debug_info
-              context.current_node = trnode
+              context = visit_trace(code, [:trace, 0], context)
             end
             
             # line no
@@ -1007,19 +1003,21 @@ module YTLJit
       end
 
       def visit_leave(code, ins, context)
-        curnode = nil
         vnode = nil
+
+        curnode = context.current_node 
+        if context.options[:profile_mode] then
+          context = visit_trace(code, [:trace, 0], context)
+        end
 
         if context.top_nodes.last.name == :initialize then
           # This is necessary. So it decides type of new method
           vnode = context.expstack.pop
-          curnode = context.current_node 
           nnode = SetResultNode.new(curnode, vnode)
           curnode.body = nnode
           curnode =nnode
           vnode = SelfRefNode.new(curnode)
         else
-          curnode = context.current_node 
           vnode = context.expstack.pop
         end
 
@@ -1072,11 +1070,7 @@ module YTLJit
       def visit_jump(code, ins, context)
         curnode = context.current_node
         if context.options[:profile_mode] then
-          trnode = Node::TraceNode.new(curnode, 0)
-          curnode.body = trnode
-          trnode.debug_info = context.debug_info
-          context.current_node = trnode
-          curnode = trnode
+          context = visit_trace(code, [:trace, 0], context)
         end
 
         nllab = get_vmnode_from_label(context, ins[1])
@@ -1095,6 +1089,9 @@ module YTLJit
 
       def visit_branchif(code, ins, context)
         curnode = context.current_node
+        if context.options[:profile_mode] then
+          context = visit_trace(code, [:trace, 0], context)
+        end
         nllab = get_vmnode_from_label(context, ins[1])
  
         cond = context.expstack.pop
@@ -1109,6 +1106,9 @@ module YTLJit
 
       def visit_branchunless(code, ins, context)
         curnode = context.current_node
+        if context.options[:profile_mode] then
+          context = visit_trace(code, [:trace, 0], context)
+        end
         nllab = get_vmnode_from_label(context, ins[1])
 
         cond = context.expstack.pop
