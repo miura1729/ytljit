@@ -4152,8 +4152,8 @@ LocalVarNode
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype != Fixnum and rrtype != Float then
-            if cursig[2].boxed and @val.is_escape != :global_export and true then
-              @val.set_escape_node_backward(:global_export)
+            if cursig[2].boxed and @val.is_escape != :global_export then
+              @val.set_escape_node_backward(@is_escape)
               context = @val.collect_candidate_type(context)
 #              context.convergent = false
             else
