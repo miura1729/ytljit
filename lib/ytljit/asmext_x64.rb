@@ -186,7 +186,7 @@ module YTLJit
           code += @asm.update_state(add(SPR, imm))
           alloc_argument_area = lambda {
             @asm.with_current_address(@asm.output_stream.base_address + offset) {
-              @asm.output_stream[offset] = sub(SPR, argsize)
+              @asm.output_stream[offset] = sub(SPR, imm)
             }
           }
           @asm.after_patch_tab.push alloc_argument_area

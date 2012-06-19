@@ -115,13 +115,13 @@ module YTLJit
       end
       
       if argnum != 0 then
-        code += @asm.update_state(add(SPR, OpImmidiate8.new(argsize)))
         offset = @funcarg_info.area_allocate_pos.pop
         if @funcarg_info.maxargs > 16 then
           allocsiz = OpImmidiate32.new(argsize)
         else
           allocsiz = OpImmidiate8.new(argsize)
         end
+        code += @asm.update_state(add(SPR, allocsiz))
         alloc_argument_area = lambda {
           asm.with_current_address(asm.output_stream.base_address + offset) {
             asm.output_stream[offset] = sub(SPR, allocsiz)
