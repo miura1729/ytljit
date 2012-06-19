@@ -3431,6 +3431,66 @@ LocalVarNode
           end
         end
 
+        def skip_trace(body)
+          while body.is_a?(TraceNode)
+            body = body.body
+          end
+
+          body
+        end
+
+        def is_getter(body)
+          body = skip_trace(body)
+          if !body.is_a?(SetResultNode) then
+            return false
+          end
+
+          val = skip_trace(body.value_node)
+          if !val.is_a?(CRubyInstanceVarRefNode) then
+            return false
+          end
+          
+          body = body.body
+          body = skip_trace(body)
+          if !body.is_a?(MethodEndNode) then
+            return false
+          end
+          
+          val
+        end
+
+        def is_setter(body)
+          body = skip_trace(body)
+          res = body
+          if !body.is_a?(CRubyInstanceVarAssignNode) then
+            return false
+          end
+          
+          val = skip_trace(body.val)
+          if !val.is_a?(MultiplexNode) then
+            return false
+          end
+          
+          val = skip_trace(val.node)
+          if !val.is_a?(LocalVarRefNode) or val.is_a?(SelfRefNode) then
+            return false
+          end
+          
+          body = body.body
+          body = skip_trace(body)
+          if !body.is_a?(SetResultNode) then
+            return false
+          end
+          
+          body = body.body
+          body = skip_trace(body)
+          if !body.is_a?(MethodEndNode) then
+            return false
+          end
+          
+          res
+        end
+
         def calling_convention(context)
           if @send_node.is_fcall or @send_node.is_vcall then
             mtop = @reciever.search_method_with_super(@name)[0]
@@ -3488,22 +3548,14 @@ LocalVarNode
 
               # Check getter/setter
               body = mtop.body.body
-              if body.is_a?(SetResultNode) then
-                if body.value_node.is_a?(CRubyInstanceVarRefNode) and
-                    body.body.is_a?(MethodEndNode) then
-                  @calling_convention = :getter
-                  @inline_node = body.value_node
-                end
-              else
-                if body.is_a?(CRubyInstanceVarAssignNode) and
-                    body.val.is_a?(MultiplexNode) and
-                    body.val.node.is_a?(LocalVarRefNode) and
-                    ! body.val.node.is_a?(SelfRefNode) and
-                    body.body.is_a?(SetResultNode) and
-                    body.body.body.is_a?(MethodEndNode) then
-                  @calling_convention = :setter
-                  @inline_node = body
-                end
+              # skip line no
+              body = body.body if context.options[:profile_mode]
+              # skip two trace node
+              body = body.body.body
+              if @inline_node = is_getter(body) then
+                @calling_convention = :getter
+              elsif @inline_node = is_setter(body) then
+                @calling_convention = :setter
               end
               @ruby_reciever = rklass
             else
