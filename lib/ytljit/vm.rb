@@ -893,17 +893,7 @@ LocalVarNode
           end
         end
 
-        def compile_ytl(context)
-          fnc = nil
-          numarg = @arguments.size
-          cursig = context.to_signature
-          
-          context.start_arg_reg
-          context.start_arg_reg(FUNC_ARG_YTL)
-          context.cpustack_pushn(numarg * 8)
-          casm = context.assembler
-          set_ensure_proc(context)
-
+        def gen_push_prev_env(context, cursig, casm)
           # push prev env
           if @func.is_a?(YieldNode) then
             prevenv = @frame_info.offset_arg(0, BPR)
@@ -925,26 +915,11 @@ LocalVarNode
             context.set_reg_content(FUNC_ARG_YTL[0].dst_opecode, BPR)
           end
           
-          # block
-          # eval block
-          # local block
-          
-          # compile block with other code space and context
-          tcontext = context.dup
-          tcontext.prev_context = context
-          tcontext.stack_content = []
-          @arguments[1].compile(tcontext)
-          
-          # other arguments
-          @arguments[3..-1].each_with_index do |arg, i|
-            context = arg.compile(context)
-            casm.with_retry do 
-              casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
-            end
-            context.set_reg_content(FUNC_ARG_YTL[i + 3].dst_opecode, 
-                                    context.ret_node)
-          end
+          context
+        end
 
+        def gen_push_blk_slf_and_call(context, cursig, numarg, casm)
+          # push block
           sig = @yield_signature_cache[cursig]
           ecs = @arguments[1].code_space_from_signature[sig]
           ecs ||= @arguments[1].code_space
@@ -954,7 +929,7 @@ LocalVarNode
           end
           context.set_reg_content(FUNC_ARG_YTL[1].dst_opecode, entry)
 
-          # self
+          # push self and call
           # Method Select
           # it is legal. use TMPR2 for method select
           # use PTMPR for store self
@@ -966,7 +941,109 @@ LocalVarNode
           context.set_reg_content(FUNC_ARG_YTL[2].dst_opecode, @arguments[2])
 
           context = gen_save_thepr(context)
-          context = gen_call(context, fnc, numarg)
+          gen_call(context, fnc, numarg)
+        end
+
+        def cmp_block(context)
+          # compile block with other code space and context
+          tcontext = context.dup
+          tcontext.prev_context = context
+          tcontext.stack_content = []
+          @arguments[1].compile(tcontext)
+        end
+
+        def compile_ytl(context)
+          numarg = @arguments.size
+          cursig = context.to_signature
+          
+          context.start_arg_reg
+          context.start_arg_reg(FUNC_ARG_YTL)
+          context.cpustack_pushn(numarg * 8)
+
+          casm = context.assembler
+          set_ensure_proc(context)
+
+          context = gen_push_prev_env(context, cursig, casm)
+          cmp_block(context)
+          
+          # other arguments
+          @arguments[3..-1].each_with_index do |arg, i|
+            context = arg.compile(context)
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[i + 3].dst_opecode, 
+                                    context.ret_node)
+          end
+
+          context = gen_push_blk_slf_and_call(context, cursig, numarg, casm)
+          
+          context.cpustack_popn(numarg * 8)
+          context.end_arg_reg
+          context.end_arg_reg(FUNC_ARG_YTL)
+
+          context
+        end
+
+        include UnboxedArrayUtil
+        def compile_ytl_ext_ary(context)
+          numarg = @arguments.size
+          cursig = context.to_signature
+          
+          context.start_arg_reg
+          context.start_arg_reg(FUNC_ARG_YTL)
+          context.cpustack_pushn(numarg * 8)
+
+          casm = context.assembler
+          set_ensure_proc(context)
+
+          context = gen_push_prev_env(context, cursig, casm)
+          cmp_block(context)
+          
+          # other arguments
+          idxbase = -1
+          @arguments[3..-3].each_with_index do |arg, i|
+            context = arg.compile(context)
+            casm.with_retry do 
+              casm.mov(FUNC_ARG_YTL[i + 3], context.ret_reg)
+            end
+            context.set_reg_content(FUNC_ARG_YTL[i + 3].dst_opecode, 
+                                    context.ret_node)
+            idxbase = i
+          end
+
+          arg = @arguments[-1]
+          idxbase = idxbase + 1
+          mt, slf = get_send_method_node(cursig)
+          rargnum = mt.body.argc - @arguments.size + 1
+          addr = lambda {
+            a = address_of("rb_ary_entry")
+            $symbol_table[a] = "rb_ary_entry"
+            a
+          }
+          aref = OpVarMemAddress.new(addr)
+
+          context = arg.compile(context)
+          context.start_using_reg(TMPR2)
+          casm.with_retry do 
+            casm.mov(TMPR2, context.ret_reg)
+          end
+
+          rargnum.times do |i|
+            casm.with_retry do 
+              casm.mov(TMPR, i)
+              casm.push(TMPR2)
+              casm.push(TMPR)
+              casm.push(TMPR2)
+              casm.call(aref)
+              casm.add(SPR, AsmType::MACHINE_WORD.size * 2)
+              casm.pop(TMPR2)
+              casm.mov(FUNC_ARG_YTL[idxbase + i + 3], RETR)
+            end
+          end
+          context.end_using_reg(TMPR2)
+
+          context = gen_push_blk_slf_and_call(context, cursig, numarg, casm)
           
           context.cpustack_popn(numarg * 8)
           context.end_arg_reg

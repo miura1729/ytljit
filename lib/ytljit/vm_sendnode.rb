@@ -486,7 +486,11 @@ module YTLJit
             context = compile_c_fixarg_raw(context)
 
           when :ytl
-            context = compile_ytl(context)
+            if is_args_splat then
+              context = compile_ytl_ext_ary(context)
+            else
+              context = compile_ytl(context)
+            end
 
           when :getter
             inode = @func.inline_node
