@@ -2199,9 +2199,13 @@ LocalVarNode
         def compile(context)
           context = super(context)
           siz = @local_area_size + @alloca_area_size
-          if siz != 0 and 
-              !(@parent.is_a?(ExceptionTopNode)) and
-              !(@parent.is_a?(BlockTopInlineNode)) then
+          if siz == 0 or
+              @parent.is_a?(ExceptionTopNode) or
+              @parent.is_a?(BlockTopInlineNode) then
+            context = @body.compile(context)
+
+          else
+            # Normal route
             asm = context.assembler
             asm.with_retry do
               asm.sub(SPR, siz)
@@ -2209,8 +2213,6 @@ LocalVarNode
             context.cpustack_pushn(siz)
             context = @body.compile(context)
             context.cpustack_popn(siz)
-          else
-            context = @body.compile(context)
           end
 
           context
