@@ -3062,9 +3062,12 @@ LocalVarNode
           case @value
           when Array
             add_type(sig, @type)
-            @value.each do |ele|
+            @value.each_with_index do |ele, i|
               etype = RubyType::BaseType.from_object(ele)
               @element_node_list[0][2].add_type(sig, etype)
+              dmy = BaseNode.new(self)
+              dmy.add_type(sig, etype)
+              @element_node_list.push [@type, sig, dmy, [i]]
             end
 
           when Hash
