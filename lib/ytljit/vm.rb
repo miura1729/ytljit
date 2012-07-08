@@ -736,12 +736,36 @@ LocalVarNode
           mt, slf = get_send_method_node(cursig)
           res.push slf
 
-          args[3..-1].each do |ele|
+          lstarg = -1
+          if is_args_splat then
+            lstarg = -2
+          end
+
+          args[3..lstarg].each do |ele|
             if ele.type_list(cursig) == [[], []] and ele.type then
               res.push ele.type
             else
               ele.type = nil
               res.push ele.decide_type_once(cursig)
+            end
+          end
+
+          if is_args_splat then
+            ele = args[-1]
+            if ele.type_list(cursig) != [[], []] or !ele.type then
+              ele.type = nil
+              ele.decide_type_once(cursig)
+            end
+            i = 0
+            tt = nil
+            while tt = ele.type.element_type[[i]]
+              res.push tt[0]
+              i += 1
+            end
+            if i == 0 then
+              # Have no type info each element. So use total type info
+              # I don't know number of element :(
+              res.push ele.type.element_type[nil][-1]
             end
           end
 
@@ -754,6 +778,38 @@ LocalVarNode
           end
 
           res
+        end
+
+        def extend_args(context, args)
+          if is_args_splat then
+            ret = args.dup
+            cursig = context.to_signature
+            ary = ret.pop
+            tbl = {}
+            ary.element_node_list.each do |type, sig, node, idxa|
+              if idxa then
+                idx = idxa[0]
+                if sig == cursig then
+                  tbl[idx] = node
+                end
+              end
+            end
+
+            i = 0
+            while tbl[i] 
+              ret.push tbl[i]
+              i += 1
+            end
+
+            if i == 0 then
+              # not find no element type info
+              ret.push ary.element_node_list[0][2]
+            end
+
+            ret
+          else
+            args
+          end
         end
 
         def compile_c_vararg(context)
@@ -1038,6 +1094,13 @@ LocalVarNode
               casm.call(aref)
               casm.add(SPR, AsmType::MACHINE_WORD.size * 2)
               casm.pop(TMPR2)
+            end
+            context.ret_reg = RETR
+            tt = arg.type.element_type[[i]][0]
+            if !tt.boxed then
+              context = tt.to_box.gen_unboxing(context)
+            end
+            casm.with_retry do 
               casm.mov(FUNC_ARG_YTL[idxbase + i + 3], RETR)
             end
           end

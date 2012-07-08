@@ -433,11 +433,11 @@ module YTLJit
               mt.ti_reset
             end
 =end
-
-            context = mt.collect_candidate_type(context, @arguments, signat)
+            extargs = extend_args(context, @arguments)
+            context = mt.collect_candidate_type(context, extargs, signat)
 
             if blknode.is_a?(TopNode) then
-              context.push_signature(@arguments, mt)
+              context.push_signature(extargs, mt)
               # Have block
               context = collect_candidate_type_block(context, blknode, 
                                                      signat, mt, cursig)
@@ -445,10 +445,10 @@ module YTLJit
               if signat[1] != blknode.type then
                 signat[1] = blknode.type
                 context = mt.collect_candidate_type(context, 
-                                                    @arguments, signat)
+                                                    extargs, signat)
               end
             else
-              context.push_signature(@arguments, mt)
+              context.push_signature(extargs, mt)
               context = blknode.collect_candidate_type(context)
               context.pop_signature
             end
