@@ -758,14 +758,24 @@ LocalVarNode
             end
             i = 0
             tt = nil
-            while tt = ele.type.element_type[[i]]
-              res.push tt[0]
-              i += 1
+            if ele.type.element_type then
+              while tt = ele.type.element_type[[i]]
+                res.push tt[0]
+                i += 1
+              end
             end
             if i == 0 then
               # Have no type info each element. So use total type info
               # I don't know number of element :(
-              res.push ele.type.element_type[nil][-1]
+              num = mt.body.argc - @arguments.size + 1
+              if ele.type.element_type then
+                tt = ele.type.element_type[nil][-1]
+              else
+                tt = RubyType::BaseType.from_ruby_class(Object)
+              end
+              num.times do |i|
+                res.push tt
+              end
             end
           end
 
@@ -803,7 +813,11 @@ LocalVarNode
 
             if i == 0 then
               # not find no element type info
-              ret.push ary.element_node_list[0][2]
+              mt, slf = get_send_method_node(cursig)
+              num = mt.body.argc - @arguments.size + 1
+              num.times do |i|
+                ret.push ary.element_node_list[0][2]
+              end
             end
 
             ret
@@ -1096,7 +1110,13 @@ LocalVarNode
               casm.pop(TMPR2)
             end
             context.ret_reg = RETR
-            tt = arg.type.element_type[[i]][0]
+            tt = nil
+            if arg.type.element_type then
+              tt = arg.type.element_type[[i]] || arg.type.element_type[nil]
+              tt = tt[0]
+            else
+              tt = RubyType::BaseType.from_ruby_class(Object)
+            end
             if !tt.boxed then
               context = tt.to_box.gen_unboxing(context)
             end
