@@ -262,6 +262,7 @@ ytl_code_space_emit(VALUE self, VALUE offset, VALUE src)
     csfree(raw_cs);
     raw_cs = new_cs;
     raw_cs->size = newsize - sizeof(struct CodeSpace);
+    raw_cs->used = 0;
   }
   
   memcpy(raw_cs->body + cooked_offset, src_ptr, src_len);
