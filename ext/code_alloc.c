@@ -69,10 +69,19 @@ raw_alloc_arena(size_t size)
 {
   CodeSpaceArena *arena;
   void *newmem;
+  int is_retry = 0;
 
+ retry:
 #if !defined(__CYGWIN__)
   if (posix_memalign(&newmem, CODE_SPACE_SIZE, size)) {
-    rb_raise(rb_eNoMemError, "Can't allocate code space area");
+    if (is_retry == 0) {
+      is_retry = 1;
+      rb_gc();
+      goto retry;
+    }
+    else {
+      rb_raise(rb_eNoMemError, "Can't allocate code space area");
+    }
   }
   if(mprotect(newmem, CODE_SPACE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
     rb_raise(rb_eNoMemError, "mprotect failed");
@@ -80,7 +89,14 @@ raw_alloc_arena(size_t size)
   arena = (CodeSpaceArena *)newmem;
 #else
   if (!(arena = memalign(CODE_SPACE_SIZE, size))) {
-    rb_raise(rb_eNoMemError, "Can't allocate code space area");
+    if (is_retry == 0) {
+      is_retry = 1;
+      rb_gc();
+      goto retry;
+    }
+    else {
+      rb_raise(rb_eNoMemError, "Can't allocate code space area");
+    }
   }
 #endif
 
