@@ -490,21 +490,33 @@ LocalVarNode
           case tlist.size
           when 0
             RubyType::DefaultType0.new # .to_unbox
-            
+
           when 1
             tlist[0]
 
           when 2
             if tlist[0].ruby_type == tlist[1].ruby_type then
-              tlist[0]
-              
+              if tlist[0].boxed or tlist[0].include_nil? then
+                tlist[0]
+              else
+                tlist[1]
+              end
+
             elsif tlist[0].ruby_type == NilClass then
               # nil-able type
-              tlist[1].to_box
+              if tlist[1].include_nil? then
+                tlist[1]
+              else
+                tlist[1].to_box
+              end
 
             elsif tlist[1].ruby_type == NilClass then
               # nil-able type
-              tlist[0].to_box
+              if tlist[0].include_nil? then
+                tlist[0]
+              else
+                tlist[0].to_box
+              end
 
             elsif tlist[0].ruby_type == Float and
                 tlist[1].ruby_type == Fixnum then
@@ -529,13 +541,31 @@ LocalVarNode
           when 3
             tmptlist = tlist.dup
             tmptlist.delete_if {|ele| ele.ruby_type == NilClass}
-            if tmptlist.size == 2 and 
-                tmptlist[0].ruby_type == tmptlist[1].ruby_type then
-              tmptlist[0]
+            if tmptlist.size < 3 then
+              # retry nil deleted entry
+              res = decide_type_core(tmptlist, cursig, local_cache)
+              if res.include_nil? then
+                res
+              else
+                res.to_box
+              end
 
             elsif tmptlist[0].ruby_type == tmptlist[1].ruby_type and
                   tmptlist[0].ruby_type == tmptlist[2].ruby_type  then
               tmptlist[1]
+
+            elsif tmptlist[2].ruby_type == tmptlist[0].ruby_type then
+              tmptlist[0] = tmptlist[0].to_box
+              decide_type_core(tmptlist[0..1], cursig, local_cache)
+
+            elsif tmptlist[2].ruby_type == tmptlist[1].ruby_type then
+              tmptlist[1] = tmptlist[1].to_box
+              decide_type_core(tmptlist[0..1], cursig, local_cache)
+
+            elsif  tmptlist[1].ruby_type == tmptlist[0].ruby_type then
+              tmptlist[1] = tmptlist[2]
+              tmptlist[0] = tmptlist[0].to_box
+              decide_type_core(tmptlist[0..1], cursig, local_cache)
 
             else
               RubyType::DefaultType0.new
