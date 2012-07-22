@@ -339,7 +339,7 @@ LocalVarNode
           if orgsize != dtsize then
             dst.type = nil
             dst.ti_changed
-#            context.convergent = false
+            context.convergent = false
           end
 
           dtlist = dst.element_node_list
