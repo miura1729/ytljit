@@ -552,7 +552,11 @@ LocalVarNode
 
             elsif tmptlist[0].ruby_type == tmptlist[1].ruby_type and
                   tmptlist[0].ruby_type == tmptlist[2].ruby_type  then
-              tmptlist[1]
+              if tlist[0].boxed or tlist[0].include_nil? then
+                tlist[0]
+              else
+                decide_type_core(tmptlist[1..2], cursig, local_cache)
+              end
 
             elsif tmptlist[2].ruby_type == tmptlist[0].ruby_type then
               tmptlist[0] = tmptlist[0].to_box
