@@ -2877,17 +2877,23 @@ LocalVarNode
           sig = context.to_signature
           context = super(context)
           context = @jmp_to_node.compile_block_value(context, self)
-          jmptocs = @jmp_to_node.get_code_space(sig)
-
-          curas = context.assembler
-          curas.with_retry do
-            curas.jmp(jmptocs.var_base_address)
-            curas.ud2   # Maybe no means but this line may be useful
+          if @jmp_to_node.come_from.size > 1 then
+            # Jump to shared label
+            jmptocs = @jmp_to_node.get_code_space(sig)
+            
+            curas = context.assembler
+            curas.with_retry do
+              curas.jmp(jmptocs.var_base_address)
+              curas.ud2   # Maybe no means but this line may be useful
+            end
+            
+            oldcs = context.set_code_space(jmptocs)
+            context = @jmp_to_node.compile(context)
+            context.set_code_space(oldcs)
+          else
+            context = @jmp_to_node.compile(context)
           end
 
-          oldcs = context.set_code_space(jmptocs)
-          context = @jmp_to_node.compile(context)
-          context.set_code_space(oldcs)
           context
         end
       end
