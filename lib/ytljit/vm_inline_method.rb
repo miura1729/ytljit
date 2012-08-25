@@ -89,6 +89,9 @@ module YTLJit
       end
 
       def gen_arithmetic_operation(context, inst, tempreg, resreg)
+        if @parent.is_a?(Node::LocalAssignNode) and @parent.dest then
+          resreg = @parent.dest
+        end
         context.start_using_reg(tempreg)
         context = gen_eval_self(context)
         context.ret_node.type = nil

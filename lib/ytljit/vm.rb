@@ -3233,8 +3233,9 @@ LocalVarNode
               litent = asm.add_value_entry(litval)
               asm.with_retry do
                 asm.mov(TMPR, litent.to_immidiate)
-                asm.movsd(XMM0, INDIRECT_TMPR)
+                asm.mov(XMM0, INDIRECT_TMPR)
               end
+#              context.ret_reg = INDIRECT_TMPR
               context.ret_reg = XMM0
             end
             context.ret_node = self
@@ -4165,10 +4166,14 @@ LocalVarNode
           @type = nil
           rtype = decide_type_once(context.to_signature)
           if !rtype.boxed and rtype.ruby_type == Float then
-            asm.with_retry do
-              asm.mov(XMM0, offarg)
+            if offarg.is_a?(OpRegXMM) then
+              context.ret_reg = offarg
+            else
+              asm.with_retry do
+                asm.mov(XMM0, offarg)
+              end
+              context.ret_reg = XMM0
             end
-            context.ret_reg = XMM0
           else
             asm.with_retry do
               asm.mov(TMPR, offarg)
@@ -4343,29 +4348,39 @@ LocalVarNode
           else
             context = valtype.gen_unboxing(context)
           end
-
           valr = context.ret_reg
-          valn = context.ret_node
-          context = gen_pursue_parent_function(context, @depth)
-          base = context.ret_reg
-          offarg = @current_frame_info.offset_arg(@offset, base)
 
-          if valr.is_a?(OpRegistor) or 
-              (valr.is_a?(OpImmidiate) and !valr.is_a?(OpImmidiate64)) then
-            asm.with_retry do
-              asm.mov(offarg, valr)
-            end
+          if !@dest then
+            context = gen_pursue_parent_function(context, @depth)
+            base = context.ret_reg
+            @dest = @current_frame_info.offset_arg(@offset, base)
+          end
 
-          else
-            asm.with_retry do
-              asm.mov(TMPR, valr)
-              asm.mov(offarg, TMPR)
+          if @dest != valr then
+            if valr.is_a?(OpRegistor) or 
+                (@dest.is_a?(OpRegistor) and valr.is_a?(OpIndirect)) or
+                (valr.is_a?(OpImmidiate) and !valr.is_a?(OpImmidiate64)) then
+              asm.with_retry do
+                asm.mov(@dest, valr)
+              end
+              
+            elsif @dest.is_a?(OpRegXMM) then
+              asm.with_retry do
+                asm.mov(XMM0, valr)
+                asm.mov(@dest, XMM0)
+              end
+
+            else
+              asm.with_retry do
+                asm.mov(TMPR, valr)
+                asm.mov(@dest, TMPR)
+              end
             end
           end
 
           tmpctx = context
           @depth.times { tmpctx = tmpctx.prev_context}
-          tmpctx.set_reg_content(offarg, @val)
+          tmpctx.set_reg_content(@dest, @val)
 
           context.ret_reg = TMPR
           if base == TMPR2 then
