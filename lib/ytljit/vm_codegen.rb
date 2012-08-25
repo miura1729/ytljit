@@ -306,6 +306,9 @@ LO        |                       |   |  |
 
         # Comment of type inference
         @comment = {}
+
+        # Using XMM reg as variable
+        @using_xmm_reg = []
       end
 
       attr          :top_node
@@ -326,6 +329,8 @@ LO        |                       |   |  |
 
       attr_accessor :options
       attr_accessor :comment
+      attr :using_xmm_reg
+      attr_accessor :using_xmm_reg
 
       def set_reg_content(dst, val)
         if dst.is_a?(FunctionArgument) then
@@ -486,13 +491,13 @@ LO        |                       |   |  |
       def end_using_reg(reg)
         case reg
         when OpRegistor
-          if reg != TMPR and reg != XMM0 then
+          if reg != TMPR and reg != XMM0 and !XMM_REGVAR_TAB.include?(reg) then
             end_using_reg_aux(reg)
           end
 
         when OpIndirect
           case reg.reg 
-          when BPR
+          when BPR, TMPR
 
           else
             end_using_reg_aux(reg.reg)
@@ -561,6 +566,14 @@ LO        |                       |   |  |
             asm.push(BPR)
             asm.mov(BPR, SPR)
           end
+
+          n = context.using_xmm_reg.last
+          n.times do |i|
+            asm.with_retry do
+              asm.push(XMM_REGVAR_TAB[i])
+            end
+          end
+
           context.set_reg_content(BPR, :old_ptr)
           context.cpustack_push(BPR)
           context.set_reg_content(TMPR, :num_of_args)
@@ -583,6 +596,19 @@ LO        |                       |   |  |
           # Make linkage of frame pointer
           asm.with_retry do
             asm.mov(SPR, BPR)
+          end
+
+          n = context.using_xmm_reg.last
+          asm.with_retry do
+            asm.sub(SPR, 8 * n)
+          end
+          n.times do |i|
+            asm.with_retry do
+              asm.pop(XMM_REGVAR_TAB[n - i - 1])
+            end
+          end
+
+          asm.with_retry do
             asm.pop(BPR)
             if @is_escape != :local_export and 
                 @is_escape != :global_export then

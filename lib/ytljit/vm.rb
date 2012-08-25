@@ -1581,6 +1581,10 @@ LocalVarNode
             context.set_code_space(cs)
             context = super(context)
             context.reset_using_reg
+            context.using_xmm_reg.push 0
+            @body.frame_layout.each do |rec|
+              context = rec.compile(context)
+            end
             context = gen_method_prologue(context)
 
             context = compile_init(context)
@@ -1595,6 +1599,8 @@ LocalVarNode
                 end
               end
             end
+            context.using_xmm_reg.pop
+
             context.current_method_signature.pop
             @code_space_from_signature[sig] = cs
           end
@@ -2285,13 +2291,30 @@ LocalVarNode
           obyte - @local_area_size + @parent.frame_offset
         end
 
+        def gen_operand(basereg, off)
+          off = real_offset(off)
+
+          obyte = 0
+          off.times do |i|
+            obyte += @frame_layout[i].size
+          end
+ 
+          roff = obyte - @local_area_size + @parent.frame_offset
+          varnode =  @frame_layout[off]
+          cpureg = varnode.cpu_reg
+          if cpureg then
+            cpureg
+          else
+            OpIndirect.new(basereg, roff)
+          end
+        end
+
         def offset_arg(n, basereg)
           rc = nil
           if basereg == BPR then
             rc = @offset_cache[n]
             unless rc
-              off = offset_by_byte(n)
-              rc = @offset_cache[n] = OpIndirect.new(basereg, off)
+              rc = @offset_cache[n] = gen_operand(basereg, n)
             end
           else
             off = offset_by_byte(n)
@@ -2337,15 +2360,21 @@ LocalVarNode
       end
 
       class LocalVarNode<BaseNode
+        include AbsArch
+        
         def initialize(parent, name, offset, kind)
           super(parent)
           @name = name
           @offset = offset
           @kind = kind
+          @cpu_reg = nil
+          @export_block = false
         end
 
-        attr :name
-        attr :kind
+        attr          :name
+        attr          :kind
+        attr_accessor :cpu_reg
+        attr_accessor :export_block
 
         def size
           8
@@ -2401,6 +2430,15 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
+          cursig = context.to_signature
+          rtype = decide_type_once(cursig)
+          if rtype.ruby_type == Float and !rtype.boxed and 
+              !@export_block and
+              context.using_xmm_reg.last < 4 and 
+              @kind == :local_var then
+            @cpu_reg = XMM_REGVAR_TAB[context.using_xmm_reg.last]
+            context.using_xmm_reg[-1] += 1
+          end
           context
         end
       end
@@ -4065,7 +4103,12 @@ LocalVarNode
           @offset = offset
           @depth = depth
 
-          set_current_frame_info
+          cfi = set_current_frame_info
+          roff = cfi.real_offset(offset)
+          @var_node = cfi.frame_layout[roff]
+          if @depth > 0 then
+            @var_node.export_block = true
+          end
         end
         
         attr :offset
@@ -4155,9 +4198,9 @@ LocalVarNode
         end
 
         def compile_main(context)
-          offarg = @current_frame_info.offset_arg(@offset, BPR)
+          dest = @current_frame_info.offset_arg(@offset, BPR)
           context.ret_node = self
-          context.ret_reg = offarg
+          context.ret_reg = dest
           context
         end
 
@@ -4202,7 +4245,10 @@ LocalVarNode
           @var_from = nil
           @var_type_info = nil
           @referrers = []
+          @dest = nil
         end
+
+        attr :dest
 
         def add_referrer(ref)
           if @referrers and ref.id[0..-2] == id[0..-2] then
@@ -4256,6 +4302,7 @@ LocalVarNode
             end
           end
           same_type(self, @val, varsig, cursig, context)
+          same_type(@var_node, @val, varsig, cursig, context)
 #          same_type(@val, self, cursig, varsig, context)
 
           @body.collect_candidate_type(context)
@@ -4263,6 +4310,13 @@ LocalVarNode
 
         def compile(context)
           context = super(context)
+
+          if @depth == 0 then
+            @dest = @current_frame_info.offset_arg(@offset, BPR)
+          else
+            @dest = nil
+          end
+
           context = @val.compile(context)
 
           cursig = context.to_signature

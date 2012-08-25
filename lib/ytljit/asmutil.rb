@@ -101,6 +101,8 @@ module YTLJit
       RETFR = XMM0
       SPR = OpESP.instance
       BPR = OpEBP.instance
+      # XMM4 using working reg for arithmetic operation
+      XMM_REGVAR_TAB = [XMM1, XMM2, XMM3, XMM5, XMM6, XMM7]
     when /x86_64/
       TMPR = OpRAX.instance
 #      TMPR2 = OpRDX.instance
