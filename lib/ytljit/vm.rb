@@ -2449,10 +2449,12 @@ LocalVarNode
           super(parent)
           @kind = kind
           @offset = offset
+          @cpu_reg = nil
         end
 
         attr :offset
         attr :name
+        attr_accessor :cpu_reg
 
         def collect_candidate_type(context)
           context
