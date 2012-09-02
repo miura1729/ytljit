@@ -266,7 +266,7 @@ LocalVarNode
           end
         end
 
-        def marge_element_node(dst, src, context)
+        def merge_element_node(dst, src, context)
           res = dst
           src.each do |sele|
             exist_same_type = false
@@ -297,7 +297,7 @@ LocalVarNode
           res
         end
 
-        def marge_type(dst, src)
+        def merge_type(dst, src)
           res = dst
           src.each do |sele|
             org = nil
@@ -332,7 +332,7 @@ LocalVarNode
 =end
           orgsize = dtlist.size
 #          pp "#{dst.class} #{src.class} #{dtlist} #{stlist}"
-          newdt = marge_type(dtlistorg[1], stlist)
+          newdt = merge_type(dtlistorg[1], stlist)
           dst.set_type_list(dsig, newdt)
           dtsize = dtlistorg[0].size + newdt.size
 
@@ -346,7 +346,7 @@ LocalVarNode
           stlist = src.element_node_list
 
           orgsize = dtlist.size
-          dst.element_node_list = marge_element_node(dtlist, stlist, context)
+          dst.element_node_list = merge_element_node(dtlist, stlist, context)
           if orgsize != dtlist.size then
             dst.ti_changed
 #            context.convergent = false
@@ -2734,7 +2734,7 @@ LocalVarNode
             @raw_offset = frame_node.static_alloca(8)
             @body.collect_info(context)
           elsif @modified_local_var_list.size == @come_from.size then
-            context.marge_local_var(@modified_local_var_list)
+            context.merge_local_var(@modified_local_var_list)
             @body.collect_info(context)
           else
             context

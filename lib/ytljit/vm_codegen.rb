@@ -92,7 +92,7 @@ LO        |                       |   |  |
       attr_accessor :yield_node
       attr_accessor :options
 
-      def marge_local_var(lvlist)
+      def merge_local_var(lvlist)
         res = nil
         lvlist.each do |lvs|
           if res then

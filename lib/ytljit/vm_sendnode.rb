@@ -738,7 +738,7 @@ module YTLJit
         include SendSingletonClassUtil
 
         add_special_send_node :allocate
-
+        
         def collect_candidate_type_regident(context, slf)
           slfnode = @arguments[2]
           cursig = context.to_signature
