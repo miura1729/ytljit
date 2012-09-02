@@ -1636,7 +1636,7 @@ LocalVarNode
 
         def apply_escape_info_to_args(signode)
           @escape_info.each_with_index do |val, idx|
-            if val then
+            if val and idx != 2 then
               signode[idx].set_escape_node_backward(val)
             end
           end
@@ -1647,9 +1647,9 @@ LocalVarNode
           @escape_info_tab[sig] ||= []
           @escape_info = @escape_info_tab[sig]
           context.visited_top_node[self] ||= []
+          apply_escape_info_to_args(signode)
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
-            apply_escape_info_to_args(signode)
             return context
           end
 
@@ -4485,8 +4485,9 @@ LocalVarNode
           rtype = @val.decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype != Fixnum and rrtype != Float then
-            if cursig[2].boxed and @val.is_escape != :global_export then
-              @val.set_escape_node_backward(:global_export)
+            slfnode = context.current_method_signature_node[-1][2]
+            if slfnode.is_escape == :global_export then
+              @val.set_escape_node(:global_export)
               context = @val.collect_candidate_type(context)
 #              context.convergent = false
             else

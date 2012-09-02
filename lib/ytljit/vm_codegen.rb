@@ -610,7 +610,7 @@ LO        |                       |   |  |
 
           asm.with_retry do
             asm.pop(BPR)
-            if @is_escape != :local_export and 
+            if @is_escape != :local_export and
                 @is_escape != :global_export then
               asm.pop(THEPR) 
             end
