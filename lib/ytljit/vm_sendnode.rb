@@ -2011,6 +2011,37 @@ module YTLJit
           add_type(cursig, tt)
           context
         end
+
+        def compile(context)
+          addr = lambda {
+            fname = "rb_genrand_real"
+            a = address_of(fname)
+            $symbol_table[a] = fname
+            a
+          }
+          fadd = OpVarMemAddress.new(addr)
+          context.start_arg_reg(FUNC_FLOAT_ARG)
+          context.start_arg_reg
+          asm = context.assembler
+          case $ruby_platform
+          when /x86_64/
+            asm.with_retry do
+              asm.call(fadd)
+            end
+
+          when /i.86/
+            asm.with_retry do
+              asm.call(fadd)
+              asm.sub(SPR, 8)
+              asm.fstpl(INDIRECT_SPR)
+              asm.pop(XMM0)
+            end
+          end
+          context.end_arg_reg
+          context.end_arg_reg(FUNC_FLOAT_ARG)
+          context.ret_reg = XMM0
+          context
+        end
       end
 
       class SendRangeAccessNode<SendNode
