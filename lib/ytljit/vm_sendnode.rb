@@ -1376,6 +1376,21 @@ module YTLJit
         end
       end
 
+      class SendNotNode<SendNode
+        include SendUtil
+        add_special_send_node :~
+
+        def collect_candidate_type_regident(context, slf)
+          case [slf.ruby_type]
+          when [Fixnum]
+            cursig = context.to_signature
+            same_type(self, @arguments[2], cursig, cursig, context)
+          end
+
+          context
+        end
+      end
+
       class SendLengthNode<SendNode
         include SendUtil
         add_special_send_node :length
