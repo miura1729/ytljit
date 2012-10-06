@@ -1293,7 +1293,7 @@ module YTLJit
 
           when [Array]
             val = @arguments[3]
-            if slf.boxed and val.is_escape != :global_export then
+            if slf.boxed then
               val.set_escape_node_backward(:global_export)
               context = val.collect_candidate_type(context)
             else
@@ -1819,7 +1819,7 @@ module YTLJit
             slf = @arguments[2].decide_type_once(cursig)
 
             val.type = nil
-            if slf.boxed and val.is_escape != :global_export then
+            if slf.boxed then # @arguments[2].is_escape == :global_export
               val.set_escape_node_backward(:global_export)
               context = val.collect_candidate_type(context)
             else

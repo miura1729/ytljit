@@ -4154,6 +4154,7 @@ LocalVarNode
           @var_type_info.reverse.each do |topnode, node|
             varsig = context.to_signature(topnode)
             same_type(self, node, cursig, varsig, context)
+            node.set_escape_node(:not_export)
             # same_type(node, self, varsig, cursig, context)
           end
           context
@@ -4222,6 +4223,7 @@ LocalVarNode
 
             vsig = context.to_signature(topnode)
             vtype = node.decide_type_once(vsig)
+            node.set_escape_node(:not_export)
             same_type(self, node, cursig, vsig, context)
             if vtype.boxed != tt.boxed then
               if vtype.boxed then
