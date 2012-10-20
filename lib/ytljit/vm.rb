@@ -282,9 +282,9 @@ LocalVarNode
                   nele = [rele[0], sele[1], sele[2], sele[3]]
                   if !res.include?(nele) then
                     res.push nele
-                    exist_same_type = true
                   end
                 end
+                exist_same_type = true
               end
             end
 #=end
@@ -349,7 +349,7 @@ LocalVarNode
           dst.element_node_list = merge_element_node(dtlist, stlist, context)
           if orgsize != dtlist.size then
             dst.ti_changed
-#            context.convergent = false
+            context.convergent = false
           end
           
           dst.set_escape_node(src.is_escape)
