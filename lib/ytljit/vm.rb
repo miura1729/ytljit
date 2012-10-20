@@ -1644,8 +1644,8 @@ LocalVarNode
 
         def collect_candidate_type(context, signode, sig)
           @current_signature = nil
-          @escape_info_tab[sig] ||= []
-          @escape_info = @escape_info_tab[sig]
+          @escape_info_tab[signode[0]] ||= []
+          @escape_info = @escape_info_tab[signode[0]]
           context.visited_top_node[self] ||= []
           apply_escape_info_to_args(signode)
           if add_cs_for_signature(sig) == nil and  
@@ -2423,10 +2423,15 @@ LocalVarNode
             fragstart = flay.size - @parent.argument_num
             if fragstart <= @offset then
               argoff = @offset - fragstart
-              topnode.escape_info[argoff] = value
+              @is_escape = topnode.escape_info[argoff]
+              super(value)
+              topnode.escape_info[argoff] = @is_escape
+            else
+              super(value)
             end
+          else
+            super(value)
           end
-          super(value)
         end
 
         def compile(context)
@@ -4213,7 +4218,6 @@ LocalVarNode
           context
         end
 
-#=begin
         def collect_candidate_type(context)
           if @topnode.is_a?(ClassTopNode) then
             tt = RubyType::BaseType.from_ruby_class(@classtop.klass_object)
@@ -4224,6 +4228,7 @@ LocalVarNode
             vsig = context.to_signature(topnode)
             vtype = node.decide_type_once(vsig)
             node.set_escape_node(:not_export)
+            @is_escape = node.is_escape
             same_type(self, node, cursig, vsig, context)
             if vtype.boxed != tt.boxed then
               if vtype.boxed then
@@ -4238,7 +4243,6 @@ LocalVarNode
             super(context)
           end
         end
-#=end
 
         def compile(context)
 #          context = super(context)
