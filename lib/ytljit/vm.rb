@@ -273,18 +273,21 @@ LocalVarNode
 #=begin
             res.each do |rele|
               if rele[3] == sele[3] and
-                  rele[1] == sele[1] and
-                  rele[2] != sele[2] then
-                # Add entry for old element type version of self
-                rtype = rele[2].decide_type_once(rele[1])
-                if rtype == nil or 
-                    rtype.ruby_type == NilClass then
-                  nele = [rele[0], sele[1], sele[2], sele[3]]
-                  if !res.include?(nele) then
-                    res.push nele
+                  rele[1] == sele[1] then
+                if rele[2] != sele[2] then
+                  # Add entry for old element type version of self
+                  rtype = rele[2].decide_type_once(rele[1])
+                  if rtype == nil or 
+                      rtype.ruby_type == NilClass then
+                    nele = [rele[0], sele[1], sele[2], sele[3]]
+                    if !res.include?(nele) then
+                      res.push nele
+                    end
                   end
                 end
-                exist_same_type = true
+                if rele[0] == sele[0] then
+                  exist_same_type = true
+                end
               end
             end
 #=end
