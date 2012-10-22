@@ -270,7 +270,6 @@ LocalVarNode
           res = dst
           src.each do |sele|
             exist_same_type = false
-#=begin
             res.each do |rele|
               if rele[3] == sele[3] and
                   rele[1] == sele[1] then
@@ -282,15 +281,17 @@ LocalVarNode
                     nele = [rele[0], sele[1], sele[2], sele[3]]
                     if !res.include?(nele) then
                       res.push nele
+                      exist_same_type = true
                     end
                   end
                 end
-                if rele[0] == sele[0] then
+                if rele[0] == sele[0] and
+                    (rele[2] == sele[2] or 
+                     sele[2].class == BaseNode) then
                   exist_same_type = true
                 end
               end
             end
-#=end
             
             if !exist_same_type and !res.include?(sele) then
               res.push sele
@@ -3153,6 +3154,7 @@ LocalVarNode
           super(parent)
           @value = val
           @type = RubyType::BaseType.from_object(val)
+          @ti_visited = false
         end
         
         attr :value
@@ -3163,6 +3165,12 @@ LocalVarNode
         end
 
         def collect_candidate_type(context)
+          # type of literal is constant
+          if @ti_visited then
+            return context
+          end
+          @ti_visited = true
+
           sig = context.to_signature
           if @type == nil then
             @type = RubyType::BaseType.from_object(@value) 
