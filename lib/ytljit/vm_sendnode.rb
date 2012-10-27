@@ -2388,16 +2388,19 @@ module YTLJit
           if rtype.ruby_type == Fixnum then
             asm = context.assembler
             if context.ret_reg.is_a?(OpRegistor) then
-              asm.with_retry do
-                asm.cvtsi2sd(XMM0, context.ret_reg)
+              if !context.ret_reg.is_a?(OpRegXMM) then
+                asm.with_retry do
+                  asm.cvtsi2sd(XMM0, context.ret_reg)
+                end
+                context.ret_reg = XMM0
               end
             else
               asm.with_retry do
                 asm.mov(TMPR, context.ret_reg)
                 asm.cvtsi2sd(XMM0, TMPR)
               end
+              context.ret_reg = XMM0
             end
-            context.ret_reg = XMM0
           end
           context = rtype.gen_unboxing(context)
           context = compile_main(context)
