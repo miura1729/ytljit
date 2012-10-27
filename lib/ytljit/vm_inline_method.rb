@@ -135,6 +135,7 @@ module YTLJit
     end
 
     module CompareOperationUtil
+      include AbsArch
       def gen_compare_operation(context, cinst, sinst, 
                                 tempreg, tempreg2, resreg, dounbox = true)
         context.start_using_reg(tempreg)
@@ -160,7 +161,15 @@ module YTLJit
           if tempreg2.is_a?(OpRegXMM) and 
               !context.ret_reg.is_a?(OpRegXMM) then
             asm.with_retry do
-              asm.cvtsi2sd(tempreg2, context.ret_reg)
+              if context.ret_reg.is_a?(OpImmidiateMachineWord) then
+                # Compare Fixnumm(promted to Float) and Fixnum Literal
+                asm.cvtsd2si(TMPR, tempreg)
+                tempreg2 = TMPR
+                tempreg = context.ret_reg
+                cinst = :cmp
+              else
+                asm.cvtsi2sd(tempreg2, context.ret_reg)
+              end
             end
           elsif !tempreg2.is_a?(OpRegXMM) and 
               context.ret_reg.is_a?(OpRegXMM) then
@@ -178,8 +187,8 @@ module YTLJit
           asm.send(cinst, tempreg2, tempreg)
           asm.send(sinst, resreg)
           asm.add(resreg, resreg)
-          context.set_reg_content(resreg, context.ret_node)
         end
+        context.set_reg_content(resreg, context.ret_node)
         context.end_using_reg(tempreg)
         
         context.ret_node = self
