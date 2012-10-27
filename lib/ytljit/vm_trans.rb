@@ -643,9 +643,11 @@ module YTLJit
         num = ins[1]
         flag = ins[2]
         curnode = context.current_node
+        ary = context.expstack.pop
+        adupnode = MultiplexNode.new(ary.parent, ary)
         num.times do |i|
-          visit_dup(code, ins, context)
-          context.expstack.push LiteralNode.new(nil, i)
+          context.expstack.push adupnode
+          context.expstack.push LiteralNode.new(nil, num - i - 1)
           visit_send(code, [:send, :[], 1, nil, 0, nil], context)
         end
       end
