@@ -950,6 +950,7 @@ module YTLJit
 
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
+            @type = nil
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
             if !ctype.boxed and 
@@ -957,7 +958,7 @@ module YTLJit
               return compile_range(context)
               
             elsif crtype == Array and
-                !ctype.boxed and 
+                !ctype.boxed and
                 @is_escape != :global_export then
               return compile_array_unboxed(context)
 
