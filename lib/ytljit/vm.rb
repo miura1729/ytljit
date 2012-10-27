@@ -4195,10 +4195,14 @@ LocalVarNode
               context.ret_reg = XMM0
             end
           else
-            asm.with_retry do
-              asm.mov(TMPR, offarg)
+            if offarg.is_a?(OpRegXMM) then
+              context.ret_reg = offarg
+            else
+              asm.with_retry do
+                asm.mov(TMPR, offarg)
+              end
+              context.ret_reg = TMPR
             end
-            context.ret_reg = TMPR
           end
 
           if base == TMPR2 then
