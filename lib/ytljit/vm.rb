@@ -4693,6 +4693,7 @@ LocalVarNode
           @assign_nodes[@assign_no][1] = sig
           context = @value.collect_candidate_type(context)
           same_type(self, @value, sig, sig, context)
+          @value.set_escape_node_backward(:global_export)
           if @offset == nil then
             @offset = @assign_nodes[0][0].offset
           end
