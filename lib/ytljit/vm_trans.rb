@@ -160,8 +160,8 @@ module YTLJit
             # line no
             context.current_line_no = ins
           elsif ins.is_a?(Symbol) then
-            context.not_reached_pos = false
             visit_symbol(code, ins, context)
+            context.not_reached_pos = false
 
           elsif !context.not_reached_pos then
             opname = ins[0].to_s
@@ -694,8 +694,8 @@ module YTLJit
 
         curnode = context.current_node
         node.parent = curnode
-        curnode.body = node
         if node.is_a?(HaveChildlenMixin) then
+          curnode.body = node
           context.current_node = node
         end
 

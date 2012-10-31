@@ -3069,7 +3069,6 @@ LocalVarNode
 
       # Multiplexer of node (Using YARV stack operation)
       class MultiplexNode<BaseNode
-        include HaveChildlenMixin
         include NodeUtil
 
         def initialize(parent, node)
