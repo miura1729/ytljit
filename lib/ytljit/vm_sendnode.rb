@@ -1588,10 +1588,10 @@ module YTLJit
 
           @body.compile(context)
         end
-      end
 
-      def compile_compare_nonnum(context, rtype)
-        nil
+        def compile_compare_nonnum(context, rtype)
+          nil
+        end
       end
 
       class SendGtNode<SendCompareNode
