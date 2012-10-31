@@ -51,6 +51,9 @@ module YTLJit
             a
           }
           ivarget = OpVarMemAddress.new(addr)
+
+          # ytl_ivar_get_boxing breaks TMPR2 regster
+          context.start_using_reg(TMPR2)
           context.start_arg_reg
           asm.with_retry do
             asm.mov(FUNC_ARG[0], slfcont)
@@ -60,6 +63,7 @@ module YTLJit
           context = gen_call(context, ivarget, 2)
 
           context.end_arg_reg
+          context.end_using_reg(TMPR2)
           context.ret_reg = RETR
           context.ret_node = self
           decide_type_once(cursig)
