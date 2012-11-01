@@ -4327,9 +4327,10 @@ LocalVarNode
             if node != self then
               varsig2 = context.to_signature(topnode)
               same_type(self, node, cursig, varsig2, context)
+              same_type(node, self, varsig2, cursig, context)
             end
           end
-          same_type(self, @val, varsig, cursig, context)
+          same_type(self, @val, cursig, cursig, context)
           same_type(@var_node, @val, varsig, cursig, context)
 #          same_type(@val, self, cursig, varsig, context)
 
@@ -4350,7 +4351,7 @@ LocalVarNode
           cursig = context.to_signature
           varsig = context.to_signature(-@depth - 1)
 
-          vartype = decide_type_once(varsig)
+          vartype = decide_type_once(cursig)
           valtype = @val.decide_type_once(cursig)
 
           asm = context.assembler
