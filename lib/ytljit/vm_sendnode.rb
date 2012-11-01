@@ -1031,6 +1031,10 @@ module YTLJit
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
+          when [Time]
+            cursig = context.to_signature
+            ftype = RubyType::BaseType.from_ruby_class(Float)
+            add_type(cursig, ftype)
           end
 
           context
@@ -1038,10 +1042,11 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = decide_type_once(context.to_signature)
+          rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == Array or
+              rrtype == Time or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
@@ -1960,6 +1965,16 @@ module YTLJit
           sig = context.to_signature
           strtype = RubyType::BaseType.from_ruby_class(String)
           add_type(sig, strtype)
+          context
+        end
+      end
+
+      class SendNowNode<SendNode
+        add_special_send_node :now
+        def collect_candidate_type_regident(context, slf)
+          sig = context.to_signature
+          timetype = RubyType::BaseType.from_ruby_class(Time)
+          add_type(sig, timetype)
           context
         end
       end
