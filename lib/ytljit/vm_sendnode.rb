@@ -998,7 +998,7 @@ module YTLJit
 #=begin
         def compile(context)
           @type = nil
-          rtype = decide_type_once(context.to_signature)
+          rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == Array or
@@ -1094,7 +1094,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = decide_type_once(context.to_signature)
+          rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == String or
@@ -1159,6 +1159,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
+#          rtype = @arguments[2].decide_type_once(context.to_signature)
           rtype = decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
@@ -1219,7 +1220,7 @@ module YTLJit
 
         def collect_candidate_type_regident(context, slf)
           case [slf.ruby_type]
-          when [Fixnum]
+          when [Fixnum], [Float]
             cursig = context.to_signature
             same_type(self, @arguments[2], cursig, cursig, context)
             same_type(self, @arguments[3], cursig, cursig, context)
@@ -1235,7 +1236,7 @@ module YTLJit
 
         def compile(context)
           @type = nil
-          rtype = decide_type_once(context.to_signature)
+          rtype = @arguments[2].decide_type_once(context.to_signature)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               rrtype == String or
@@ -1278,6 +1279,10 @@ module YTLJit
                 context.end_using_reg(context.ret_reg)
               end
             end
+
+          elsif rrtype == Float then
+            return super(context)
+
           else
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
