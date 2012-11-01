@@ -118,6 +118,8 @@ module YTLJit
       RETFR = XMM0
       SPR = OpRSP.instance
       BPR = OpRBP.instance
+      # XMM4 using working reg for arithmetic operation
+      XMM_REGVAR_TAB = [XMM1, XMM2, XMM3, XMM5, XMM6, XMM7]
     end
     INDIRECT_TMPR = OpIndirect.new(TMPR)
     INDIRECT_TMPR2 = OpIndirect.new(TMPR2)
