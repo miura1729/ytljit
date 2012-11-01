@@ -950,7 +950,7 @@ module YTLJit
 
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-            @type = nil
+#            @type = nil
             ctype = decide_type_once(context.to_signature)
             crtype = ctype.ruby_type
             if !ctype.boxed and 
