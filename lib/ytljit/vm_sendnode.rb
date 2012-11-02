@@ -1007,6 +1007,8 @@ module YTLJit
             return super(context)
           end
 
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :add, TMPR2, TMPR)
           elsif rrtype == Float then
@@ -1051,6 +1053,8 @@ module YTLJit
             return super(context)
           end
 
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :sub, TMPR2, TMPR)
           elsif rrtype == Float then
@@ -1103,6 +1107,8 @@ module YTLJit
             return super(context)
           end
 
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, :imul, TMPR2, 
                                                TMPR) do |context|
@@ -1159,14 +1165,16 @@ module YTLJit
 
         def compile(context)
           @type = nil
-#          rtype = @arguments[2].decide_type_once(context.to_signature)
-          rtype = decide_type_once(context.to_signature)
+          cursig = context.to_signature
+          rtype = @arguments[2].decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rtype.is_a?(RubyType::DefaultType0) or
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
 
+          rtype = decide_type_once(cursig)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, nil, TMPR2, 
                                                TMPR) do |context|
@@ -1244,6 +1252,8 @@ module YTLJit
             return super(context)
           end
 
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum then
             context = gen_arithmetic_operation(context, nil, TMPR2, 
                                                TMPR) do |context|
@@ -1580,6 +1590,8 @@ module YTLJit
             return super(context)
           end
 
+          rtype = decide_type_once(context.to_signature)
+          rrtype = rtype.ruby_type
           if rrtype == Fixnum or rrtype == Float then
             context = gen_eval_self(context)
             context.ret_node.type = nil
