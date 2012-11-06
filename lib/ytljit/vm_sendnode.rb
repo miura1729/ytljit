@@ -1655,8 +1655,13 @@ module YTLJit
         def compile_compare_nonnum(context, rtype)
           if rtype.include_nil? then
             context = gen_eval_self(context)
-            gen_compare_operation(context, :cmp, :setz, 
-                                  TMPR2, TMPR, RETR, false)
+            if context.ret_reg.is_a?(OpRegXMM) then
+              gen_compare_operation(context, :comisd, :setz, 
+                                    XMM4, XMM0, RETR)
+            else
+              gen_compare_operation(context, :cmp, :setz, 
+                                    TMPR2, TMPR, RETR, false)
+            end
           else
             nil
           end
@@ -1672,8 +1677,13 @@ module YTLJit
         def compile_compare_nonnum(context, rtype)
           if rtype.include_nil? then
             context = gen_eval_self(context)
-            gen_compare_operation(context, :cmp, :setnz,
-                                  TMPR2, TMPR, RETR, false)
+            if context.ret_reg.is_a?(OpRegXMM) then
+              gen_compare_operation(context, :comisd, :setnz, 
+                                    XMM4, XMM0, RETR)
+            else
+              gen_compare_operation(context, :cmp, :setnz,
+                                    TMPR2, TMPR, RETR, false)
+            end
           else
             nil
           end
