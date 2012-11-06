@@ -669,6 +669,11 @@ LocalVarNode
           context
         end
 
+        def compile_aux(context)
+          @code_space = context.code_space
+          context
+        end
+
         def get_constant_value
           nil
         end
@@ -1575,6 +1580,10 @@ LocalVarNode
         end
 
         def compile(context)
+          compile_aux(context, @body)
+        end
+
+        def compile_aux(context, body)
           if @compiled then
             return context
           end
@@ -1587,13 +1596,13 @@ LocalVarNode
             context = super(context)
             context.reset_using_reg
             context.using_xmm_reg.push 0
-            @body.frame_layout.each do |rec|
+            body.frame_layout.each do |rec|
               context = rec.compile(context)
             end
             context = gen_method_prologue(context)
 
             context = compile_init(context)
-            context = @body.compile(context)
+            context = body.compile(context)
 
             if @exception_table then
               @exception_table.each do |kind, lst|
@@ -1941,7 +1950,12 @@ LocalVarNode
         end
 
         def compile(context)
-          context = super(context)
+          bd = @body
+          while bd.is_a?(MultiplexHolderNode) 
+            context = compile_aux(context, bd.mult)
+            bd = bd.body
+          end
+          context = compile_aux(context, bd)
 
           sig = context.to_signature.dup
           sig[2] = @type
@@ -3041,6 +3055,7 @@ LocalVarNode
       # Holder of MultiplexNode
       class MultiplexHolderNode<BaseNode
         include HaveChildlenMixin
+        attr :mult
 
         def initialize(parent, node)
           super(parent)
@@ -3812,8 +3827,8 @@ LocalVarNode
               body = mtop.body.body
               # skip line no
               body = body.body if context.options[:profile_mode]
-              # skip two trace node
-              body = body.body.body
+              # skip trace node
+#              body = body.body
               if @inline_node = is_getter(body) then
                 @calling_convention = :getter
               elsif @inline_node = is_setter(body) then

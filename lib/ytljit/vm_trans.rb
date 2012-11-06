@@ -758,10 +758,12 @@ module YTLJit
 
       def visit_trace(code, ins, context)
         curnode = context.current_node
-        trnode = TraceNode.new(curnode, ins[1])
-        curnode.body = trnode
-        trnode.debug_info = context.debug_info
-        context.current_node = trnode
+        if !curnode.is_a?(TraceNode) and curnode.is_a?(HaveChildlenMixin) then
+          trnode = TraceNode.new(curnode, ins[1])
+          curnode.body = trnode
+          trnode.debug_info = context.debug_info
+          context.current_node = trnode
+        end
         context
       end
 
@@ -824,11 +826,14 @@ module YTLJit
         end
 
         cnode = ClassTopNode.get_class_top_node(klassobj)
+        prevbody = nil
         if cnode == nil or cnode.is_a?(TopTopNode) then
           cnode = ClassTopNode.new(context.current_class_node, klassobj, name)
           RubyType::define_wraped_class(klassobj, RubyType::RubyTypeBoxed)
           cnode.debug_info = context.debug_info
           context.current_class_node.constant_tab[name] = cnode
+        else
+          prevbody = cnode.body
         end
         
         body = VMLib::InstSeqTree.new(code, ins[2])
@@ -839,7 +844,7 @@ module YTLJit
         context.top_nodes.each do |ele|
           ncontext.top_nodes.push ele
         end
-        ncontext.top_nodes.push cnode
+        ncontext.top_nodes.push cnode if !ncontext.top_nodes.include?(cnode)
         ncontext.options = context.options
 
         tr = self.class.new([body])
@@ -848,6 +853,10 @@ module YTLJit
         curnode = context.current_node
         cvnode = ClassValueNode.new(curnode, cnode)
         cvnode.debug_info = context.debug_info
+        if prevbody and !prevbody.is_a?(DummyNode) then
+          cbody = MultiplexHolderNode.new(cnode.body, prevbody)
+          cnode.body = cbody
+        end
         context.expstack.push cvnode
 
         context
