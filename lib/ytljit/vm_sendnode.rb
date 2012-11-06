@@ -935,7 +935,8 @@ module YTLJit
         end
 
         def compile(context)
-          rtype = @arguments[2].decide_type_once(context.to_signature)
+          cursig = context.to_signature
+          rtype = @arguments[2].decide_type_once(cursig)
           if context.options[:insert_signature_comment] then
             lineno = debug_info[3]
             fname = debug_info[0]
@@ -950,8 +951,8 @@ module YTLJit
 
           rrtype = rtype.ruby_type
           if rrtype.is_a?(Class) then
-#            @type = nil
-            ctype = decide_type_once(context.to_signature)
+            @type = nil
+            ctype = decide_type_once(cursig)
             crtype = ctype.ruby_type
             if !ctype.boxed and 
                 crtype == Range then
@@ -1214,6 +1215,7 @@ module YTLJit
           elsif rrtype == Float then
             context = gen_arithmetic_operation(context, :divsd, XMM4, XMM0)
           else
+            p debug_info
             raise "Unkown method #{rtype.ruby_type}##{@func.name}"
           end
 
