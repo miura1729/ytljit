@@ -1369,6 +1369,8 @@ LocalVarNode
           @escape_info = nil
           @frame_offset = 0
           @compiled = false
+
+          @export_assign = {}
         end
 
         attr_accessor :name
@@ -1385,7 +1387,8 @@ LocalVarNode
 
         attr_accessor :send_nodes_with_block
         attr          :escape_info
-        attr :frame_offset
+        attr          :frame_offset
+        attr          :export_assign
 
         def modified_instance_var
           search_end.modified_instance_var
@@ -1663,6 +1666,13 @@ LocalVarNode
           apply_escape_info_to_args(signode)
           if add_cs_for_signature(sig) == nil and  
               context.visited_top_node[self].include?(sig) then
+
+            # assign node in skiped block
+            @export_assign.each do |anode, cursig|
+              if cursig == sig then
+                anode.collect_candidate_type_current_only(context, cursig)
+              end
+            end
             return context
           end
 
@@ -4292,6 +4302,8 @@ LocalVarNode
         end
 
         attr :dest
+        attr :var_node
+        attr :var_from
 
         def add_referrer(ref)
           if @referrers and ref.id[0..-2] == id[0..-2] then
@@ -4349,7 +4361,26 @@ LocalVarNode
           same_type(@var_node, @val, varsig, cursig, context)
 #          same_type(@val, self, cursig, varsig, context)
 
+          # This is for same signature of block and different signature
+          # of method or outer block and variable defies in outer
+          if @depth > 0 then
+            @frame_info.parent.export_assign[self] = cursig
+          end
+
           @body.collect_candidate_type(context)
+        end
+          
+        def collect_candidate_type_current_only(context, cursig)
+          @var_type_info.reverse.each do |topnode, node|
+            if node != self then
+              varsig2 = context.to_signature(topnode)
+              same_type(self, node, cursig, varsig2, context)
+              same_type(node, self, varsig2, cursig, context)
+            end
+          end
+
+          varsig = context.to_signature(@var_from)
+          same_type(@var_node, self, varsig, cursig, context)
         end
 
         def compile(context)
