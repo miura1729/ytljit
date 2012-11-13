@@ -748,6 +748,7 @@ LocalVarNode
 
       module SendUtil
         include AbsArch
+        include MethodEndCodeGen
 
         def gen_eval_self(context)
           # eval 1st arg(self)
@@ -977,31 +978,48 @@ LocalVarNode
           context
         end
 
-        def set_ensure_proc(context)
+        def set_exception_handler(context)
           cursig = context.to_signature
-          casm = context.assembler
           # construct and set exception handler in current frame
-          fstentry = nil
           if @current_exception_table then
-            [:ensure].each do |kind|
-              ent = nil
-              if entbase = @current_exception_table[kind] then
-                ent = entbase[3]
+            handler = CodeSpace.new
+            oldcs = context.set_code_space(handler)
+            casm = context.assembler
+            # rescue
+            if entbasetab = @current_exception_table[:rescue] then
+              entbasetab.each do |ents|
+                ent = ents[3]
+                if ent then
+                  csadd = ent.get_code_space(cursig).var_base_address
+                  casm.with_retry do
+                    casm.call(csadd)
+                  end
+                end
               end
-              if ent then
-                csadd = ent.get_code_space(cursig).var_base_immidiate_address
-              else
-                csadd = TopTopNode.get_nothing_proc.var_base_immidiate_address
-              end
-              entry = casm.add_value_entry(csadd)
-              fstentry ||= entry.to_immidiate
             end
+
+            # ensure
+            ent = nil
+            if entbasetab = @current_exception_table[:ensure] then
+              ent = entbasetab[0][3]
+            end
+            if ent then
+              csadd = ent.get_code_space(cursig).var_base_address
+            else
+              csadd = TopTopNode.get_nothing_proc.var_base_address
+            end
+            casm.with_retry do
+              casm.jmp(csadd)
+            end
+            
+            context.set_code_space(oldcs)
+            
             foff = @frame_info.parent.frame_offset
             handoff = AsmType::MACHINE_WORD.size * 2 + foff
             handop = OpIndirect.new(BPR, handoff)
+            casm = context.assembler
             casm.with_retry do
-              casm.mov(TMPR, fstentry)
-              casm.mov(handop, TMPR)
+              casm.mov(handop, handler.var_base_immidiate_address)
             end
             context.set_reg_content(handoff, :first_exception_entry)
           end
@@ -1075,7 +1093,7 @@ LocalVarNode
           context.cpustack_pushn(numarg * 8)
 
           casm = context.assembler
-          set_ensure_proc(context)
+          set_exception_handler(context)
 
           context = gen_push_prev_env(context, cursig, casm)
           cmp_block(context)
@@ -1109,7 +1127,7 @@ LocalVarNode
           context.cpustack_pushn(numarg * 8)
 
           casm = context.assembler
-          set_ensure_proc(context)
+          set_exception_handler(context)
 
           context = gen_push_prev_env(context, cursig, casm)
           cmp_block(context)
@@ -1186,7 +1204,7 @@ LocalVarNode
           blk_finfo = blknode.body
           
           casm = context.assembler
-          set_ensure_proc(context)
+          set_exception_handler(context)
 
           # push prev env
           # Prev env is set in toplevel
@@ -2610,6 +2628,19 @@ LocalVarNode
         end
       end
 
+      class ExceptionEndNode<MethodEndNode
+        include MethodEndCodeGen
+        def compile_main(context)
+          curas = context.assembler
+          curas.with_retry do
+            # skip handler top
+            curas.add(SPR, AsmType::MACHINE_WORD.size * 2)
+            curas.ret
+          end
+          context
+        end
+      end
+
       # Set result of method/block
       class SetResultNode<BaseNode
         include NodeUtil
@@ -3000,20 +3031,30 @@ LocalVarNode
           asm = context.assembler
           handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
-          ensureop = OpIndirect.new(TMPR, 0)
           asm.with_retry do
-            asm.push(TMPR)
-            asm.mov(TMPR, handop)
-            asm.call(ensureop)
+            asm.push(TMPR)      # ensure returns no value
+            asm.call(handop)
             asm.pop(TMPR)
           end
-          gen_method_epilogue(context)
+
+          context
         end
 
         def compile(context)
           asm = context.assembler
           if @state == 0 then
             context = @exception_object.compile(context)
+
+=begin
+            # See comile_unwind for inform structure of frame
+            retval = OpIndirect.new(SPR, AsmType::MACHINE_WORD.size)
+            asm.with_retry do
+              # ensure drops evaluated value
+              asm.mov(TMPR, retval)
+            end
+
+            context = gen_method_epilogue(context)
+=end
             
           elsif @state == 2 then # break
             context = @exception_object.compile(context)
@@ -3022,12 +3063,14 @@ LocalVarNode
                 asm.mov(TMPR, context.ret_reg)                
               end
             end
-            context.set_reg_content(RETR, context.ret_node)
+            context.set_reg_content(TMPR, context.ret_node)
             # two epilogue means block and method which is called with block
             context = @curtop.end_nodes[0].gen_method_epilogue(context)
             # compile_unwind is basically same as gen_method_epilogue
             # instead of gen_method_epilogue because may need to ensure proc.
             context = compile_unwind(context)
+            # catch by rescue but break can't catch
+            context = gen_method_epilogue(context)
             asm.with_retry do
               asm.ret
             end
@@ -3039,16 +3082,19 @@ LocalVarNode
                 asm.mov(TMPR, context.ret_reg)                
               end
             end
-            context.set_reg_content(RETR, context.ret_node)
+            context.set_reg_content(TMPR, context.ret_node)
             finfo = search_frame_info
             while finfo.parent.is_a?(BlockTopNode)
               # two epilogue means block and method which is called with block
               # compile_unwind is basically same as gen_method_epilogue
               context = finfo.parent.end_nodes[0].gen_method_epilogue(context)
               context = compile_unwind(context)
+              # catch by rescue but return can't catch
+              context = gen_method_epilogue(context)
               finfo = finfo.previous_frame
             end
             context = compile_unwind(context)
+            context = gen_method_epilogue(context)
             asm.with_retry do
               asm.ret
             end

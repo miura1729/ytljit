@@ -112,7 +112,8 @@ module YTLJit
             if @local_label_list.include?(st) and
                 !@local_label_list.include?(ed) and 
                 body then
-              result[kind] = [st, ed, cnt, body]
+              result[kind] ||= []
+              result[kind].push [st, ed, cnt, body]
               break
             end
           end
@@ -355,15 +356,17 @@ module YTLJit
       # setspecial
 
       def visit_getdynamic(code, ins, context)
-        # + 3 mean prtv_env/pointer to block function/self
         dep = ins[2]
         curcode = code
         dep.times do
           curcode = curcode.parent
         end
+        # + 3 mean prev_env/pointer to block function/self
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
         node = nil
-        if curcode.header['type'] == :ensure and offset == 3 then
+        if (curcode.header['type'] == :ensure or 
+            curcode.header['type'] == :rescue) and offset == 3 then
+          # ref. exception status variable $!
           node = LiteralNode.new(context.current_node, nil)
           node.debug_info = context.debug_info
         else
@@ -1044,8 +1047,12 @@ module YTLJit
         context.current_node = srnode
 
         case code.header['type']
-        when :method, :rescue
+        when :method, :rescue, :defined_guard
           nnode = MethodEndNode.new(srnode)
+          
+        when :rescue, :defined_guard
+          nnode = ExceptionEndNode.new(srnode)
+
         when :block
           nnode = nil
           if context.top_nodes.last.is_a?(BlockTopInlineNode) then

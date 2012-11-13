@@ -351,6 +351,7 @@ module YTLJit
     define_wraped_class(IO, RubyTypeBoxed)
     define_wraped_class(File, RubyTypeBoxed)
     define_wraped_class(Time, RubyTypeBoxed)
+    define_wraped_class(Exception, RubyTypeBoxed)
     define_wraped_class(Module, RubyTypeBoxed)
     define_wraped_class(Class, RubyTypeBoxed)
     define_wraped_class(Object, RubyTypeBoxed)
