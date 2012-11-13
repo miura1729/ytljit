@@ -996,6 +996,7 @@ module YTLJit
             casm.mov(SPR, BPR)
             casm.pop(BPR)
             casm.call(unwindloop.var_base_address)
+            casm.ret
           end
           context.set_code_space(oldcs)
           casm = context.assembler
