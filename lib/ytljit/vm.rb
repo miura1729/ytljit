@@ -4065,8 +4065,18 @@ LocalVarNode
               context.start_arg_reg
               
               asm = context.assembler
+
+              if recval.is_a?(OpImmidiate) then
+                asm.with_retry do
+                  asm.sub(SPR, AsmType::MACHINE_WORD.size)
+                  asm.mov(INDIRECT_SPR, recval)
+                end
+              else
+                asm.with_retry do
+                  asm.push(recval)
+                end
+              end
               asm.with_retry do
-                asm.push(recval)
                 asm.mov(FUNC_ARG[0], recval)
                 asm.call_with_arg(objclass, 1)
                 asm.mov(FUNC_ARG[0], RETR)
