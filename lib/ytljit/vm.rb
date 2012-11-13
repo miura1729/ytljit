@@ -1516,6 +1516,7 @@ LocalVarNode
           context.yield_node.push []
           context = @body.collect_info(context)
           @yield_node = context.yield_node.pop
+
           if @exception_table then
             @exception_table.each do |kind, lst|
               lst.each do |st, ed, cnt, body|
