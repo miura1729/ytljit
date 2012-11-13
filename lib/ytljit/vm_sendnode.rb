@@ -978,6 +978,36 @@ module YTLJit
         end
       end
 
+      class SendRaiseNode<SendNode
+        add_special_send_node :raise
+
+        def compile(context)
+          set_exception_handler(context)
+          unwindloop = CodeSpace.new
+          oldcs = context.set_code_space(unwindloop)
+          casm = context.assembler
+          handoff = AsmType::MACHINE_WORD.size * 2
+          handop = OpIndirect.new(BPR, handoff)
+          casm.with_retry do
+            casm.call(handop)
+            casm.mov(SPR, BPR)
+            casm.pop(BPR)
+            casm.pop(THEPR) 
+            casm.mov(SPR, BPR)
+            casm.pop(BPR)
+#            casm.add(SPR, AsmType::MACHINE_WORD.size)
+            casm.call(unwindloop.var_base_address)
+            casm.ret
+          end
+          context.set_code_space(oldcs)
+          casm = context.assembler
+          casm.with_retry do 
+            casm.call(unwindloop.var_base_address)
+          end
+          context
+        end
+      end
+
       class SendPlusNode<SendNode
         include ArithmeticOperationUtil
         include SendUtil
