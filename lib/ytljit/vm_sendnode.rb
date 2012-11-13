@@ -995,16 +995,15 @@ module YTLJit
             casm.pop(THEPR) 
             casm.mov(SPR, BPR)
             casm.pop(BPR)
-#            casm.add(SPR, AsmType::MACHINE_WORD.size)
             casm.call(unwindloop.var_base_address)
-            casm.ret
           end
           context.set_code_space(oldcs)
           casm = context.assembler
           casm.with_retry do 
             casm.call(unwindloop.var_base_address)
           end
-          context
+
+          @body.compile(context)
         end
       end
 

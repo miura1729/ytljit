@@ -1047,10 +1047,10 @@ module YTLJit
         context.current_node = srnode
 
         case code.header['type']
-        when :method, :rescue, :defined_guard
+        when :method
           nnode = MethodEndNode.new(srnode)
           
-        when :rescue, :defined_guard
+        when :rescue, :defined_guard, :ensure
           nnode = ExceptionEndNode.new(srnode)
 
         when :block
