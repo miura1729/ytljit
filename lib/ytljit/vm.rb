@@ -1997,6 +1997,7 @@ LocalVarNode
                                                               signode, sig)
           end
 
+          context = collect_candidate_type_common(context, signode, sig)
           set_escape_node(:not_export)
           @current_signature = nil
 
