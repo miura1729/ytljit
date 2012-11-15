@@ -2660,7 +2660,11 @@ LocalVarNode
           curas = context.assembler
           curas.with_retry do
             # skip handler top
-            curas.add(SPR, AsmType::MACHINE_WORD.size * 2)
+            # 3 means 
+            #    this function
+            #    handler top
+            #    PTMPR(exception object) store
+            curas.add(SPR, AsmType::MACHINE_WORD.size * 3)
             curas.ret
           end
           context
@@ -3058,9 +3062,8 @@ LocalVarNode
           handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
           asm.with_retry do
-            asm.push(TMPR)      # ensure returns no value
+            casm.push(PTMPR)    # Dummy. for raise method
             asm.call(handop)
-            asm.pop(TMPR)
           end
 
           context
@@ -3083,6 +3086,7 @@ LocalVarNode
 =end
             
           elsif @state == 2 then # break
+            set_exception_handler(context)
             context = @exception_object.compile(context)
             if context.ret_reg != TMPR then
               asm.with_retry do
@@ -3090,18 +3094,19 @@ LocalVarNode
               end
             end
             context.set_reg_content(TMPR, context.ret_node)
-            # two epilogue means block and method which is called with block
-            context = @curtop.end_nodes[0].gen_method_epilogue(context)
             # compile_unwind is basically same as gen_method_epilogue
             # instead of gen_method_epilogue because may need to ensure proc.
-            context = compile_unwind(context)
             # catch by rescue but break can't catch
-            context = gen_method_epilogue(context)
+            # two epilogue means block and method which is called with block
+            context = compile_unwind(context)
+            context = compile_unwind(context)
+
             asm.with_retry do
               asm.ret
             end
 
           elsif @state == 1 then # return
+            set_exception_handler(context)
             context = @exception_object.compile(context)
             if context.ret_reg != TMPR then
               asm.with_retry do
@@ -3109,18 +3114,16 @@ LocalVarNode
               end
             end
             context.set_reg_content(TMPR, context.ret_node)
-            finfo = search_frame_info
+            finfo = @frame_info
             while finfo.parent.is_a?(BlockTopNode)
               # two epilogue means block and method which is called with block
               # compile_unwind is basically same as gen_method_epilogue
-              context = finfo.parent.end_nodes[0].gen_method_epilogue(context)
               context = compile_unwind(context)
-              # catch by rescue but return can't catch
-              context = gen_method_epilogue(context)
+              context = compile_unwind(context)
               finfo = finfo.previous_frame
             end
+
             context = compile_unwind(context)
-            context = gen_method_epilogue(context)
             asm.with_retry do
               asm.ret
             end

@@ -989,18 +989,16 @@ module YTLJit
           handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
           casm.with_retry do
+            casm.push(PTMPR)
             casm.call(handop)
-            casm.mov(SPR, BPR)
-            casm.pop(BPR)
-            casm.pop(THEPR) 
-            casm.mov(SPR, BPR)
-            casm.pop(BPR)
             casm.call(unwindloop.var_base_address)
             casm.ret
           end
           context.set_code_space(oldcs)
           casm = context.assembler
+          context = @arguments[3].compile(context)
           casm.with_retry do 
+            casm.mov(PTMPR, context.ret_reg)
             casm.call(unwindloop.var_base_address)
           end
 
