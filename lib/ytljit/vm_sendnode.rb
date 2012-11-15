@@ -1698,6 +1698,28 @@ module YTLJit
         end
       end
 
+      class SendEq2Node<SendCompareNode
+        add_special_send_node :===
+        def compile_compare(context, rtype)
+          common_compile_compare(context, rtype, :setz, :setz)
+        end
+
+        def compile_compare_nonnum(context, rtype)
+          if rtype.include_nil? then
+            context = gen_eval_self(context)
+            if context.ret_reg.is_a?(OpRegXMM) then
+              gen_compare_operation(context, :comisd, :setz, 
+                                    XMM4, XMM0, RETR)
+            else
+              gen_compare_operation(context, :cmp, :setz, 
+                                    TMPR2, TMPR, RETR, false)
+            end
+          else
+            nil
+          end
+        end
+      end
+
       class SendNeqNode<SendCompareNode
         add_special_send_node :!=
         def compile_compare(context, rtype)
