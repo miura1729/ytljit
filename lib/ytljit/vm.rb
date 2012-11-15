@@ -746,9 +746,81 @@ LocalVarNode
         end
       end
 
+      module ExceptionUtil
+        include AbsArch
+
+        # For using this module user class must define following instance 
+        #  variables
+        #     @current_exception_table
+        #     @frame_info
+
+        def set_exception_handler(context)
+          cursig = context.to_signature
+          # construct and set exception handler in current frame
+          if @current_exception_table then
+            handler = CodeSpace.new
+            oldcs = context.set_code_space(handler)
+            casm = context.assembler
+            # rescue
+            if entbasetab = @current_exception_table[:rescue] then
+              entbasetab.each do |ents|
+                ent = ents[3]
+                if ent then
+                  csadd = ent.get_code_space(cursig).var_base_address
+                  casm.with_retry do
+                    casm.call(csadd)
+                  end
+                end
+              end
+            end
+
+            # ensure
+            ent = nil
+            if entbasetab = @current_exception_table[:ensure] then
+              ent = entbasetab[0][3]
+            end
+            if ent then
+              csadd = ent.get_code_space(cursig).var_base_address
+            else
+              csadd = TopTopNode.get_nothing_proc.var_base_address
+            end
+            casm.with_retry do
+              casm.push(TMPR)      # ensure returns no value
+              casm.call(csadd)
+              casm.pop(TMPR)
+            end
+
+            casm.with_retry do
+              casm.pop(TMPR3)
+              casm.pop(PTMPR)
+            end
+
+
+            enode = @frame_info.parent.end_nodes[0]
+            context = enode.gen_method_epilogue(context)
+
+            casm.with_retry do
+              casm.jmp(TMPR3)
+            end
+            
+            context.set_code_space(oldcs)
+            
+            foff = @frame_info.parent.frame_offset
+            handoff = AsmType::MACHINE_WORD.size * 2 + foff
+            handop = OpIndirect.new(BPR, handoff)
+            casm = context.assembler
+            casm.with_retry do
+              casm.mov(handop, handler.var_base_immidiate_address)
+            end
+            context.set_reg_content(handoff, :first_exception_entry)
+          end
+        end
+      end
+
       module SendUtil
         include AbsArch
         include MethodEndCodeGen
+        include ExceptionUtil
 
         def gen_eval_self(context)
           # eval 1st arg(self)
@@ -976,53 +1048,6 @@ LocalVarNode
           end
           
           context
-        end
-
-        def set_exception_handler(context)
-          cursig = context.to_signature
-          # construct and set exception handler in current frame
-          if @current_exception_table then
-            handler = CodeSpace.new
-            oldcs = context.set_code_space(handler)
-            casm = context.assembler
-            # rescue
-            if entbasetab = @current_exception_table[:rescue] then
-              entbasetab.each do |ents|
-                ent = ents[3]
-                if ent then
-                  csadd = ent.get_code_space(cursig).var_base_address
-                  casm.with_retry do
-                    casm.call(csadd)
-                  end
-                end
-              end
-            end
-
-            # ensure
-            ent = nil
-            if entbasetab = @current_exception_table[:ensure] then
-              ent = entbasetab[0][3]
-            end
-            if ent then
-              csadd = ent.get_code_space(cursig).var_base_address
-            else
-              csadd = TopTopNode.get_nothing_proc.var_base_address
-            end
-            casm.with_retry do
-              casm.jmp(csadd)
-            end
-            
-            context.set_code_space(oldcs)
-            
-            foff = @frame_info.parent.frame_offset
-            handoff = AsmType::MACHINE_WORD.size * 2 + foff
-            handop = OpIndirect.new(BPR, handoff)
-            casm = context.assembler
-            casm.with_retry do
-              casm.mov(handop, handler.var_base_immidiate_address)
-            end
-            context.set_reg_content(handoff, :first_exception_entry)
-          end
         end
 
         def gen_push_prev_env(context, cursig, casm)
