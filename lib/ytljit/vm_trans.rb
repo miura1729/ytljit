@@ -1081,6 +1081,7 @@ module YTLJit
         exceptobj = context.expstack.pop
 
         thnode = ThrowNode.new(curnode, ins[1], exceptobj)
+        thnode.current_exception_table = context.current_exception_table
         curnode.body = thnode
         context.current_node = thnode
       end

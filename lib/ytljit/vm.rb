@@ -3036,15 +3036,21 @@ LocalVarNode
 
       class ThrowNode<BaseNode
         include HaveChildlenMixin
-        include MethodEndCodeGen
         include NodeUtil
+        include ExceptionUtil
 
         def initialize(parent, state, exceptobj)
           super(parent)
           @curtop = search_top
           @state = state
+
           @exception_object = exceptobj
+
+          @current_exception_table = nil
+          @frame_info = @curtop.body
         end
+
+        attr_accessor :current_exception_table
 
         def traverse_childlen
           yield @exception_object
