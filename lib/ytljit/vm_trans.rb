@@ -367,7 +367,7 @@ module YTLJit
         if (curcode.header['type'] == :ensure or 
             curcode.header['type'] == :rescue) and offset == 3 then
           # ref. exception status variable $!
-          node = LiteralNode.new(context.current_node, nil)
+          node = ExceptionVarNode.new(context.current_node)
           node.debug_info = context.debug_info
         else
           node = LocalVarRefNode.new(context.current_node, offset, dep)

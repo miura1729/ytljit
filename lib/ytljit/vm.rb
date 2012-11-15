@@ -5025,6 +5025,21 @@ LocalVarNode
         end
       end
 
+      class ExceptionVarNode<VariableRefCommonNode
+        def collect_candidate_type(context)
+          tt = RubyType::BaseType.from_ruby_class(Exception)
+          cursig = context.to_signature
+          add_type(cursig, tt)
+          
+          context
+        end
+
+        def compile(context)
+          context.ret_reg = PTMPR
+          context
+        end
+      end
+
       # Reference Register
       class RefRegister
       end
