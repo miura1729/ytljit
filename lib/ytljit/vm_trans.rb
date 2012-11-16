@@ -114,7 +114,6 @@ module YTLJit
                 body then
               result[kind] ||= []
               result[kind].push [st, ed, cnt, body]
-              break
             end
           end
         end

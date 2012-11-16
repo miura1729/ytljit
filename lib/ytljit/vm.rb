@@ -777,22 +777,26 @@ LocalVarNode
             # ensure
             ent = nil
             if entbasetab = @current_exception_table[:ensure] then
-              ent = entbasetab[0][3]
-            end
-            if ent then
-              csadd = ent.get_code_space(cursig).var_base_address
-            else
-              csadd = TopTopNode.get_nothing_proc.var_base_address
-            end
-            casm.with_retry do
-              casm.push(TMPR)      # ensure returns no value
-              casm.call(csadd)
-              casm.pop(TMPR)
+              casm.with_retry do
+                casm.push(TMPR)      # ensure returns no value
+              end
+              entbasetab.each do |ents|
+                ent = ents[3]
+                if ent then
+                  csadd = ent.get_code_space(cursig).var_base_address
+                  casm.with_retry do
+                    casm.call(csadd)
+                  end
+                end
+              end
+              casm.with_retry do
+                casm.pop(TMPR)
+              end
             end
 
             casm.with_retry do
               casm.pop(TMPR3)
-              casm.pop(PTMPR)
+              casm.pop(PROFR)
             end
 
 
