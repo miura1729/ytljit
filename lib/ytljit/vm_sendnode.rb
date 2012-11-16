@@ -989,7 +989,7 @@ module YTLJit
           handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
           casm.with_retry do
-            casm.push(PTMPR)
+            casm.push(PROFR)
             casm.call(handop)
             casm.call(unwindloop.var_base_address)
             casm.ret
@@ -998,7 +998,7 @@ module YTLJit
           casm = context.assembler
           context = @arguments[3].compile(context)
           casm.with_retry do 
-            casm.mov(PTMPR, context.ret_reg)
+            casm.mov(PROFR, context.ret_reg)
             casm.call(unwindloop.var_base_address)
           end
 
@@ -1705,7 +1705,7 @@ module YTLJit
         end
 
         def compile_compare_nonnum(context, rtype)
-          if rtype.include_nil? then
+          if rtype.include_nil? and false then
             context = gen_eval_self(context)
             if context.ret_reg.is_a?(OpRegXMM) then
               gen_compare_operation(context, :comisd, :setz, 

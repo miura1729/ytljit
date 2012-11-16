@@ -965,7 +965,7 @@ LocalVarNode
 
             # Method Select
             # it is legal. use TMPR2 for method select
-            # use PTMPR for store self
+            # use PROFR for store self
             context = @func.compile(context)
             fnc = context.ret_reg
             casm.with_retry do 
@@ -2668,7 +2668,7 @@ LocalVarNode
             # 3 means 
             #    this function
             #    handler top
-            #    PTMPR(exception object) store
+            #    PROFR(exception object) store
             curas.add(SPR, AsmType::MACHINE_WORD.size * 3)
             curas.ret
           end
@@ -3073,7 +3073,7 @@ LocalVarNode
           handoff = AsmType::MACHINE_WORD.size * 2
           handop = OpIndirect.new(BPR, handoff)
           asm.with_retry do
-            casm.push(PTMPR)    # Dummy. for raise method
+            asm.push(PROFR)    # Dummy. for raise method
             asm.call(handop)
           end
 
@@ -5039,7 +5039,7 @@ LocalVarNode
         end
 
         def compile(context)
-          context.ret_reg = PTMPR
+          context.ret_reg = PROFR
           context
         end
       end
