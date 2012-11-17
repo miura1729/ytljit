@@ -1227,6 +1227,14 @@ module YTLJit
                   asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
                   asm.idiv(INDIRECT_SPR)
                   asm.add(SPR, AsmType::MACHINE_WORD.size)
+                elsif context.ret_reg.is_a?(OpRegXMM) then
+                  asm.cvtsd2si(TMPR, context.ret_reg)
+                  asm.push(TMPR)
+                  asm.mov(DBLLOR, TMPR2)
+                  asm.mov(DBLHIR, DBLLOR)
+                  asm.sar(DBLHIR, AsmType::MACHINE_WORD.size * 8 - 1)
+                  asm.idiv(INDIRECT_SPR)
+                  asm.add(SPR, AsmType::MACHINE_WORD.size)
                 else
                   asm.mov(DBLLOR, TMPR2)
                   asm.mov(DBLHIR, DBLLOR)

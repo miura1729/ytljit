@@ -80,7 +80,10 @@ module YTLJit
               asm.send(inst, dst, TMPR)
             end
           else
-            asm.with_retry do
+            if src.is_a?(OpRegXMM) then
+              asm.cvtsd2si(TMPR, src)
+              asm.send(inst, dst, TMPR)
+            else
               asm.send(inst, dst, src)
             end
             context.end_using_reg(src)
