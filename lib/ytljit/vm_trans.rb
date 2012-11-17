@@ -817,6 +817,9 @@ module YTLJit
               if defat.is_a?(SelfRefNode) then
                 klassobj = context.current_class_node.klass_object
               else
+                p defat.class
+                p defat.instance_eval {@name}
+                p context.debug_info
                 raise "Unsupport pattern in singleton class"
               end
             end

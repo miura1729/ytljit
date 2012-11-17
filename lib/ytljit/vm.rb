@@ -4000,8 +4000,9 @@ LocalVarNode
                     @calling_convention = :mixed
                   end
 
-                  p sig
-                  p @reciever.instance_eval {@type_list}
+                  # p sig
+                  # p @reciever.instance_eval {@type_list}
+                  p tlist
                   p @name
                   p @parent.debug_info
                   p @calling_convention
