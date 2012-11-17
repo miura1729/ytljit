@@ -1036,7 +1036,8 @@ module YTLJit
               @class_top.search_method_with_super(@func.name, rrtype)[0] then
             return super(context)
           end
-
+          
+          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
@@ -1084,6 +1085,7 @@ module YTLJit
             return super(context)
           end
 
+          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
@@ -1139,6 +1141,7 @@ module YTLJit
             return super(context)
           end
 
+          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
@@ -1205,6 +1208,7 @@ module YTLJit
             return super(context)
           end
 
+          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
@@ -1294,6 +1298,7 @@ module YTLJit
             return super(context)
           end
 
+          @type = nil
           rtype = decide_type_once(cursig)
           rrtype = rtype.ruby_type
           if rrtype == Fixnum then
