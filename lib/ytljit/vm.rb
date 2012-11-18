@@ -755,12 +755,14 @@ LocalVarNode
         #     @frame_info
 
         def set_exception_handler(context)
-          cursig = context.to_signature
           # construct and set exception handler in current frame
           if @current_exception_table then
+            cursig = context.to_signature
+            ncontext = context.dup
             handler = CodeSpace.new
-            oldcs = context.set_code_space(handler)
-            casm = context.assembler
+            oldcs = ncontext.set_code_space(handler)
+            casm = ncontext.assembler
+
             # rescue
             if entbasetab = @current_exception_table[:rescue] then
               entbasetab.each do |ents|
@@ -799,16 +801,14 @@ LocalVarNode
               casm.pop(PROFR)
             end
 
-
             enode = @frame_info.parent.end_nodes[0]
-            context = enode.gen_method_epilogue(context)
-
+            ncontext = enode.gen_method_epilogue(ncontext)
+            
             casm.with_retry do
               casm.jmp(TMPR3)
             end
             
             context.set_code_space(oldcs)
-            
             foff = @frame_info.parent.frame_offset
             handoff = AsmType::MACHINE_WORD.size * 2 + foff
             handop = OpIndirect.new(BPR, handoff)
@@ -818,6 +818,8 @@ LocalVarNode
             end
             context.set_reg_content(handoff, :first_exception_entry)
           end
+
+          context
         end
       end
 
