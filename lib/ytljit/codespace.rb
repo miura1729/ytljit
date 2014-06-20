@@ -62,8 +62,8 @@ module YTLJit
       case $ruby_platform
       when /x86_64-darwin/
         objcopy_cmd = "gobjcopy -I binary -O mach-o-i386 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
-        objdump_cmd = "gobjdump -M x86-64 -D #{tmpfp.path}"
-
+        # objdump_cmd = "gobjdump -M x86-64 -D #{tmpfp.path}"
+        objdump_cmd = "otool -tV #{tmpfp.path}"
       when /x86_64/
         objcopy_cmd = "objcopy -I binary -O elf64-x86-64 -B i386 --adjust-vma=#{base_address} #{tmpfp.path}"
         objdump_cmd = "objdump -M x86-64 -D #{tmpfp.path}"

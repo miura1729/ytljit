@@ -10,49 +10,51 @@ end
 
 require 'iseq'
 
-require "ytljit_ext"
+# require "ytljit_ext"
+require_relative "../ext/ytljit_ext"
 
-require 'ytljit/codespace'
 
-require 'ytljit/marshal'
-require 'ytljit/util'
-require 'ytljit/error'
+require_relative 'ytljit/codespace'
 
-require 'ytljit/asm'
-require 'ytljit/instruction'
-require 'ytljit/instruction_x86'
-require 'ytljit/instruction_x64'
-require 'ytljit/instruction_ia'
-require 'ytljit/type'
-require 'ytljit/struct'
-require 'ytljit/asmutil'
-require 'ytljit/asmext_x86'
-require 'ytljit/asmext_x64'
-require 'ytljit/asmext'
+require_relative 'ytljit/marshal'
+require_relative 'ytljit/util'
+require_relative 'ytljit/error'
 
-require 'ytljit/rubyvm'
+require_relative 'ytljit/asm'
+require_relative 'ytljit/instruction'
+require_relative 'ytljit/instruction_x86'
+require_relative 'ytljit/instruction_x64'
+require_relative 'ytljit/instruction_ia'
+require_relative 'ytljit/type'
+require_relative 'ytljit/struct'
+require_relative 'ytljit/asmutil'
+require_relative 'ytljit/asmext_x86'
+require_relative 'ytljit/asmext_x64'
+require_relative 'ytljit/asmext'
 
-require 'ytljit/vm_codegen'
-require 'ytljit/vm_inspect'
-require 'ytljit/vm_inline_method'
+require_relative 'ytljit/rubyvm'
 
-require 'ytljit/vm'
-require 'ytljit/vm_sendnode'
+require_relative 'ytljit/vm_codegen'
+require_relative 'ytljit/vm_inspect'
+require_relative 'ytljit/vm_inline_method'
 
-require 'ytljit/vm_trans'
-require 'ytljit/vm_type_gen'
-require 'ytljit/vm_type'
+require_relative 'ytljit/vm'
+require_relative 'ytljit/vm_sendnode'
 
-require 'ytljit/vm_typeinf'
-require 'ytljit/vm_cruby_obj'
+require_relative 'ytljit/vm_trans'
+require_relative 'ytljit/vm_type_gen'
+require_relative 'ytljit/vm_type'
 
-require 'ytljit/arena'
+require_relative 'ytljit/vm_typeinf'
+require_relative 'ytljit/vm_cruby_obj'
+
+require_relative 'ytljit/arena'
 
 
 # Runtime
 
-require 'runtime/object.rb'
-require 'runtime/gc.rb'
+require_relative 'runtime/object.rb'
+require_relative 'runtime/gc.rb'
 
 module YTLJit
   VERSION = "0.0.10"

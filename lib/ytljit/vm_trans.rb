@@ -13,7 +13,7 @@ module YTLJit
         @current_file_name = nil
         @current_class_node = @the_top
         @current_method_name = nil
-        
+
         @send_nodes_with_block = []
 
         @enc_label = ""
@@ -36,7 +36,7 @@ module YTLJit
 
         @macro_method = nil
 
-        @options = nil
+        @options = {}
       end
 
       attr_accessor :the_top
@@ -47,7 +47,7 @@ module YTLJit
       attr_accessor :current_method_name
 
       attr          :send_nodes_with_block
-      
+
       attr_accessor :enc_label
       attr_accessor :enc_pos_in_source
       attr_accessor :current_line_no
@@ -99,8 +99,8 @@ module YTLJit
           mname = mname[0]
         end
 
-        [@current_file_name, 
-         @current_class_node.name, 
+        [@current_file_name,
+         @current_class_node.name,
          mname,
          @current_line_no]
       end
@@ -110,7 +110,7 @@ module YTLJit
         @exception_table.each do |kind, lst|
           lst.each do |st, ed, cnt, body|
             if @local_label_list.include?(st) and
-                !@local_label_list.include?(ed) and 
+                !@local_label_list.include?(ed) and
                 body then
               result[kind] ||= []
               result[kind].push [st, ed, cnt, body]
@@ -136,13 +136,13 @@ module YTLJit
           context.current_file_name = code.header['filename']
           context.enc_pos_in_source = pos
           if code.header['type'] == :block then
-            lstr = context.enc_label + "+blk+" + 
+            lstr = context.enc_label + "+blk+" +
                    context.current_method_name.to_s
             context.enc_label = lstr
           end
           translate_block(code, context)
         end
-        
+
         context.the_top
       end
 
@@ -156,7 +156,7 @@ module YTLJit
             if context.options[:profile_mode] then
               context = visit_trace(code, [:trace, 0], context)
             end
-            
+
             # line no
             context.current_line_no = ins
           elsif ins.is_a?(Symbol) then
@@ -189,7 +189,7 @@ module YTLJit
           nllab.debug_info = context.debug_info
           context.local_label_tab[label] = nllab
         end
-        
+
         nllab
       end
 
@@ -207,8 +207,8 @@ module YTLJit
 
         curnode = context.current_node
         nllab = get_vmnode_from_label(context, ins)
-        
-        if !(curnode.is_a?(JumpNode) or 
+
+        if !(curnode.is_a?(JumpNode) or
              curnode.is_a?(MethodEndNode) or
              curnode.is_a?(ThrowNode)) then
           jmpnode = JumpNode.new(curnode, nllab)
@@ -243,7 +243,7 @@ module YTLJit
         locals = code.header['locals']
         arg_size   = code.header['misc'][:arg_size]
         args   = code.header['args']
-        (arg_size - locals.size).times do 
+        (arg_size - locals.size).times do
           locals.push nil
         end
 
@@ -315,7 +315,7 @@ module YTLJit
           ccode = ccode.parent
           dep += 1
         end
-        
+
         dep
       end
 
@@ -340,7 +340,7 @@ module YTLJit
           # nth match
           funcback = FixArgCApiNode.new(curnode, "rb_backref_get", [])
           backrefnode = gen_arg_node(context, RetBackrefSendNode, funcback, [])
-          funcnth = FixArgCApiNode.new(curnode, "rb_reg_nth_match", 
+          funcnth = FixArgCApiNode.new(curnode, "rb_reg_nth_match",
                                     [:VALUE, :VALUE])
           args = []
           args.push LiteralNode.new(curnode, type >> 1)
@@ -363,7 +363,7 @@ module YTLJit
         # + 3 mean prev_env/pointer to block function/self
         offset = curcode.header['misc'][:local_size] + 3 - ins[1]
         node = nil
-        if (curcode.header['type'] == :ensure or 
+        if (curcode.header['type'] == :ensure or
             curcode.header['type'] == :rescue) and offset == 3 then
           # ref. exception status variable $!
           node = ExceptionVarNode.new(context.current_node)
@@ -387,13 +387,13 @@ module YTLJit
 
         prev_var = nil
         context.expstack.each_with_index do |ele, i|
-          if ele.is_a?(LocalVarRefNode) and 
+          if ele.is_a?(LocalVarRefNode) and
               ele.offset == offset and ele.depth == dep then
             prev_var ||= MultiplexNode.new(curnode, ele)
             context.expstack[i] = prev_var
           elsif ele.is_a?(SendNode) then
             ele.traverse_node do |arg, args, j|
-              if arg.is_a?(LocalVarRefNode) and 
+              if arg.is_a?(LocalVarRefNode) and
                   arg.offset == offset and arg.depth == dep then
                 prev_var ||= MultiplexNode.new(ele, arg)
                 args[j] = prev_var
@@ -455,7 +455,7 @@ module YTLJit
 
         klass
       end
-      
+
       def visit_getconstant(code, ins, context)
         klass = get_self_object(context)
         name = ins[1]
@@ -493,7 +493,7 @@ module YTLJit
         curnode.body = node
         context.current_node = node
       end
-      
+
       def visit_putnil(code, ins, context)
         nnode = LiteralNode.new(nil, nil)
         nnode.debug_info = context.debug_info
@@ -506,7 +506,7 @@ module YTLJit
         nnode.debug_info = context.debug_info
         context.expstack.push nnode
       end
-      
+
       def visit_putobject(code, ins, context)
         curnode = context.current_node
         nnode = LiteralNode.new(curnode, ins[1])
@@ -591,7 +591,7 @@ module YTLJit
         args = []
         func = FixArgCApiNode.new(curnode, "ytl_toregexp",
                                   [:int, :int, :VALUE, :"..."])
-        
+
         argnum.times do
           argele = context.expstack.pop
           args.push argele
@@ -620,7 +620,7 @@ module YTLJit
 
       def visit_newarray(code, ins, context)
         curnode = context.current_node
-        func = FixArgCApiNode.new(curnode, "rb_ary_new3", 
+        func = FixArgCApiNode.new(curnode, "rb_ary_new3",
                                   [:int, :VALUE, :"..."])
         argnum = ins[1]
         argnumnode = LiteralNode.new(nil, argnum)
@@ -686,7 +686,7 @@ module YTLJit
         context.expstack.push exclflag
         newinst_to_sendnode(3, Range, code, ins, context)
       end
-        
+
       def visit_pop(code, ins, context)
         node = context.expstack.pop
         if node == nil then
@@ -736,7 +736,7 @@ module YTLJit
       end
 
       # reput
-      
+
       def visit_topn(code, ins, context)
         n = ins[1] + 1
         tnode = context.expstack[-n]
@@ -784,7 +784,7 @@ module YTLJit
           klassnode = context.current_class_node.constant_tab[name]
           if klassnode then
             klassobj = klassnodne.klass_object
-            
+
           else
             supklass = nil
             case supklsnode
@@ -809,7 +809,7 @@ module YTLJit
             case ins[3]
             when 0, 3
               klassobj = Class.new(supklass)
-              
+
             when 2, 5
               klassobj = Module.new
 
@@ -840,7 +840,7 @@ module YTLJit
         else
           prevbody = cnode.body
         end
-        
+
         body = VMLib::InstSeqTree.new(code, ins[2])
         ncontext = YARVContext.new(context)
         ncontext.current_file_name = context.current_file_name
@@ -869,10 +869,20 @@ module YTLJit
 
       def visit_send(code, ins, context)
         curnode = context.current_node
-        numarg = ins[2]
-        blk_iseq = ins[3]
-        op_flag = ins[4]
-        seqno = ins[5]
+        if ins[1].is_a?Hash
+          ins=ins[1].values
+          meth=ins[0]
+          op_flag = ins[1]
+          numarg = ins[2]
+          blk_iseq = ins[3]
+          seqno = ins[4] if ins.count==4
+        else
+          meth=ins[1]
+          numarg = ins[2]
+          blk_iseq = ins[3]
+          op_flag = ins[4]
+          seqno = ins[5]
+        end
 
         # regular arguments
         arg = []
@@ -880,12 +890,12 @@ module YTLJit
           argele = context.expstack.pop
           arg.push argele
         end
-        
+
         # self
         slf = context.expstack.pop
         if (op_flag & (0b11 << 3)) != 0 and # fcall, vcall
-            slf.is_a?(LiteralNode) and 
-            slf.value == nil and 
+            slf.is_a?(LiteralNode) and
+            slf.value == nil and
             (context.current_class_node.name != :top or true) then
           slf = SelfRefNode.new(curnode)
           slf.debug_info = context.debug_info
@@ -936,7 +946,7 @@ module YTLJit
 
         arg = arg.reverse
 
-        func = MethodSelectNode.new(curnode, ins[1])
+        func = MethodSelectNode.new(curnode, meth)
         sn = SendNode.macro_expand(context, func, arg, op_flag, seqno)
         if sn == nil then
           sn = SendNode.make_send_node(curnode, func, arg, op_flag, seqno)
@@ -946,7 +956,7 @@ module YTLJit
               context.macro_method = true
             end
           end
-          
+
           sn.debug_info = context.debug_info
           func.set_reciever(sn)
           context.expstack.push sn
@@ -1001,7 +1011,7 @@ module YTLJit
         argnode = LiteralNode.new(curnode, nil)
         argnode.debug_info = context.debug_info
         args.push argnode
-        
+
         # perv env
         argnode = LiteralNode.new(curnode, nil)
         argnode.debug_info = context.debug_info
@@ -1021,7 +1031,7 @@ module YTLJit
       def visit_leave(code, ins, context)
         vnode = nil
 
-        curnode = context.current_node 
+        curnode = context.current_node
         if context.options[:profile_mode] then
           context = visit_trace(code, [:trace, 0], context)
         end
@@ -1051,7 +1061,7 @@ module YTLJit
         case code.header['type']
         when :method
           nnode = MethodEndNode.new(srnode)
-          
+
         when :rescue, :defined_guard, :ensure
           nnode = ExceptionEndNode.new(srnode)
 
@@ -1077,7 +1087,7 @@ module YTLJit
         context.current_node = nnode
         context.not_reached_pos = true
       end
-      
+
       def visit_throw(code, ins, context)
         curnode = context.current_node
         exceptobj = context.expstack.pop
@@ -1096,7 +1106,7 @@ module YTLJit
 
         nllab = get_vmnode_from_label(context, ins[1])
 
-        jpnode = JumpNode.new(curnode, nllab) 
+        jpnode = JumpNode.new(curnode, nllab)
         jpnode.debug_info = context.debug_info
         jpnode.body = nllab
 
@@ -1114,9 +1124,9 @@ module YTLJit
           context = visit_trace(code, [:trace, 0], context)
         end
         nllab = get_vmnode_from_label(context, ins[1])
- 
+
         cond = context.expstack.pop
-       
+
         node = BranchIfNode.new(curnode, cond, nllab)
         node.debug_info = context.debug_info
         nllab.come_from[node] = context.expstack.last
@@ -1133,7 +1143,7 @@ module YTLJit
         nllab = get_vmnode_from_label(context, ins[1])
 
         cond = context.expstack.pop
-        
+
         node = BranchUnlessNode.new(curnode, cond, nllab)
         node.debug_info = context.debug_info
         nllab.come_from[node] = context.expstack.last

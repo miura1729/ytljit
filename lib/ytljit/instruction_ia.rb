@@ -55,7 +55,7 @@ module YTLJit
       "%eax"
     end
   end
-  
+
   class OpECX<OpReg32
     def reg_no
       1
@@ -65,7 +65,7 @@ module YTLJit
       "%ecx"
     end
   end
-  
+
   class OpEDX<OpReg32
     def reg_no
       2
@@ -75,7 +75,7 @@ module YTLJit
       "%edx"
     end
   end
-  
+
   class OpEBX<OpReg32
     def reg_no
       3
@@ -115,7 +115,7 @@ module YTLJit
       "%esi"
     end
   end
-  
+
   class OpEDI<OpReg32
     def reg_no
       7
@@ -451,7 +451,7 @@ module YTLJit
       "%xmm15"
     end
   end
-  
+
   module AssemblerUtilIAModrm
     def small_integer_8bit?(num)
       num = (num & 0x7fff_ffff) - (num & 0x8000_0000)
@@ -465,7 +465,7 @@ module YTLJit
 
     def modrm_indirect_off32(regv, rm_reg, rm_disp)
       fstb = 0b10000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
-      if rm_reg.is_a?(OpESP) or 
+      if rm_reg.is_a?(OpESP) or
           rm_reg.is_a?(OpRSP) or rm_reg.is_a?(OpR12) then
         [[fstb, 0b00100100, rm_disp], "C2L"]
       else
@@ -475,7 +475,7 @@ module YTLJit
 
     def modrm_indirect_off8(regv, rm_reg, rm_disp)
       fstb = 0b01000000 | ((regv & 7) << 3) | (rm_reg.reg_no & 7)
-      if rm_reg.is_a?(OpESP) or 
+      if rm_reg.is_a?(OpESP) or
           rm_reg.is_a?(OpRSP) or rm_reg.is_a?(OpR12) then
         [[fstb, 0b00100100, rm_disp], "C3"]
       else
@@ -488,7 +488,7 @@ module YTLJit
       case reg
       when Integer
         regv = reg
-        
+
       else
         regv = reg.value
       end
@@ -500,22 +500,22 @@ module YTLJit
 
       case rmdisp
       when 0
-        if rm.reg.is_a?(OpEBP) or 
+        if rm.reg.is_a?(OpEBP) or
             rm.reg.is_a?(OpRBP) or rm.reg.is_a?(OpR13) then
           modrm_indirect_off8(regv, rm.reg, 0)
         else
           fstb = 0b00000000 | ((regv & 7) << 3) | (rm.reg.reg_no & 7)
-          if rm.reg.is_a?(OpESP) or 
+          if rm.reg.is_a?(OpESP) or
               rm.reg.is_a?(OpRSP) or rm.reg.is_a?(OpR12) then
             [[fstb, 0x24], "C2"]
           else
             [[fstb], "C"]
           end
         end
-        
+
       when OpImmidiate8
         modrm_indirect_off8(regv, rm.reg, rmdisp.value)
-        
+
       when OpImmidiate32
         modrm_indirect_off32(regv, rm.reg, rmdisp.value)
 
@@ -576,7 +576,7 @@ module YTLJit
     end
 
     def common_operand_80(dst, src, bopc, optc, inst)
-      case dst 
+      case dst
       when OpReg8
         case src
         when OpImmidiate8, Integer
@@ -586,7 +586,7 @@ module YTLJit
             modseq, modfmt = modrm(inst, optc, dst, dst, src)
             ([0x80] + modseq + [src.value]).pack("C#{modfmt}C")
           end
-          
+
         when OpReg8
           modseq, modfmt = modrm(inst, dst, src, dst, src)
           ([bopc] + modseq).pack("C#{modfmt}")
@@ -747,7 +747,7 @@ module YTLJit
         when OpRegXMM
           modseq, modfmt = modrm(inst, src, dst, dst, src)
           ([op] + rexseq + [0x0F, 0x11] + modseq).pack("C#{rexfmt}C2#{modfmt}")
-          
+
         else
           return nosupported_addressing_mode(inst, dst, src)
         end
@@ -806,7 +806,7 @@ module YTLJit
     end
 
     def common_cvt2(dst, src, op0, op1, inst)
-      if (src.is_a?(OpRegXMM) or 
+      if (src.is_a?(OpRegXMM) or
           src.is_a?(OpIndirect)) and
           (dst.is_a?(OpReg32) or
            dst.is_a?(OpReg64)) then
@@ -822,7 +822,7 @@ module YTLJit
       end
     end
   end
-  
+
   class GeneratorIABinary<Generator
     case $ruby_platform
     when /x86_64/
@@ -852,7 +852,7 @@ module YTLJit
     def or(dst, src)
       common_operand_80(dst, src, 0x08, 0x1, :or)
     end
-    
+
     def adc(dst, src)
       common_operand_80(dst, src, 0x10, 0x2, :adc)
     end
@@ -886,7 +886,7 @@ module YTLJit
 
         when Integer
           [0xB0 + (dst.reg_no & 7), src].pack("C2")
-          
+
         when OpReg8
           modseq, modfmt = modrm(:mov, dst, src, dst, src)
           ([0x88] + modseq).pack("C#{modfmt}")
@@ -898,7 +898,7 @@ module YTLJit
         else
           return nosupported_addressing_mode(:mov, dst, src)
         end
-          
+
       when OpReg32
         case src
         when OpImmidiate32
@@ -916,21 +916,21 @@ module YTLJit
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(:mov, dst, src, dst, src)
           (rexseq + [0x8B] + modseq).pack("#{rexfmt}C#{modfmt}")
-          
+
         else
           return nosupported_addressing_mode(:mov, dst, src)
         end
-      
+
       when OpReg64
         case src
         when OpImmidiate32
           rexseq, rexfmt = rex(dst, src)
           modseq, modfmt = modrm(:mov, 0, dst, dst, src)
           (rexseq + [0xC7] + modseq + [src.value]).pack("#{rexfmt}C#{modfmt}L")
-          
+
         when Integer
           rexseq, rexfmt = rex(dst, src)
-          if small_integer_32bit?(src) then 
+          if small_integer_32bit?(src) then
             modseq, modfmt = modrm(:mov, 0, dst, dst, src)
             (rexseq + [0xC7] + modseq + [src]).pack("#{rexfmt}C#{modfmt}L")
           else
@@ -950,11 +950,11 @@ module YTLJit
           rexseq, rexfmt = rex(src, dst)
           modseq, modfmt = modrm(:mov, dst, src, dst, src)
           (rexseq + [0x8B] + modseq).pack("#{rexfmt}C#{modfmt}")
-          
+
         else
           return nosupported_addressing_mode(:mov, dst, src)
         end
-      
+
       when OpIndirect
         case src
         when OpReg8
@@ -985,7 +985,7 @@ module YTLJit
         else
           return nosupported_addressing_mode(:mov, dst, src)
         end
-        
+
       else
         return nosupported_addressing_mode(:mov, dst, src)
       end
@@ -1010,11 +1010,11 @@ module YTLJit
       case dst
       when OpReg32, OpReg64
         [*rexseq, 0x50 + (dst.reg_no & 7)].pack("#{rexfmt}C")
-        
+
       when OpIndirect
         modseq, modfmt = modrm(:push, 6, dst, dst, nil)
         (rexseq + [0xFF] +  modseq).pack("#{rexfmt}C#{modfmt}")
-        
+
       else
         return nosupported_addressing_mode(:push, dst, nil)
       end
@@ -1025,11 +1025,11 @@ module YTLJit
       case dst
       when OpReg32, OpReg64
         [*rexseq, 0x58 + (dst.reg_no & 7)].pack("#{rexfmt}C")
-        
+
       when OpIndirect
         modseq, modfmt = modrm(:pop, 0, dst, dst, nil)
         ([0x8F] +  modseq).pack("C#{modfmt}")
-        
+
       else
         return nosupported_addressing_mode(:pop, dst, nil)
       end
@@ -1044,7 +1044,7 @@ module YTLJit
           return [*rexseq, 0x90 + (op2.reg_no & 7)].pack("#{rexfmt}C")
         end
       end
-        
+
       return nosupported_addressing_mode(:xchg, op1, op2)
     end
 
@@ -1207,13 +1207,13 @@ module YTLJit
     def call(addr)
       offset = 0
       case addr
-      when Integer
-        offset = addr - @asm.current_address - 5
-        immidiate_call(addr, offset)      
-
+      when Fixnum
+        current=@asm.current_address
+        offset = addr - current- 5
+        immidiate_call(addr, offset)
       when OpMemory
         offset = addr.value - @asm.current_address - 5
-        immidiate_call(addr, offset)      
+        immidiate_call(addr, offset)
 
       else
         rexseq, rexfmt = rex(addr, nil)
@@ -1260,7 +1260,7 @@ module YTLJit
 
     def imul(dst, src = nil, src2 = nil)
       rexseq, rexfmt = rex(dst, src)
-      case dst 
+      case dst
       when OpReg8, OpMem8
         if src == nil then
           modseq, modfmt = modrm(:imul, 5, dst, dst, src)
@@ -1278,13 +1278,13 @@ module YTLJit
         when nil
           modseq, modfmt = modrm(:imul, 5, dst, dst, src)
           return (rexseq + [0xF7] + modseq).pack("#{rexfmt}C#{modfmt}")
-          
+
         when OpReg32, OpMem32, OpIndirect, OpReg64
           modseq, modfmt = modrm(:imul, dst, src, dst, src, src2)
-          case src2 
+          case src2
           when nil
             return (rexseq + [0x0F, 0xAF] + modseq).pack("#{rexfmt}C2#{modfmt}")
-            
+
           when OpImmidiate8
             fmt = "#{rexfmt}C#{modfmt}C"
             return (rexseq + [0x6B] + modseq + [src2.value]).pack(fmt)
@@ -1302,8 +1302,8 @@ module YTLJit
           modseq, modfmt = modrm(:imul, dst, dst, dst, src)
           fmt = "#{rexfmt}C#{modfmt}C"
           return (rexseq + [0x6B] + modseq + [src.value]).pack(fmt)
-          
-        
+
+
         when OpImmidiate32
           modseq, modfmt = modrm(:imul, dst, dst, dst, src)
           fmt = "#{rexfmt}C#{modfmt}L"
