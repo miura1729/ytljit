@@ -1,5 +1,5 @@
 require 'test/unit'
-require 'ytljit.rb'
+require '../lib/ytljit.rb'
 
 include YTLJit
 class InstructionTests < Test::Unit::TestCase
@@ -36,7 +36,7 @@ class InstructionTests < Test::Unit::TestCase
     assert_equal(@asm.mov(@eax, @in_eax_125), [0x8B, 0x40, 0x7d].pack("C3"))
     assert_equal(@asm.mov(@in_eax_125, @eax), [0x89, 0x40, 0x7d].pack("C3"))
     File.open("foo.bin", "w") {|fp|
-=begin
+# =begin
       lab = @asm.current_address
       fp.write @asm.add(@eax, @in_eax_125)
       fp.write @asm.add(@in_eax_125, @eax)
@@ -89,7 +89,7 @@ class InstructionTests < Test::Unit::TestCase
       foo = TypedData.new(st, X86::EAX)
       cd, foo = @asm.mov(X86::EAX, foo[:baz])
       fp.write cd
-=end
+# =end
     hello = OpImmidiate32.new("Hello World".address)
     rshello = TypedData.new(InternalRubyType::RString, hello)
       cd, foo = @asm.mov(X86::EAX, rshello[:as][:heap][:ptr])
@@ -110,7 +110,7 @@ class InstructionTests < Test::Unit::TestCase
                           )
     foo = TypedData.new(st, X86::EAX)
     cd, type = @asm.mov(X86::EAX, foo[:baz])
-    assert_equal(cd, 
+    assert_equal(cd,
                  [0x8b, 0x80, 0x8, 0x0, 0x0, 0x0].pack("C*"))
 
      st = AsmType::Struct.new(
@@ -125,7 +125,7 @@ class InstructionTests < Test::Unit::TestCase
                           )
     foo = TypedData.new(st, X86::EBX)
     cd, type = @asm.mov(X86::EDX, foo[:aaa][:baz])
-    assert_equal(cd, 
+    assert_equal(cd,
                  [0x89, 0xd8, 0x8b, 0x80, 0x10, 0x0, 0x0, 0x0, 0x89, 0xc2].pack("C*"))
    end
 

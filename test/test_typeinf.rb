@@ -1,5 +1,8 @@
 require 'test/unit'
-require 'lib/ytljit/ytljit.rb'
+# require 'test'
+# require 'minitest/autorun'
+require '../lib/ytljit.rb'
+# require '../lib/ytljit/ytljit.rb'
 
 include YTLJit::TypeUtil
 

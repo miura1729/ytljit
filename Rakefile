@@ -15,7 +15,11 @@ end
 desc "run tests"
 task :test do
   Dir.glob(File.join("test", "*.rb")) do |f|
-    sh "#{ruby_bin} -I./ext -I./lib " + f
+    begin
+      sh "#{ruby_bin} -I./ext -I./lib " + f
+    rescue
+      puts $!
+    end
   end
 end
 

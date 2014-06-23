@@ -1,10 +1,19 @@
+class Fixnum
+  def value
+    self # KF HACK
+  end
+  def add_refer r
+    # fuck GC
+  end
+end
+
 module YTLJit
 
   class StepHandler
     case $ruby_platform
     when /x86_64/
       REGS = {
-        "RAX" => 0, "RCX" => 2, "RDX" => 3, "RBX" => 4, 
+        "RAX" => 0, "RCX" => 2, "RDX" => 3, "RBX" => 4,
         "RBP" => 5, "RSP" => 16, "RDI" => 6, "RSI" => 7,
         "R8" => 8, "R9" => 9, "R10" => 10, "R11" => 11, "R12" => 12,
         "R13" => 13, "R14" => 14, "R15" => 15
@@ -12,7 +21,7 @@ module YTLJit
 
     when /i.86/
       REGS = {
-        "EAX" => 0, "ECX" => 2, "EDX" => 3, "EBX" => 4, 
+        "EAX" => 0, "ECX" => 2, "EDX" => 3, "EBX" => 4,
         "EBP" => 5, "ESP" => 8, "EDI" => 6, "ESI" => 7
       }
     end
@@ -30,7 +39,7 @@ module YTLJit
         backtrace(bp)
       end
     end
-    
+
     def step_handler(*regval)
       STDERR.print "#{regval[1].to_s(16)} "
       STDERR.print CodeSpace.disasm_cache[regval[1].to_s(16)], "\n"
@@ -217,7 +226,7 @@ module YTLJit
     end
 
     def add_var_value_retry_func(mn, args)
-      if args.any? {|e| e.is_a?(OpVarValueMixin) } and 
+      if args.any? {|e| e.is_a?(OpVarValueMixin) } and
          @retry_mode == false then
         offset = @offset
         stfunc = lambda {
@@ -252,7 +261,7 @@ module YTLJit
         end
         @asmsend_history.push [mn, args]
       end
-        
+
       add_var_value_retry_func(mn, args)
       out = @generator.send(mn, *args)
       if out.is_a?(Array) then

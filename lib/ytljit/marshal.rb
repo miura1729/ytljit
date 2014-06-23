@@ -1,17 +1,18 @@
 class Proc
   @@iseq_cache = {}
-  
+
   def self._alloc
     Proc.new {}
   end
 
   def _dump_data
     orgiseq = self.to_iseq
+    raise "to_iseq return type failed" if orgiseq.is_a?Float
     piseq = @@iseq_cache[orgiseq]
     if !piseq then
       piseq = @@iseq_cache[orgiseq] = patch_iseq(orgiseq.to_a)
     end
-      
+
     [piseq, self.binding.to_a]
   end
 
@@ -26,22 +27,22 @@ class Proc
         }
       }.call($_proc_para[0].map {|ele| ele.reverse})
     }
-    
+
     prc2 =  VMLib::InstSeqTree.new(nil, prc.to_iseq.to_a)
     iv = VMLib::InstSeqTree.new(nil, prc2.body[7][3])
     lam = VMLib::InstSeqTree.new(nil, iv.body[5][3])
     lam.body[4][1] = :lambda
     lam.body[4][3] = iseq
-    
+
     prc2.header['type'] = :top
-      
+
     self.copy(ISeq.load(prc2.to_a).eval)
   end
 
   def patch_iseq(iseq, dbase = 0)
     rbody = []
     iseq2 = VMLib::InstSeqTree.new(nil, iseq)
-    
+
     iseq2.body.each do |ele|
       rbody.push ele
       if ele.is_a?(Array) then
@@ -50,7 +51,7 @@ class Proc
           if ele[3] then
             ele[3] = patch_iseq(VMLib::InstSeqTree.new(iseq, ele[3]), dbase + 1)
           end
-                       
+
         when :getdynamic
           off = ele[1]
           dep = ele[2]
@@ -62,7 +63,7 @@ class Proc
             rbody.push [:putobject, off]
             rbody.push [:opt_aref, 0]
           end
-          
+
         when :setdynamic
           off = ele[1]
           dep = ele[2]
@@ -77,10 +78,10 @@ class Proc
             rbody.push [:swap]
             rbody.push [:pop]
           end
-          
+
         when :getlocal
           off = ele[1]
-          rbody.pop 
+          rbody.pop
           rbody.push [:getdynamic, 2, 1 + dbase]
           rbody.push [:dup]
           rbody.push [:opt_length]
@@ -91,10 +92,10 @@ class Proc
           rbody.push [:opt_aref, 0]
           rbody.push [:putobject, off]
           rbody.push [:opt_aref, 0]
-          
+
         when :setlocal
           off = ele[1]
-          rbody.pop 
+          rbody.pop
           rbody.push [:getdynamic, 2, 1 + dbase]
           rbody.push [:dup]
           rbody.push [:opt_length]
@@ -111,7 +112,7 @@ class Proc
         end
       end
     end
-    
+
     iseq2.body = rbody
     iseq2.to_a
   end
@@ -136,7 +137,7 @@ module YTLJit
       def _dump_data
         []
       end
-      
+
       def _load_data(obj)
       end
     end
